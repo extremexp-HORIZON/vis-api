@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+    spring-boot-app-prod:
+        build:
+            context: .
+            dockerfile: ./docker/Dockerfile.prod
+        ports:
+            - "8080:8080"  
+        depends_on:
+            - xai-grpc-server-prod
+    xai-grpc-server-prod:
+        build:
+            context: ./gRPC-XAI
+            dockerfile: Dockerfile.grpc
+        ports:
+            - "50051:50051"
