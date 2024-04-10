@@ -1,0 +1,13 @@
+09:46:08.516 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.2 with PID 39 (/app/target/classes started by root in /app)
+09:46:08.516 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+09:46:08.665 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+09:46:08.666 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+09:46:08.666 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+09:46:08.667 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+09:46:08.670 [restartedMain] INFO  o.a.c.c.C.[.[localhost].[/] - Initializing Spring embedded WebApplicationContext
+09:46:08.670 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 153 ms
+09:46:08.714 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+09:46:08.717 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+09:46:08.718 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+09:46:08.721 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.226 seconds (process running for 7739.071)
+09:46:08.722 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged

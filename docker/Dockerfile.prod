@@ -1,0 +1,42 @@
+# Use Python image as the base
+FROM python:3.10-slim AS builder_grpc
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the project source
+COPY src ./src
+
+COPY --from=xtremexp-vis-api-xai-grpc-server /app/xai_service.proto ./src/main/proto
+
+# Generate Java classes from the .proto file
+RUN apt-get update && \
+    apt-get install --no-install-recommends --assume-yes \
+      protobuf-compiler
+
+RUN protoc --java_out=./src/main/java ./src/main/proto/xai_service.proto 
+
+# Use Maven image to build the project
+FROM maven:3.8.3-openjdk-17 AS builder
+
+WORKDIR /app
+
+# Copy the project source
+COPY --from=builder_grpc /app/src ./src
+COPY pom.xml .
+RUN mvn dependency:go-offline
+RUN mvn clean install -DskipTests
+
+# Use OpenJDK 17 as the base image
+FROM openjdk:17 AS final
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the compiled JAR file from the Maven builder stage
+COPY --from=builder /app/target/xtremexp-vis-api-1.0.0.jar /app
+
+# Expose the port your Spring Boot app runs on
+EXPOSE 8080
+
+# Define the command to run your Spring Boot application
+ENTRYPOINT ["java", "-jar", "/app/xtremexp-vis-api-1.0.0.jar"]

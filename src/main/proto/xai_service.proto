@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+option java_package = "gr.grpc.generated";
+
+service Explanations {
+    rpc GetExplanation (stream ExplanationsRequest) returns (ExplanationsResponse);
+}
+
+// ----------------- Explanations Fields ----------------------------
+
+
+message ExplanationsRequest {
+
+    string explanation_type = 1;
+    string explanation_method = 2;
+
+//------------------ Pipeline Explainability --------------------------------------------------
+
+    // ----- PDP - ALE Fields -----
+
+    string param_grid = 3; 
+    bytes model = 4;
+    string feature1 = 5;
+    string feature2 = 6;
+
+    // ----- Influence Functions Fields -----
+
+    bytes train_data = 7;
+    bytes test_data = 8;
+    bytes train_labels = 9;
+    bytes test_labels = 10;
+    int32 num_influential = 11;
+
+    // ----- Counterfactual Explanation Fields -----
+    bytes proxy_dataset = 12;
+    bytes query = 13;
+
+//------------------ Model Explainability --------------------------------------------------
+
+    // ------------ PDP Fields -------------------------
+    // the other same as Pipeline Explainability plus
+    string features = 14;
+
+    // ------------ CounterfactualExplanations Fields -------------------------
+    // same as Model explainability plus target target label 
+    string target = 15;
+
+    // Include other fields if needed based on the chosen explanation type
+}
+
+message ExplanationsResponse {
+//------------------ Pipeline Explainability --------------------------------------------------
+
+    // Fields specific to ComputePDP explanation
+    string pdp_hp_values = 1;
+    string pdp_values = 2;
+
+    // Fields specific to ComputePDP2D explanation
+    string pdp2d_xi = 3;
+    string pdp2d_yi = 4;
+    string pdp2d_zi = 5;
+
+    // Fields specific to ComputeALE explanation
+    string ale_data = 6;
+
+    // Fields specific to InfluenceFunction explanation
+    repeated float influences = 7;
+    bytes positive = 8;
+    bytes negative = 9;
+
+    // Fields specific to Counterfactual Explanations
+    bytes cfs = 10;
+
+//------------------ Model Explainability --------------------------------------------------
+    // ------------ PDP Fields -------------------------
+    string pdp_vals = 11;
+    string pdp_effect = 12;
+
+
+}
