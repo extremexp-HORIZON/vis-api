@@ -1,0 +1,16 @@
+/app/src/main/java/gr/grpc/generated/XaiService.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/XtremexpVisApiApplication.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/controller/VisualizationController.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/datasource/QueryExecutor.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/Filter/AbstractFilter.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/Filter/RangeFilter/RangeFilter.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/Filter/VisualFilter.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/Query/VisualExplainabilityQuery.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/Query/VisualQuery.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/ViewPort.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/VisualColumn.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/VisualExplainabilityRequest.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/VisualExplainabilityResults.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/VisualizationDataRequest.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/domain/VisualizationResults.java
+/app/src/main/java/gr/imsi/athenarc/xtremexpvisapi/service/DataService.java
