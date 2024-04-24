@@ -77,7 +77,7 @@ public class VisualQuery{
                            .findFirst()
                            .orElse(null);
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode value = mapper.valueToTree(filter.getRawValue());
+        JsonNode value = mapper.valueToTree(filter.getValue());
         switch(filter.getType()){
             case "range":
                 // Handle range filter

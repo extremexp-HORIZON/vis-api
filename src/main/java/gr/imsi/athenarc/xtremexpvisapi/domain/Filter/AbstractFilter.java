@@ -4,7 +4,7 @@ public abstract class AbstractFilter {
  
     private String column;
     private String type;
-    private Object rawValue;
+    private Object value;
 
     public AbstractFilter() {}
 
@@ -26,17 +26,17 @@ public abstract class AbstractFilter {
     }
     
 
-    public Object getRawValue() {
-        return rawValue;
+    public Object getValue() {
+        return value;
     }
 
-    public void setRawValue(Object rawValue) {
-        this.rawValue = rawValue;
+    public void setValue(Object value) {
+        this.value = value;
     }
 
     @Override
     public String toString() {
-        return "AbstractFilter [column=" + column + ", rawValue=" + rawValue + ", type=" + type + "]";
+        return "AbstractFilter [column=" + column + ", rawValue=" + value + ", type=" + type + "]";
     }
 
     

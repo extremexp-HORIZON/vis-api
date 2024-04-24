@@ -4,26 +4,26 @@ import java.time.LocalDateTime;
 
 public class EqualsFilter<T> extends AbstractFilter {
 
-    protected T value;
+    protected T equalValue;
 
     public EqualsFilter() {}
 
-    public EqualsFilter(String column, T value) {
+    public EqualsFilter(String column, T equalValue) {
         super(column);
-        this.value = value;
+        this.equalValue = equalValue;
     }
 
-    public T getValue() {
-        return value;
+    public T getEqualValue() {
+        return equalValue;
     }
 
-    public void setValue(T value) {
-        this.value = value;
+    public void setEqualValue(T equalValue) {
+        this.equalValue = equalValue;
     }
 
     @Override
     public String toString() {
-        return "EqualsFilter [column=" + getColumn() + ", type=" + getType() + ", value=" + value + "]";
+        return "EqualsFilter [column=" + getColumn() + ", type=" + getType() + ", equalValue=" + equalValue + "]";
     }
 
     public class NumberEqualsFilter extends EqualsFilter<Double> {
@@ -35,7 +35,7 @@ public class EqualsFilter<T> extends AbstractFilter {
 
         @Override
         public Double getValue() {
-            return super.getValue();
+            return super.getEqualValue();
         }
     }
         
@@ -48,7 +48,7 @@ public class EqualsFilter<T> extends AbstractFilter {
 
         @Override
         public LocalDateTime getValue() {
-            return super.getValue();
+            return super.getEqualValue();
         }
     }
 
@@ -61,7 +61,7 @@ public class EqualsFilter<T> extends AbstractFilter {
 
         @Override
         public String getValue() {
-            return super.getValue();
+            return super.getEqualValue();
         }
     }
 }

@@ -39,10 +39,25 @@ public class QueryExecutor {
         this.csvPath = csvPath;
     }
 
-    public List<VisualColumn> getColumns(String datasetId){
+
+    public String getColumn(String datasetId, String columnName){
         try (InputStream inputStream = new FileInputStream(csvPath)) {
             // Get column types
         
+            CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
+            Table table = Table.read().usingOptions(csvReadOptions);
+            // Create initial empty selection
+            return getJsonDataFromTableSawTable(table.selectColumns(new String[]{columnName}));
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public List<VisualColumn> getColumns(String datasetId){
+        try (InputStream inputStream = new FileInputStream(csvPath)) {
+            // Get column types
             // Initialize the table
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
             Table table = Table.read().usingOptions(csvReadOptions);
