@@ -4,10 +4,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.ibm.icu.impl.locale.LocaleDistance.Data;
+
+import gr.imsi.athenarc.xtremexpvisapi.controller.VisualizationController;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.QueryExecutor;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainabilityResults;
@@ -29,6 +33,8 @@ import io.grpc.ManagedChannelBuilder;
 
 @Service
 public class DataService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
     
     @Value("${app.schema.path}")
@@ -54,35 +60,35 @@ public static List<Double> stringToDoubleList(String valuesString) {
 }
 
     public VisualizationResults getData(VisualQuery visualQuery) {
-        System.out.println("Retrieving columns for datasetId: ");
+        LOG.info("Retrieving columns for datasetId: {}", visualQuery.getDatasetId());
 
         VisualizationResults visualizationResults = new VisualizationResults();
         String datasetId = visualQuery.getDatasetId();
 
         // Print datasetId being processed
-        System.out.println("Processing data for datasetId: " + datasetId);
+        LOG.info("Processing data for datasetId: {}", datasetId);
 
         if (visualQuery.getFilters().contains(null)) {
             visualizationResults.setMessage("500");
-            System.out.println("Warning: Null filter detected in visualQuery");
+            LOG.warn("Null filter detected in visualQuery");
             return visualizationResults;
         }
 
         QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
 
         // Print executing query with visualQuery
-        System.out.println("Executing.. query for datasetId: " + datasetId);
+        LOG.info("Executing.. query for datasetId: {}", datasetId);
         return queryExecutor.executeQuery(visualQuery);
     }
 
     public List<VisualColumn> getColumns(String datasetId) {
-        System.out.println("Retrieving columns for datasetId: " + datasetId);
+        LOG.info("Retrieving columns for datasetId: {}", datasetId);
         QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
         return queryExecutor.getColumns(datasetId);
     }
 
     public String getColumn(String datasetId, String columnName) {
-        System.out.println("Retrieving column '" + columnName + "' for datasetId: " + datasetId);
+        LOG.info("Retrieving column {} for datasetId: {}", columnName, datasetId);
         QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
         return queryExecutor.getColumn(datasetId, columnName);
     }
@@ -99,10 +105,10 @@ public static List<Double> stringToDoubleList(String valuesString) {
         // Check if the feature is null
         if (feature == null) {
             visualExplainabilityResults.setMessage("400");
-            System.out.println("Warning: Feature is null in visualExplainabilityQuery");
+            LOG.warn("Warning: Feature is null in visualExplainabilityQuery");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -122,7 +128,6 @@ public static List<Double> stringToDoubleList(String valuesString) {
            
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
-            // System.out.println(response.getP);
             visualExplainabilityResults.setHp(response.getPdpHpValues());
             visualExplainabilityResults.setVals(response.getPdpValues());
 
@@ -141,10 +146,10 @@ public static List<Double> stringToDoubleList(String valuesString) {
         // Check if either feature1 or feature2 is null
         if (feature1 == null || feature2 == null) {
             visualExplainabilityResults.setMessage("400");
-            System.out.println("Warning: One or both features are null in visualExplainabilityQuery");
+            LOG.warn("Warning: One or both features are null in visualExplainabilityQuery");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -183,11 +188,11 @@ public static List<Double> stringToDoubleList(String valuesString) {
         
         // Check if the feature is null
         if (feature == null) {
-            // System.out.println("Feature is null");
+            LOG.warn("Feature is null");
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -207,8 +212,6 @@ public static List<Double> stringToDoubleList(String valuesString) {
            
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
-            System.out.println(response.getAleData());
-
             
             visualExplainabilityResults.setAle(response.getAleData());
 
@@ -224,11 +227,11 @@ public static List<Double> stringToDoubleList(String valuesString) {
         String feature = visualExplainabilityQuery.getPipelineCounterfactualParameters().getFeature();
         
         if (feature == null) {
-            
+            LOG.warn("Feature is null");
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -263,11 +266,11 @@ public static List<Double> stringToDoubleList(String valuesString) {
         Integer noOfInfluential = visualExplainabilityQuery.getPipelineInfluenceParameters().getNoOfInfluential();
     
         if (noOfInfluential == null) {
-            // Log if noOfInfluential is null
+            LOG.warn("noOfInfluential is null");
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             try {
                 // Establish gRPC channel
@@ -317,10 +320,11 @@ public static List<Double> stringToDoubleList(String valuesString) {
         
         // Check if the feature is null
         if (feature == null) {
+            LOG.warn("feature is null");
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -356,11 +360,11 @@ public static List<Double> stringToDoubleList(String valuesString) {
         // Check if the feature is null
         if (feature == null) {
             // Log when feature is null
-            // System.out.println("Feature is null");
+            LOG.warn("Feature is null");
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
     
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
@@ -396,13 +400,13 @@ public static List<Double> stringToDoubleList(String valuesString) {
         // Check if either feature1 or feature2 is null
         if (feature1 == null || feature2 == null) {
             // Log when either feature1 or feature2 is null
-            // System.out.println("Feature1 or Feature2 is null");
+            LOG.warn("Feature1 or Feature2 is null");
             visualExplainabilityResults.setMessage("400");
         } else {
 
 
             visualExplainabilityResults.setMessage("200");
-            System.out.println("Sending gRPC request to server...");
+            LOG.info("Sending gRPC request to server...");
 
             // Establish gRPC channel
             ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
