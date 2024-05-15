@@ -260,11 +260,10 @@ public static List<Double> stringToDoubleList(String valuesString) {
    
     public VisualExplainabilityResults getPipelineExplainabilityInfluenceData(VisualExplainabilityPipelineInfluenceQuery visualExplainabilityQuery) {
         VisualExplainabilityResults visualExplainabilityResults = new VisualExplainabilityResults();
-        String feature = visualExplainabilityQuery.getPipelineInfluenceParameters().getFeature();
+        Integer noOfInfluential = visualExplainabilityQuery.getPipelineInfluenceParameters().getNoOfInfluential();
     
-        if (feature == null) {
-            // Log if feature is null
-            // System.out.println("Feature is null");
+        if (noOfInfluential == null) {
+            // Log if noOfInfluential is null
             visualExplainabilityResults.setMessage("400");
         } else {
             visualExplainabilityResults.setMessage("200");
@@ -281,7 +280,7 @@ public static List<Double> stringToDoubleList(String valuesString) {
                         .setExplanationMethod("InfluenceFunctions")
                         .setExplanationType("Pipeline")
                         .setModel(visualExplainabilityQuery.getModelId())
-                        .setNumInfluential(Integer.parseInt(feature)) // Parse feature to int
+                        .setNumInfluential(noOfInfluential) // Parse feature to int
                         .build();
                 
                 // Create a blocking stub for the service

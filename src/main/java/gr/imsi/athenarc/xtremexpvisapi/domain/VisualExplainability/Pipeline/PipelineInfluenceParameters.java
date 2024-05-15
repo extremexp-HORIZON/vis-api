@@ -2,24 +2,25 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline;
 
 public class PipelineInfluenceParameters  {
 
-    private String feature;
+    private Integer noOfInfluential;
 
     
-    public PipelineInfluenceParameters(String feature) {
-        this.feature = feature;
+    public PipelineInfluenceParameters(Integer noOfInfluential) {
+        this.noOfInfluential = noOfInfluential;
     }
     public PipelineInfluenceParameters() {
     }
-    public String getFeature() {
-        return feature;
+
+    public Integer getNoOfInfluential() {
+        return noOfInfluential;
     }
-    public void setFeature(String feature) {
-        this.feature = feature;
+
+
+    public void setNoOfInfluential(Integer noOfInfluential) {
+        this.noOfInfluential = noOfInfluential;
     }
- 
     @Override
     public String toString() {
-        return "PipelineInfluenceParameters [feature=" + feature +  "]";
+        return "PipelineInfluenceParameters [noOfInfluential=" + noOfInfluential + "]";
     }
-    
 }

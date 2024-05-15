@@ -201,8 +201,8 @@ public class VisualizationController {
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelineInfluenceParameters.get("feature1");
-                PipelineInfluenceParameters pipelineInfluenceParameters = new PipelineInfluenceParameters(feature);
+                Integer noOfInfluential = Integer.parseInt(rawPipelineInfluenceParameters.get("noOfInfluential"));
+                PipelineInfluenceParameters pipelineInfluenceParameters = new PipelineInfluenceParameters(noOfInfluential);
                 VisualExplainabilityPipelineInfluenceQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelineInfluenceQuery(modelId, pipelineInfluenceParameters);
                 visualExplainabilityResults = dataService.getPipelineExplainabilityInfluenceData(visualExplainabilityPipelinePdpQuery);
             }
