@@ -20,10 +20,22 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainabilityRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainabilityResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityModel2DPdpQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityModelAleQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityModelPdpQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityPipeline2DPdpQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityPipelineAleQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityPipelineCounterfactualQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityPipelineInfluenceQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualExplainabilityPipelinePdpQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Model.Model2DPdpParameters;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Model.ModelAleParameters;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Model.ModelPdpParameters;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline.Pipeline2DPdpParameters;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline.PipelineAleParameters;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline.PipelineCounterfactualParameters;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline.PipelineInfluenceParameters;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualExplainability.Pipeline.PipelinePdpParameters;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import jakarta.validation.Valid;
@@ -152,50 +164,47 @@ public class VisualizationController {
 
             }else if(explainabilityMethod.equals("ale")) {
                 LOG.info("Performing Pipeline Ale explainability analysis");
-                Map<String, String> rawPipelinePdpParameters = null;
+                Map<String, String> rawPipelineAleParameters = null;
                 try {
-                    rawPipelinePdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawPipelineAleParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelinePdpParameters.get("feature1");
-                PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
-                VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
+                String feature = rawPipelineAleParameters.get("feature1");
+                PipelineAleParameters pipelineAleParameters = new PipelineAleParameters(feature);
+                VisualExplainabilityPipelineAleQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelineAleQuery(modelId, pipelineAleParameters);
                 visualExplainabilityResults = dataService.getPipelineExplainabilityAleData(visualExplainabilityPipelinePdpQuery);
 
             }
-            
             else if (explainabilityMethod.equals("counterfactual")){
                 LOG.info("Performing Pipeline Counterfactual explainability analysis");
-                Map<String, String> rawPipelinePdpParameters = null;
+                Map<String, String> rawPipelineCounterfactualParameters = null;
                 try {
-                    rawPipelinePdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawPipelineCounterfactualParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelinePdpParameters.get("feature1");
-                PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
-                VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
-                visualExplainabilityResults = dataService.getPipelineExplainabilityCounterFData(visualExplainabilityPipelinePdpQuery);
+                String feature = rawPipelineCounterfactualParameters.get("feature1");
+                PipelineCounterfactualParameters pipelineCounterfactualParameters = new PipelineCounterfactualParameters(feature);
+                VisualExplainabilityPipelineCounterfactualQuery visualExplainabilityPipelineCounterfactualQuery = new VisualExplainabilityPipelineCounterfactualQuery(modelId, pipelineCounterfactualParameters);
+                visualExplainabilityResults = dataService.getPipelineExplainabilityCounterFactualData(visualExplainabilityPipelineCounterfactualQuery);
 
             }
             else if (explainabilityMethod.equals("influence")){
                 LOG.info("Performing Pipeline Influence explainability analysis");
-                Map<String, String> rawPipelinePdpParameters = null;
+                Map<String, String> rawPipelineInfluenceParameters = null;
                 try {
-                    rawPipelinePdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawPipelineInfluenceParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelinePdpParameters.get("feature1");
-                PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
-                VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
+                String feature = rawPipelineInfluenceParameters.get("feature1");
+                PipelineInfluenceParameters pipelineInfluenceParameters = new PipelineInfluenceParameters(feature);
+                VisualExplainabilityPipelineInfluenceQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelineInfluenceQuery(modelId, pipelineInfluenceParameters);
                 visualExplainabilityResults = dataService.getPipelineExplainabilityInfluenceData(visualExplainabilityPipelinePdpQuery);
-
-
             }
         }
         else if(explainabilityType.equals("model")){
@@ -203,34 +212,33 @@ public class VisualizationController {
             if(explainabilityMethod.equals("pdp")) {
                 LOG.info("Performing Model PDP explainability analysis");
 
-                Map<String, String> rawPipelinePdpParameters = null;
+                Map<String, String> rawModelPdpParameters = null;
                 try {
-                    rawPipelinePdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawModelPdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelinePdpParameters.get("feature1");
-                PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
-                VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
-                visualExplainabilityResults = dataService.getModelExplainabilityPdpData(visualExplainabilityPipelinePdpQuery);
-
+                String feature = rawModelPdpParameters.get("feature1");
+                ModelPdpParameters modelPdpParameters = new ModelPdpParameters(feature);
+                VisualExplainabilityModelPdpQuery visualExplainabilityModelPdpQuery = new VisualExplainabilityModelPdpQuery(modelId, modelPdpParameters);
+                visualExplainabilityResults = dataService.getModelExplainabilityPdpData(visualExplainabilityModelPdpQuery);
             }
             else if(explainabilityMethod.equals("pdp2d")){
                 LOG.info("Performing Model 2D PDP explainability analysis");
-                Map<String, String> rawPipeline2DPdpParameters = null;
+                Map<String, String> rawModel2DPdpParameters = null;
                 try {
-                    rawPipeline2DPdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawModel2DPdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } 
                 catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 2 features {feature1: \"\", feauture2: \"\"}");
                     e.printStackTrace();
                 }
-                String feature1 = rawPipeline2DPdpParameters.get("feature1");
-                String feature2 = rawPipeline2DPdpParameters.get("feature2");
-                Pipeline2DPdpParameters pipeline2DPdpParameters = new Pipeline2DPdpParameters(feature1, feature2);
-                VisualExplainabilityPipeline2DPdpQuery visualExplainabilityPipeline2DPdpQuery = new VisualExplainabilityPipeline2DPdpQuery(modelId, pipeline2DPdpParameters);
-                visualExplainabilityResults = dataService.getModelExplainability2DPdpData(visualExplainabilityPipeline2DPdpQuery);
+                String feature1 = rawModel2DPdpParameters.get("feature1");
+                String feature2 = rawModel2DPdpParameters.get("feature2");
+                Model2DPdpParameters model2dPdpParameters = new Model2DPdpParameters(feature1, feature2);
+                VisualExplainabilityModel2DPdpQuery visualExplainabilityModel2DPdpQuery = new VisualExplainabilityModel2DPdpQuery(modelId, model2dPdpParameters);
+                visualExplainabilityResults = dataService.getModelExplainability2DPdpData(visualExplainabilityModel2DPdpQuery);
             }
             else if(explainabilityMethod.equals("counterfactual")){
                 LOG.info("Performing Model Counterfactual explainability analysis-Not implemented yet");
@@ -238,16 +246,16 @@ public class VisualizationController {
             }
             else if(explainabilityMethod.equals("ale")) {
                 LOG.info("Performing Model Ale explainability analysis");
-                Map<String, String> rawPipelinePdpParameters = null;
+                Map<String, String> rawModelAleParameters = null;
                 try {
-                    rawPipelinePdpParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
+                    rawModelAleParameters = (Map<String, String>) visualExplainabilityRequest.getAdditionalParams();
                 } catch(ClassCastException e){
                     LOG.error("Error: additionalParams must be a dictionary of 1 feature {feature: \"\"}");
                     e.printStackTrace();
                 }
-                String feature = rawPipelinePdpParameters.get("feature1");
-                PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
-                VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
+                String feature = rawModelAleParameters.get("feature1");
+                ModelAleParameters modelAleParameters = new ModelAleParameters(feature);
+                VisualExplainabilityModelAleQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityModelAleQuery(modelId, modelAleParameters);
                 visualExplainabilityResults = dataService.getModelExplainabilityAleData(visualExplainabilityPipelinePdpQuery);
             }
         }
