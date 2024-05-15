@@ -96,44 +96,46 @@ public interface ExplanationsResponseOrBuilder extends
    * Fields specific to InfluenceFunction explanation
    * </pre>
    *
-   * <code>repeated float influences = 7;</code>
+   * <code>string positive = 7;</code>
    */
-  java.util.List<java.lang.Float> getInfluencesList();
+  java.lang.String getPositive();
   /**
    * <pre>
    * Fields specific to InfluenceFunction explanation
    * </pre>
    *
-   * <code>repeated float influences = 7;</code>
+   * <code>string positive = 7;</code>
    */
-  int getInfluencesCount();
-  /**
-   * <pre>
-   * Fields specific to InfluenceFunction explanation
-   * </pre>
-   *
-   * <code>repeated float influences = 7;</code>
-   */
-  float getInfluences(int index);
+  com.google.protobuf.ByteString
+      getPositiveBytes();
 
   /**
-   * <code>bytes positive = 8;</code>
+   * <code>string negative = 8;</code>
    */
-  com.google.protobuf.ByteString getPositive();
-
+  java.lang.String getNegative();
   /**
-   * <code>bytes negative = 9;</code>
+   * <code>string negative = 8;</code>
    */
-  com.google.protobuf.ByteString getNegative();
+  com.google.protobuf.ByteString
+      getNegativeBytes();
 
   /**
    * <pre>
    * Fields specific to Counterfactual Explanations
    * </pre>
    *
-   * <code>bytes cfs = 10;</code>
+   * <code>string cfs = 9;</code>
    */
-  com.google.protobuf.ByteString getCfs();
+  java.lang.String getCfs();
+  /**
+   * <pre>
+   * Fields specific to Counterfactual Explanations
+   * </pre>
+   *
+   * <code>string cfs = 9;</code>
+   */
+  com.google.protobuf.ByteString
+      getCfsBytes();
 
   /**
    * <pre>
@@ -141,7 +143,7 @@ public interface ExplanationsResponseOrBuilder extends
    * ------------ PDP Fields -------------------------
    * </pre>
    *
-   * <code>string pdp_vals = 11;</code>
+   * <code>string pdp_vals = 10;</code>
    */
   java.lang.String getPdpVals();
   /**
@@ -150,17 +152,17 @@ public interface ExplanationsResponseOrBuilder extends
    * ------------ PDP Fields -------------------------
    * </pre>
    *
-   * <code>string pdp_vals = 11;</code>
+   * <code>string pdp_vals = 10;</code>
    */
   com.google.protobuf.ByteString
       getPdpValsBytes();
 
   /**
-   * <code>string pdp_effect = 12;</code>
+   * <code>string pdp_effect = 11;</code>
    */
   java.lang.String getPdpEffect();
   /**
-   * <code>string pdp_effect = 12;</code>
+   * <code>string pdp_effect = 11;</code>
    */
   com.google.protobuf.ByteString
       getPdpEffectBytes();

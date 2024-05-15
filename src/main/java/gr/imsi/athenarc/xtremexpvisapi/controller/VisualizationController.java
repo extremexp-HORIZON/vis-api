@@ -3,9 +3,11 @@ package gr.imsi.athenarc.xtremexpvisapi.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.math3.analysis.function.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,13 +29,13 @@ import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import jakarta.validation.Valid;
 
 @RestController
+@CrossOrigin
 @RequestMapping("/api")
 public class VisualizationController {
  
     private static final Logger LOG = LoggerFactory.getLogger(VisualizationController.class);
     
     private final DataService dataService;
-
 
     public VisualizationController(DataService dataService){
         this.dataService = dataService;
@@ -130,6 +132,7 @@ public class VisualizationController {
                 PipelinePdpParameters pipelinePdpParameters = new PipelinePdpParameters(feature);
                 VisualExplainabilityPipelinePdpQuery visualExplainabilityPipelinePdpQuery = new VisualExplainabilityPipelinePdpQuery(modelId, pipelinePdpParameters);
                 visualExplainabilityResults = dataService.getPipelineExplainabilityPdpData(visualExplainabilityPipelinePdpQuery);
+
             }
             else if(explainabilityMethod.equals("pdp2d")){
                 LOG.info("Performing Pipeline 2D PDP explainability analysis");
@@ -146,6 +149,7 @@ public class VisualizationController {
                 Pipeline2DPdpParameters pipeline2DPdpParameters = new Pipeline2DPdpParameters(feature1, feature2);
                 VisualExplainabilityPipeline2DPdpQuery visualExplainabilityPipeline2DPdpQuery = new VisualExplainabilityPipeline2DPdpQuery(modelId, pipeline2DPdpParameters);
                 visualExplainabilityResults = dataService.getPipelineExplainability2DPdpData(visualExplainabilityPipeline2DPdpQuery);
+
             }else if(explainabilityMethod.equals("ale")) {
                 LOG.info("Performing Pipeline Ale explainability analysis");
                 Map<String, String> rawPipelinePdpParameters = null;
