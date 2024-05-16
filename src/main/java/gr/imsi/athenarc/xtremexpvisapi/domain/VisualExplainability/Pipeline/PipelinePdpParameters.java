@@ -19,7 +19,7 @@ public class PipelinePdpParameters  {
  
     @Override
     public String toString() {
-        return "Pipeline2DPdpParameters [feature=" + feature +  "]";
+        return "PipelinePdpParameters [feature=" + feature +  "]";
     }
     
 }

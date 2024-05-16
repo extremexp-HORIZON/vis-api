@@ -123,8 +123,8 @@ public static List<Double> stringToDoubleList(String valuesString) {
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
             // System.out.println(response.getP);
-            visualExplainabilityResults.setHp(response.getPdpHpValues());
-            visualExplainabilityResults.setVals(response.getPdpValues());
+            visualExplainabilityResults.setPdphpval(response.getPdpHpValues());
+            visualExplainabilityResults.setPdpvalues(response.getPdpValues());
 
             // Shutdown the channel
             channel.shutdown();
@@ -166,9 +166,9 @@ public static List<Double> stringToDoubleList(String valuesString) {
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
             
-            visualExplainabilityResults.setPDP2dXI(response.getPdp2DXi());
-            visualExplainabilityResults.setPDP2dYI(response.getPdp2DYi());
-            visualExplainabilityResults.setPDP2dZI(response.getPdp2DZi());
+            visualExplainabilityResults.setPdp2dxi(response.getPdp2DXi());
+            visualExplainabilityResults.setPdp2dyi(response.getPdp2DYi());
+            visualExplainabilityResults.setPdp2dzi(response.getPdp2DZi());
 
             // Shutdown the channel
             channel.shutdown();
@@ -210,7 +210,7 @@ public static List<Double> stringToDoubleList(String valuesString) {
             System.out.println(response.getAleData());
 
             
-            visualExplainabilityResults.setAle(response.getAleData());
+            visualExplainabilityResults.setAledata(response.getAleData());
 
             // Shutdown the channel
             channel.shutdown();
@@ -249,7 +249,7 @@ public static List<Double> stringToDoubleList(String valuesString) {
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
             
-            visualExplainabilityResults.setCfs(response.getCfs());
+            visualExplainabilityResults.setCfss(response.getCfs());
 
             // Shutdown the channel
             channel.shutdown();
@@ -340,8 +340,8 @@ public static List<Double> stringToDoubleList(String valuesString) {
            
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
-            visualExplainabilityResults.setEffect(response.getPdpEffect());
-            visualExplainabilityResults.setModelVal(response.getPdpVals());
+            visualExplainabilityResults.setModelpdpeff(response.getPdpEffect());
+            visualExplainabilityResults.setModelpdpvalues(response.getPdpVals());
             // Shutdown the channel
             channel.shutdown();
         }
@@ -380,7 +380,7 @@ public static List<Double> stringToDoubleList(String valuesString) {
            
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
-            visualExplainabilityResults.setAle(response.getAleData());
+            visualExplainabilityResults.setAledata(response.getAleData());
             // Shutdown the channel
             channel.shutdown();
         }
@@ -422,8 +422,8 @@ public static List<Double> stringToDoubleList(String valuesString) {
             // Send the request and get the response
 
             ExplanationsResponse response = stub.getExplanation(request);
-            visualExplainabilityResults.setEffect(response.getPdpEffect());
-            visualExplainabilityResults.setModelVal(response.getPdpVals() );
+            visualExplainabilityResults.setModelpdpeff(response.getPdpEffect());
+            visualExplainabilityResults.setModelpdpvalues(response.getPdpVals() );
 
             // Shutdown the channel
             channel.shutdown();

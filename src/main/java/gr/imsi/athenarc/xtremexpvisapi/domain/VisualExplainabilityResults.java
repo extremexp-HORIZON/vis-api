@@ -1,8 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain;
 
 public class VisualExplainabilityResults {
-
-    private String message;
     private String pdpvalues;
     private String pdphpval;
     private String pdp2dxi;
@@ -14,115 +12,80 @@ public class VisualExplainabilityResults {
     private String cfss;
     private String positive;
     private String negative;
-   
-    ////MESSAGE TEXT
 
+    private String message;
     public String getMessage() {
         return message;
     }
     public void setMessage(String message) {
         this.message = message;
     }
-    ////PIPELINE PDP
-
-    public String getVals() {
+    public String getPdpvalues() {
         return pdpvalues;
     }
-    public void setVals(String pdpvalues) {
+    public void setPdpvalues(String pdpvalues) {
         this.pdpvalues = pdpvalues;
     }
-
-    public String getHp() {
+    public String getPdphpval() {
         return pdphpval;
     }
-    public void setHp(String pdphpval) {
+    public void setPdphpval(String pdphpval) {
         this.pdphpval = pdphpval;
     }
-
-    ////PIPELINE 2D PDP
-    public String getPDP2dXI() {
+    public String getPdp2dxi() {
         return pdp2dxi;
     }
-    public void setPDP2dXI(String pdp2dxi) {
+    public void setPdp2dxi(String pdp2dxi) {
         this.pdp2dxi = pdp2dxi;
     }
-
-    public String getPDP2dYI() {
+    public String getPdp2dyi() {
         return pdp2dyi;
     }
-    public void setPDP2dYI(String pdp2dyi) {
+    public void setPdp2dyi(String pdp2dyi) {
         this.pdp2dyi = pdp2dyi;
     }
-
-    public String getPDP2dZI() {
+    public String getPdp2dzi() {
         return pdp2dzi;
     }
-    public void setPDP2dZI(String pdp2dzi) {
+    public void setPdp2dzi(String pdp2dzi) {
         this.pdp2dzi = pdp2dzi;
     }
-    ////ALE
-    public String getAle() {
+    public String getAledata() {
         return aledata;
     }
-    public void setAle(String aledata) {
+    public void setAledata(String aledata) {
         this.aledata = aledata;
     }
-
-
-    ////PDP MODEL 
-    public String getModelVal() {
+    public String getModelpdpvalues() {
         return modelpdpvalues;
     }
-    public void setModelVal(String modelpdpvalues) {
+    public void setModelpdpvalues(String modelpdpvalues) {
         this.modelpdpvalues = modelpdpvalues;
     }
-
-    public String getEffect() {
+    public String getModelpdpeff() {
         return modelpdpeff;
     }
-    public void setEffect(String modelpdpeff) {
+    public void setModelpdpeff(String modelpdpeff) {
         this.modelpdpeff = modelpdpeff;
     }
-    ////CFS
-    public String getCfs() {
+    public String getCfss() {
         return cfss;
     }
-    public void setCfs(String cfss) {
+    public void setCfss(String cfss) {
         this.cfss = cfss;
     }
-////influence
-public String getPositive() {
-    return positive;
+    public String getPositive() {
+        return positive;
+    }
+    public void setPositive(String positive) {
+        this.positive = positive;
+    }
+    public String getNegative() {
+        return negative;
+    }
+    public void setNegative(String negative) {
+        this.negative = negative;
+    }
+
+   
 }
-public void setPositive(String positive) {
-    this.positive = positive;
-}
-public String getNegative() {
-    return negative;
-}
-public void setNegative(String negative) {
-    this.negative = negative;
-}
-    
-}
-
-
-
-
-
-
-// public List<Double> getData() {
-    //     return data;
-    // }
-    // public void setData(List<Double> list) {
-    //     this.data = list;
-    // }
-    //// kane mia abstact classh kai oi alloes gia ta alla repsosnes na thn kanoun extend 
-    // public String getData() {
-    //     return data;
-    // }
-    // public void setData(String data) {
-    //     this.data = data;
-    // }
-
-    ////
