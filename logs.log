@@ -1,22 +1,13 @@
-12:56:54.640 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.10 with PID 2095590 (/home/pgidarakos/VIZAPI/vis-api/target/classes started by pgidarakos in /home/pgidarakos/VIZAPI/vis-api)
-12:56:54.640 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
-12:56:54.737 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
-12:56:54.737 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
-12:56:54.737 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-12:56:54.737 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
-12:56:54.741 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
-12:56:54.741 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 100 ms
-12:56:54.788 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
-12:56:54.791 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
-12:56:54.791 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
-12:56:54.794 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.171 seconds (process running for 83588.604)
-12:56:54.794 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
-12:57:01.804 [http-nio-8080-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
-12:57:01.804 [http-nio-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
-12:57:01.805 [http-nio-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
-12:57:01.808 [http-nio-8080-exec-1] INFO  g.i.a.x.c.VisualizationController - Explainability type: pipeline, Explainability method: counterfactual, Model ID: UNSW_NB15_model
-12:57:01.808 [http-nio-8080-exec-1] INFO  g.i.a.x.c.VisualizationController - Performing Pipeline Counterfactual explainability analysis
-12:57:02.109 [http-nio-8080-exec-1] INFO  g.i.a.x.c.VisualizationController - Explainability analysis successful
-12:57:04.648 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Explainability type: pipeline, Explainability method: ale, Model ID: UNSW_NB15_model
-12:57:04.648 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Performing Pipeline Ale explainability analysis
-12:57:04.716 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Explainability analysis successful
+13:08:19.972 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.10 with PID 2095590 (/home/pgidarakos/VIZAPI/vis-api/target/classes started by pgidarakos in /home/pgidarakos/VIZAPI/vis-api)
+13:08:19.973 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+13:08:20.053 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+13:08:20.053 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+13:08:20.053 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+13:08:20.054 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+13:08:20.057 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+13:08:20.057 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 84 ms
+13:08:20.092 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+13:08:20.095 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+13:08:20.095 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+13:08:20.098 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.139 seconds (process running for 84273.908)
+13:08:20.099 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
