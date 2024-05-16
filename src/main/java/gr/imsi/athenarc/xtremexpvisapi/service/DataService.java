@@ -129,8 +129,8 @@ public static List<Double> stringToDoubleList(String valuesString) {
             // Send the request and get the response
             ExplanationsResponse response = stub.getExplanation(request);
             // System.out.println(response.getP);
-            visualExplainabilityResults.setHp(response.getPdpHpValues());
-            visualExplainabilityResults.setVals(response.getPdpValues());
+            visualExplainabilityResults.setPdphpval(response.getPdpHpValues());
+            visualExplainabilityResults.setPdpvalues(response.getPdpValues());
 
             // Shutdown the channel
             channel.shutdown();
