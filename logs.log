@@ -1,13 +1,22 @@
-09:01:24.271 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.10 with PID 4015064 (/home/pgidarakos/VIZAPI/vis-api-last/target/classes started by pgidarakos in /home/pgidarakos/VIZAPI/vis-api-last)
-09:01:24.271 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
-09:01:24.379 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
-09:01:24.380 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
-09:01:24.380 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-09:01:24.380 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
-09:01:24.385 [restartedMain] INFO  o.a.c.c.C.[Tomcat-1].[localhost].[/] - Initializing Spring embedded WebApplicationContext
-09:01:24.385 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 113 ms
-09:01:24.436 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
-09:01:24.439 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
-09:01:24.440 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
-09:01:24.443 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.192 seconds (process running for 122.145)
-09:01:24.444 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
+09:03:59.393 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+09:03:59.412 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.10 with PID 4027234 (/home/pgidarakos/xxpEngine/vis-api-last/target/classes started by pgidarakos in /home/pgidarakos/xxpEngine/vis-api-last)
+09:03:59.413 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+09:03:59.440 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+09:03:59.440 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+09:04:00.049 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+09:04:00.055 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+09:04:00.056 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+09:04:00.056 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+09:04:00.080 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+09:04:00.080 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 640 ms
+09:04:00.327 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+09:04:00.335 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+09:04:00.340 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+09:04:00.347 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 1.135 seconds (process running for 1.464)
+09:04:01.156 [http-nio-8080-exec-2] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+09:04:01.156 [http-nio-8080-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+09:04:01.157 [http-nio-8080-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+09:04:01.207 [http-nio-8080-exec-2] INFO  g.i.a.x.c.VisualizationController - Request for explainability PipelinePDPlotsModel__learning_rateI2Cat_Phising_model
+09:04:03.000 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Request for explainability PipelinePDPlotsModel__learning_rateI2Cat_Phising_model
+09:05:09.834 [http-nio-8080-exec-5] INFO  g.i.a.x.c.VisualizationController - Request for explainability PipelinePDPlotsModel__learning_rateI2Cat_Phising_model
+09:05:14.760 [http-nio-8080-exec-6] INFO  g.i.a.x.c.VisualizationController - Request for explainability PipelinePDPlotsModel__learning_rateI2Cat_Phising_model
