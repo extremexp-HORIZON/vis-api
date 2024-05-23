@@ -44,7 +44,7 @@ public class VisualizationController {
         this.explainabilityService = explainabilityService;
     }
 
-    @PostMapping("/intialization")
+    @PostMapping("/initialization")
     public ResponseEntity<InitializationRes> data(@RequestBody InitializationReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability initialization for dataset {}", request.getModelName());
 
