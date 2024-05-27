@@ -108,20 +108,18 @@ public class VisualQuery{
                 EqualsFilter equalsFilter = new EqualsFilter();
                 LOG.info("type: {}", column.getType());
                 switch(column.getType()){
-                    case "INTEGER" :
+                    case "INTEGER":
+                    case "FLOAT":
+                    case "DOUBLE":
                         Double number = value.get("value").asDouble();
+                        LOG.debug("Creating equals filter for numeric type: {}", number);
                         return equalsFilter.new NumberEqualsFilter(column.getName(), number);
-                    case "FLOAT" :
-                        Double floatNumber = value.get("value").asDouble();
-                        return equalsFilter.new NumberEqualsFilter(column.getName(), floatNumber);
-                    case "DOUBLE" :
-                        Double doubleNumber = value.get("value").asDouble();
-                        return equalsFilter.new NumberEqualsFilter(column.getName(), doubleNumber);
                     case "LOCAL_DATE_TIME":
                         LocalDateTime dateTime = LocalDateTime.parse(value.get("value").asText(), dateTimeFormatter);
+                        LOG.debug("Creating equals filter for date/time: {}", dateTime);
                         return equalsFilter.new DateTimeEqualsFilter(column.getName(), dateTime);
                     default:
-                        //TODO: add sth here
+                        LOG.error("Unsupported column type for equals filter: {}", column.getType());
                         return null;
                 }
             default:

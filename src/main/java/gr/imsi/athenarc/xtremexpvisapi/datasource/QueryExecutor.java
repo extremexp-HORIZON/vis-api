@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.NumberRangeFilter;
@@ -73,8 +74,6 @@ public class QueryExecutor {
     public VisualizationResults executeQuery(VisualQuery query){
         VisualizationResults visualizationResults = new VisualizationResults();
         try (InputStream inputStream = new FileInputStream(csvPath)) {
-           
-            // Initialize the table
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
             Table table = Table.read().usingOptions(csvReadOptions);
             
@@ -102,6 +101,25 @@ public class QueryExecutor {
                                 .isBetweenIncluding(dateTimeRangeFilter.getMinValue(), dateTimeRangeFilter.getMaxValue());
                     }
                     // Add other types of RangeFilters here if needed
+                }else if (filter instanceof EqualsFilter) {
+                    EqualsFilter equalsFilter = (EqualsFilter) filter;
+                    Column<?> column = table.column(equalsFilter.getColumn());
+                    String columnTypeName = column.type().name();
+                    switch (columnTypeName) {
+                        case "DOUBLE":
+                            double doubleValue = Double.parseDouble(equalsFilter.getValue().toString());
+                            filterSelection = table.doubleColumn(equalsFilter.getColumn()).isEqualTo(doubleValue);
+                            break;
+                        case "INTEGER":
+                            int intValue = Integer.parseInt(equalsFilter.getValue().toString());
+                            filterSelection = table.intColumn(equalsFilter.getColumn()).isEqualTo(intValue);
+                            break;
+                        case "STRING":
+                            filterSelection = table.stringColumn(equalsFilter.getColumn()).isEqualTo(equalsFilter.getValue().toString());
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unsupported column type for equals filter: " + columnTypeName);
+                    }
                 }
                 // Add other types of filters here 
                 selection = selection == null ? filterSelection : selection.and(filterSelection);
@@ -131,6 +149,26 @@ public class QueryExecutor {
         }
         // LOG.debug("Data:{}", visualizationResults.getData());
         return visualizationResults;
+
+
+        
+    }
+
+
+    
+
+    private Table sampleData(Table table, int sampleSize, String sampleRule) {
+        // Implement sampling logic based on the rule: equal, range, random
+        switch (sampleRule) {
+            case "equal":
+                return table.sampleN(sampleSize);
+            case "range":
+                // Implement range sampling
+                break;
+            case "random":
+                return table.sampleN(sampleSize);
+        }
+        return table;
     }
 
     private CsvReadOptions createCsvReadOptions(InputStream inputStream) {

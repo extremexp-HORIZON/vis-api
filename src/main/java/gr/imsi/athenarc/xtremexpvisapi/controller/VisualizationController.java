@@ -104,25 +104,6 @@ public class VisualizationController {
         }
     }
 
-    // @GetMapping("/visualization/data/{datasetId}/columni")
-    // public ResponseEntity<List<VisualColumn>> getColumni(@PathVariable String datasetId) {
-
-    //     try {
-    //         // Retrieve columns for the specified datasetId
-    //         List<VisualColumn> columns = dataService.getColumns(datasetId);
-
-    //         // Log successful retrieval of columns
-    //         LOG.info("Retrieved columns for datasetId {}: {}", datasetId, columns);
-
-    //         // Return a successful response with the columns
-    //         return ResponseEntity.ok(columns);
-    //     } catch (Exception e) {
-    //         // Log the error and return an internal server error response
-    //         LOG.error("Error retrieving columns for datasetId {}", datasetId, e);
-    //         return ResponseEntity.internalServerError().build();
-    //     }
-    // }
-
 
     @GetMapping("/visualization/data/{datasetId}/column/{columnName}")
     public ResponseEntity<String> getColumn(@PathVariable String datasetId, @PathVariable String columnName) {
