@@ -67,7 +67,8 @@ public class VisualizationController {
          visualizationDataRequest.getViewPort(), 
          visualizationDataRequest.getColumns(),
           visualizationDataRequest.getLimit(),
-          visualizationDataRequest.getScaler()
+          visualizationDataRequest.getScaler(),
+          visualizationDataRequest.getAggFunction()
           
           );
 

@@ -163,6 +163,7 @@ public class QueryExecutor {
                 resultTable = resultTable.selectColumns(columnNames);
             }
             
+            //Normalization
             List<String> columnsToNormalize = Arrays.asList(columnNames);
             List<String> filteredColumns = columnsToNormalize.stream()
                 .filter(columnName -> !columnName.equalsIgnoreCase("timestamp") && !columnName.equalsIgnoreCase("datetime"))
@@ -178,7 +179,12 @@ public class QueryExecutor {
 
                 LOG.info("No normalization applied");
             }
-           
+
+            //Change Granularity 
+            String aggfun = query.getAggFunction(); 
+              resultTable=changeGranularity(resultTable,  "timestamp", ChronoUnit.DAYS, aggfun);
+
+            
             visualizationResults.setData(getJsonDataFromTableSawTable(resultTable));
             visualizationResults.setMessage("200");
         } catch (IOException e) {
@@ -192,7 +198,7 @@ public class QueryExecutor {
         
     }
 
-    public Table changeGranularity(Table table, String dateTimeColumnName, ChronoUnit granularity) {
+    public Table changeGranularity(Table table, String dateTimeColumnName, ChronoUnit granularity, String aggregationFunction) {
         if (!table.columnNames().contains(dateTimeColumnName)) {
             LOG.error("Datetime column '{}' not found in the table.", dateTimeColumnName);
             return table;
@@ -200,10 +206,8 @@ public class QueryExecutor {
     
         // Get the original datetime column
         DateTimeColumn dateTime = (DateTimeColumn) table.column(dateTimeColumnName);
-    
         // Create a new column with rounded datetime values
         DateTimeColumn modifiedDateTime = DateTimeColumn.create("RoundedDateTime");
-
         // Manually rounding the datetime to the specified granularity
         for (int i = 0; i < dateTime.size(); i++) {
             switch (granularity) {
@@ -221,21 +225,44 @@ public class QueryExecutor {
                     return table;
             }
         }    
+    
         // Add this new column to the table
-        table.addColumns(modifiedDateTime);
-    
+        
         // Now, group by this new column and aggregate other columns
-        Table newtable = table.summarize(table.columnNames().stream()
-            .filter(col -> col.equals(dateTimeColumnName) == false && table.column(col) instanceof NumberColumn)
-            .collect(Collectors.toList()), AggregateFunctions.max).by("RoundedDateTime");
-    
-        // Replace or update the original table as needed
-        // table.replaceColumns(resuTable.columns());
+        Table newtable;
+        if (aggregationFunction.equals("sum")) {
+            table.addColumns(modifiedDateTime);
+
+            newtable = table.summarize(table.columnNames().stream()
+                .filter(col -> !col.equals(dateTimeColumnName) && table.column(col) instanceof NumberColumn)
+                .collect(Collectors.toList()), AggregateFunctions.sum).by("RoundedDateTime");
+        } else if (aggregationFunction.equals("mean")) {
+            table.addColumns(modifiedDateTime);
+
+            newtable = table.summarize(table.columnNames().stream()
+                .filter(col -> !col.equals(dateTimeColumnName) && table.column(col) instanceof NumberColumn)
+                .collect(Collectors.toList()), AggregateFunctions.mean).by("RoundedDateTime");
+        }else if (aggregationFunction.equals("min")) {
+            table.addColumns(modifiedDateTime);
+
+            newtable = table.summarize(table.columnNames().stream()
+                .filter(col -> !col.equals(dateTimeColumnName) && table.column(col) instanceof NumberColumn)
+                .collect(Collectors.toList()), AggregateFunctions.min).by("RoundedDateTime");
+        }else if (aggregationFunction.equals("max")) {
+            table.addColumns(modifiedDateTime);
+
+            newtable = table.summarize(table.columnNames().stream()
+                .filter(col -> !col.equals(dateTimeColumnName) && table.column(col) instanceof NumberColumn)
+                .collect(Collectors.toList()), AggregateFunctions.max).by("RoundedDateTime");
+        }
+         else {
+            LOG.error("Unsupported aggregation function '{}'.", aggregationFunction);
+            return table;
+        }
+        
         LOG.info("Data granularity changed and aggregated by '{}'.", newtable.print());
         return newtable;
     }
-
-
 
 
     public void applyMinMaxNormalization(Table table, List<String> columnNames) {

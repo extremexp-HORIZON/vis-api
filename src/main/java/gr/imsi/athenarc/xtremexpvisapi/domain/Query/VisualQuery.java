@@ -36,16 +36,25 @@ public class VisualQuery{
     List<String> columns;
     List<AbstractFilter> filters;
     String scaler;
+    String aggFunction;
+    
 
-    public VisualQuery(String datasetId, ViewPort viewPort, List<String> columns, Integer limit, String scaler) {
+    public VisualQuery(String datasetId, ViewPort viewPort, List<String> columns, Integer limit, String scaler, String aggFunction){ 
         this.datasetId = datasetId;
         this.viewPort = viewPort;
         this.columns = columns;
         this.limit = limit;
         this.scaler=scaler;
+        this.aggFunction=aggFunction;
     }
 
     
+
+    public String getAggFunction() {
+        return aggFunction;
+    }
+
+
 
     public String getScaler() {
         return scaler;
@@ -72,7 +81,7 @@ public class VisualQuery{
     @Override
     public String toString() {
         return "VisualQuery [datasetId=" + datasetId + ", filters=" + filters + ", columns=" + columns 
-                + ", viewPort=" + viewPort + ", limit=" + limit + ", isMinMaxScale=" + scaler + "]";
+                + ", viewPort=" + viewPort + ", limit=" + limit + ", isMinMaxScale=" + scaler + ", aggFunction=" + aggFunction + "]";
     }
 
     public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){

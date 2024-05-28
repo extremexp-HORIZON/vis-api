@@ -56,9 +56,7 @@ public class DataService {
             LOG.warn("Null filter detected in visualQuery");
             return visualizationResults;
         }
-
-
-
+        
         QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
     
         // Print executing query with visualQuery
