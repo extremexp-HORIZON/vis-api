@@ -57,10 +57,12 @@ public class DataService {
             return visualizationResults;
         }
 
-        QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
 
+
+        QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
+    
         // Print executing query with visualQuery
-        LOG.info("Executing.. query for datasetId: {}", datasetId);
+        LOG.info("Executing.. query for datasetId: {}", visualQuery.toString());
         return queryExecutor.executeQuery(visualQuery);
     }
 
@@ -74,7 +76,5 @@ public class DataService {
         LOG.info("Retrieving column {} for datasetId: {}", columnName, datasetId);
         QueryExecutor queryExecutor = new QueryExecutor(datasetId, Path.of(schemaPath, datasetId + ".csv").toString());
         return queryExecutor.getColumn(datasetId, columnName);
-    }
-
-    
+    } 
 }

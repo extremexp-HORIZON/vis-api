@@ -1,27 +1,108 @@
-11:27:20.389 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.10 with PID 504429 (/home/pgidarakos/xxpEngine/vis-api-last/target/classes started by pgidarakos in /home/pgidarakos/xxpEngine/vis-api-last)
-11:27:20.389 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
-11:27:20.479 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
-11:27:20.480 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
-11:27:20.480 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-11:27:20.480 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
-11:27:20.484 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
-11:27:20.484 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 94 ms
-11:27:20.555 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
-11:27:20.558 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
-11:27:20.558 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
-11:27:20.561 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.19 seconds (process running for 1827.452)
-11:27:20.562 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged
-11:27:29.663 [http-nio-8080-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
-11:27:29.663 [http-nio-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
-11:27:29.664 [http-nio-8080-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
-11:27:29.665 [http-nio-8080-exec-1] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: i2cat_desktop_features
-11:27:29.700 [http-nio-8080-exec-1] INFO  g.i.a.x.c.VisualizationController - Retrieved columns for datasetId i2cat_desktop_features: [Field [name=timestamp, type=LOCAL_DATE_TIME], Field [name=dns_interlog_time_q1, type=DOUBLE], Field [name=dns_interlog_time_q2, type=DOUBLE], Field [name=dns_interlog_time_q3, type=DOUBLE], Field [name=dns_interlog_time_q4, type=DOUBLE], Field [name=dns_interlog_time_q5, type=DOUBLE], Field [name=ssl_interlog_time_q1, type=DOUBLE], Field [name=ssl_interlog_time_q2, type=DOUBLE], Field [name=ssl_interlog_time_q3, type=DOUBLE], Field [name=ssl_interlog_time_q4, type=DOUBLE], Field [name=ssl_interlog_time_q5, type=DOUBLE], Field [name=http_interlog_time_q1, type=DOUBLE], Field [name=http_interlog_time_q2, type=DOUBLE], Field [name=http_interlog_time_q3, type=DOUBLE], Field [name=http_interlog_time_q4, type=DOUBLE], Field [name=http_interlog_time_q5, type=DOUBLE], Field [name=mean_interlog_time_dns_interlog_time, type=DOUBLE], Field [name=std_interlog_time_dns_interlog_time, type=INTEGER], Field [name=mean_interlog_time_ssl_interlog_time, type=DOUBLE], Field [name=std_interlog_time_ssl_interlog_time, type=INTEGER], Field [name=mean_interlog_time_http_interlog_time, type=DOUBLE], Field [name=std_interlog_time_http_interlog_time, type=INTEGER], Field [name=dns_protocol_tcp_ratio, type=DOUBLE], Field [name=dns_common_tcp_ports_ratio, type=INTEGER], Field [name=dns_common_udp_ports_ratio, type=DOUBLE], Field [name=dns_rcode_error_ratio, type=DOUBLE], Field [name=dns_rcode_nxdomain_ratio, type=DOUBLE], Field [name=dns_rcode_noauth_ratio, type=INTEGER], Field [name=dns_rcode_refused_ratio, type=DOUBLE], Field [name=dns_rcode_notzone_ratio, type=INTEGER], Field [name=dns_authoritative_ans_ratio, type=DOUBLE], Field [name=dns_recursion_desired_ratio, type=DOUBLE], Field [name=dns_rejected_ratio, type=DOUBLE], Field [name=dns_truncation_ratio, type=DOUBLE], Field [name=dns_mean_TTL, type=DOUBLE], Field [name=dns_len_TTL, type=DOUBLE], Field [name=dns_qtype_obsolete_ratio, type=DOUBLE], Field [name=dns_non_reserved_srcport_ratio, type=DOUBLE], Field [name=dns_non_reserved_dstport_ratio, type=DOUBLE], Field [name=dns_usual_dns_srcport_ratio, type=DOUBLE], Field [name=dns_usual_dns_dstport_ratio, type=DOUBLE], Field [name=dns_shorturl_ratio, type=INTEGER], Field [name=dns_compromised_domain_ratio, type=DOUBLE], Field [name=dns_compromised_dstip_ratio, type=INTEGER], Field [name=dns_socialmedia_ratio, type=DOUBLE], Field [name=ssl_version_ratio_v10, type=DOUBLE], Field [name=ssl_version_ratio_v20, type=INTEGER], Field [name=ssl_version_ratio_v30, type=INTEGER], Field [name=ssl_established_ratio, type=DOUBLE], Field [name=ssl_compromised_dst_ip_ratio, type=INTEGER], Field [name=ssl_resumed_ratio, type=DOUBLE], Field [name=ssl_validation_status_ratio, type=DOUBLE], Field [name=ssl_curve_standard_ratio, type=DOUBLE], Field [name=ssl_last_alert_ratio, type=DOUBLE], Field [name=http_request_body_len_ratio, type=DOUBLE], Field [name=http_response_body_len_ratio, type=DOUBLE], Field [name=http_method_get_ratio, type=DOUBLE], Field [name=http_method_post_ratio, type=DOUBLE], Field [name=http_method_head_ratio, type=DOUBLE], Field [name=http_method_put_ratio, type=INTEGER], Field [name=http_status_200_ratio, type=DOUBLE], Field [name=http_status_400_ratio, type=DOUBLE], Field [name=http_private_con_ratio, type=DOUBLE], Field [name=http_compromised_dstip_ratio, type=INTEGER], Field [name=http_version_obsolete_ratio, type=DOUBLE], Field [name=smtp_in_mean_hops, type=DOUBLE], Field [name=smtp_subject_num_words, type=DOUBLE], Field [name=smtp_subject_num_characters, type=DOUBLE], Field [name=smtp_subject_richness, type=DOUBLE], Field [name=smtp_subject_in_phishing_words, type=DOUBLE], Field [name=smtp_in_is_reply, type=DOUBLE], Field [name=smtp_in_is_forwarded, type=DOUBLE], Field [name=smtp_in_is_normal, type=DOUBLE], Field [name=smtp_in_is_spam, type=DOUBLE], Field [name=smtp_in_files, type=INTEGER], Field [name=smtp_in_hazardous_extensions, type=INTEGER], Field [name=non_working_days_dns, type=DOUBLE], Field [name=non_working_days_http, type=DOUBLE], Field [name=non_working_days_ssl, type=DOUBLE], Field [name=non_working_hours_dns, type=DOUBLE], Field [name=non_working_hours_http, type=DOUBLE], Field [name=non_working_hours_ssl, type=DOUBLE], Field [name=entity, type=INTEGER], Field [name=label, type=DOUBLE]]
-11:27:32.333 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1, dns_interlog_time_q3, smtp_in_mean_hops], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=0}, type=equals]], groupBy=[], limit=100, taskId=2, viewPort=null, visualizationType=line]
-11:27:32.335 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: i2cat_desktop_features
-11:27:32.380 [http-nio-8080-exec-3] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
-11:27:32.380 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: i2cat_desktop_features
-11:27:32.380 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Processing data for datasetId: i2cat_desktop_features
-11:27:32.380 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: i2cat_desktop_features
-11:27:32.413 [http-nio-8080-exec-3] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
-11:27:32.419 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
-11:27:34.535 [http-nio-8080-exec-4] INFO  g.i.a.x.c.VisualizationController - Request for explainability hyperparameterExplanationpdpModel__learning_rateI2Cat_Phising_model
+17:41:04.920 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+17:41:05.043 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.11 with PID 14540 (/Users/admin/vis-api/target/classes started by admin in /Users/admin/vis-api)
+17:41:05.044 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+17:41:05.129 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+17:41:05.130 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+17:41:07.220 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+17:41:07.240 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+17:41:07.248 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+17:41:07.248 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+17:41:07.336 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+17:41:07.336 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2206 ms
+17:41:08.503 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+17:41:08.523 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+17:41:08.550 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+17:41:08.570 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 4.176 seconds (process running for 5.501)
+17:41:46.972 [http-nio-8080-exec-2] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+17:41:46.974 [http-nio-8080-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+17:41:47.029 [http-nio-8080-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 54 ms
+17:41:47.382 [http-nio-8080-exec-2] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=h]
+17:41:47.393 [http-nio-8080-exec-2] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:41:48.347 [http-nio-8080-exec-2] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:41:48.356 [http-nio-8080-exec-2] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:41:48.356 [http-nio-8080-exec-2] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:41:48.356 [http-nio-8080-exec-2] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:41:48.480 [http-nio-8080-exec-2] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: null
+17:41:48.480 [http-nio-8080-exec-2] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:41:48.485 [http-nio-8080-exec-2] INFO  g.i.a.x.datasource.QueryExecutor - rowse329
+17:41:48.559 [http-nio-8080-exec-2] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:41:48.563 [http-nio-8080-exec-2] INFO  g.i.a.x.datasource.QueryExecutor - No normalization applied
+17:41:48.606 [http-nio-8080-exec-2] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:42:04.663 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=null}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=h]
+17:42:04.664 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:04.828 [http-nio-8080-exec-3] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:42:04.828 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:42:04.829 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:04.830 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:42:04.831 [http-nio-8080-exec-3] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:42:04.936 [http-nio-8080-exec-3] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
+17:42:04.938 [http-nio-8080-exec-3] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:42:04.950 [http-nio-8080-exec-3] INFO  g.i.a.x.datasource.QueryExecutor - rowse134
+17:42:04.954 [http-nio-8080-exec-3] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:42:04.955 [http-nio-8080-exec-3] INFO  g.i.a.x.datasource.QueryExecutor - No normalization applied
+17:42:04.958 [http-nio-8080-exec-3] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:42:28.036 [http-nio-8080-exec-4] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=0}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=h]
+17:42:28.038 [http-nio-8080-exec-4] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:28.138 [http-nio-8080-exec-4] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:42:28.139 [http-nio-8080-exec-4] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:42:28.139 [http-nio-8080-exec-4] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:28.139 [http-nio-8080-exec-4] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:42:28.139 [http-nio-8080-exec-4] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=h]
+17:42:28.224 [http-nio-8080-exec-4] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
+17:42:28.224 [http-nio-8080-exec-4] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:42:28.237 [http-nio-8080-exec-4] INFO  g.i.a.x.datasource.QueryExecutor - rowse134
+17:42:28.239 [http-nio-8080-exec-4] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:42:28.239 [http-nio-8080-exec-4] INFO  g.i.a.x.datasource.QueryExecutor - No normalization applied
+17:42:28.240 [http-nio-8080-exec-4] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:42:35.064 [http-nio-8080-exec-5] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=0}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=z]
+17:42:35.065 [http-nio-8080-exec-5] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:35.140 [http-nio-8080-exec-5] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:42:35.140 [http-nio-8080-exec-5] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:42:35.140 [http-nio-8080-exec-5] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:35.140 [http-nio-8080-exec-5] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:42:35.140 [http-nio-8080-exec-5] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:42:35.217 [http-nio-8080-exec-5] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
+17:42:35.217 [http-nio-8080-exec-5] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:42:35.222 [http-nio-8080-exec-5] INFO  g.i.a.x.datasource.QueryExecutor - rowse134
+17:42:35.224 [http-nio-8080-exec-5] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:42:35.388 [http-nio-8080-exec-5] INFO  g.i.a.x.datasource.QueryExecutor - Standardization applied to column 'dns_interlog_time_q1'.
+17:42:35.389 [http-nio-8080-exec-5] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:42:56.748 [http-nio-8080-exec-6] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=null}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=z]
+17:42:56.754 [http-nio-8080-exec-6] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:56.895 [http-nio-8080-exec-6] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:42:56.895 [http-nio-8080-exec-6] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:42:56.896 [http-nio-8080-exec-6] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:42:56.896 [http-nio-8080-exec-6] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:42:56.897 [http-nio-8080-exec-6] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:42:56.973 [http-nio-8080-exec-6] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
+17:42:56.974 [http-nio-8080-exec-6] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:42:56.979 [http-nio-8080-exec-6] INFO  g.i.a.x.datasource.QueryExecutor - rowse134
+17:42:56.983 [http-nio-8080-exec-6] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:42:56.985 [http-nio-8080-exec-6] INFO  g.i.a.x.datasource.QueryExecutor - Standardization applied to column 'dns_interlog_time_q1'.
+17:42:56.987 [http-nio-8080-exec-6] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:43:10.073 [http-nio-8080-exec-7] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q1, rawValue={value=null}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=z]
+17:43:10.075 [http-nio-8080-exec-7] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:43:10.156 [http-nio-8080-exec-7] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:43:10.157 [http-nio-8080-exec-7] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q1, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:43:10.174 [http-nio-8080-exec-7] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:43:10.176 [http-nio-8080-exec-7] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:43:10.176 [http-nio-8080-exec-7] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q1, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:43:10.380 [http-nio-8080-exec-7] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 27
+17:43:10.380 [http-nio-8080-exec-7] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:43:10.385 [http-nio-8080-exec-7] INFO  g.i.a.x.datasource.QueryExecutor - rowse27
+17:43:10.395 [http-nio-8080-exec-7] INFO  g.i.a.x.datasource.QueryExecutor - rowint27
+17:43:10.396 [http-nio-8080-exec-7] WARN  g.i.a.x.datasource.QueryExecutor - Cannot standardize column 'dns_interlog_time_q1' because standard deviation is zero.
+17:43:10.397 [http-nio-8080-exec-7] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful
+17:43:21.481 [http-nio-8080-exec-8] INFO  g.i.a.x.c.VisualizationController - RRRRequest for visualization data VisualizationDataRequest [aggFunction=null, columns=[timestamp, dns_interlog_time_q1], constraints={}, filters=[AbstractFilter [column=dns_interlog_time_q3, rawValue={value=null}, type=equals]], groupBy=[], limit=30, taskId=10, viewPort=null, visualizationType=line, minMaxScale=z]
+17:43:21.483 [http-nio-8080-exec-8] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:43:21.575 [http-nio-8080-exec-8] INFO  g.i.a.x.domain.Query.VisualQuery - type: DOUBLE
+17:43:21.575 [http-nio-8080-exec-8] INFO  g.i.a.x.c.VisualizationController - Visualization query before getdata: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:43:21.575 [http-nio-8080-exec-8] INFO  g.i.a.x.service.DataService - Retrieving columns for datasetId: test
+17:43:21.575 [http-nio-8080-exec-8] INFO  g.i.a.x.service.DataService - Processing data for datasetId: test
+17:43:21.575 [http-nio-8080-exec-8] INFO  g.i.a.x.service.DataService - Executing.. query for datasetId: VisualQuery [datasetId=test, filters=[EqualsFilter [column=dns_interlog_time_q3, type=equals, equalValue=0.0]], columns=[timestamp, dns_interlog_time_q1], viewPort=null, limit=30, isMinMaxScale=z]
+17:43:21.673 [http-nio-8080-exec-8] DEBUG g.i.a.x.datasource.QueryExecutor - Selection is: Selection of size: 134
+17:43:21.673 [http-nio-8080-exec-8] INFO  g.i.a.x.datasource.QueryExecutor - row329
+17:43:21.679 [http-nio-8080-exec-8] INFO  g.i.a.x.datasource.QueryExecutor - rowse134
+17:43:21.682 [http-nio-8080-exec-8] INFO  g.i.a.x.datasource.QueryExecutor - rowint30
+17:43:21.683 [http-nio-8080-exec-8] INFO  g.i.a.x.datasource.QueryExecutor - Standardization applied to column 'dns_interlog_time_q1'.
+17:43:21.684 [http-nio-8080-exec-8] INFO  g.i.a.x.c.VisualizationController - Visualization data retrieval successful

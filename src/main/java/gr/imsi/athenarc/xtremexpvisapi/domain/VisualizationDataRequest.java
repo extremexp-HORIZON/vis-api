@@ -16,7 +16,15 @@ public class VisualizationDataRequest {
     private Map<String, Object> constraints;
     private String taskId;
     private Integer limit;
+    private String scaler;
 
+    
+    public String getScaler() {
+        return scaler;
+    }
+    public void setScaler(String scaler) {
+        this.scaler = scaler;
+    }
     public String getVisualizationType() {
         return visualizationType;
     }
@@ -75,7 +83,7 @@ public class VisualizationDataRequest {
     public String toString() {
         return "VisualizationDataRequest [aggFunction=" + aggFunction + ", columns=" + columns + ", constraints="
                 + constraints + ", filters=" + filters + ", groupBy=" + groupBy + ", limit=" + limit + ", taskId="
-                + taskId + ", viewPort=" + viewPort + ", visualizationType=" + visualizationType + "]";
+                + taskId + ", viewPort=" + viewPort + ", visualizationType=" + visualizationType + ", minMaxScale=" + scaler + "]";
     }
 
 }

@@ -3,6 +3,8 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -13,6 +15,7 @@ import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
@@ -22,11 +25,16 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFi
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.NumberRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import tech.tablesaw.api.ColumnType;
+import tech.tablesaw.api.DateTimeColumn;
+import tech.tablesaw.api.DoubleColumn;
+import tech.tablesaw.api.NumberColumn;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 import tech.tablesaw.io.csv.CsvReadOptions;
 import tech.tablesaw.selection.Selection;
+import tech.tablesaw.aggregate.AggregateFunctions;
+
 
 public class QueryExecutor {
  
@@ -128,19 +136,49 @@ public class QueryExecutor {
             // Get the resulting table
             Table resultTable = table;
 
+            LOG.info("row"+resultTable.rowCount());
+
+
             // Selection
             if(selection != null)
                 resultTable = table.where(selection);
+            
+            LOG.info("rowse"+resultTable.rowCount());
+
+
 
             // Limit
             Integer limit = query.getLimit();
-            if(limit != null) resultTable = resultTable.first(limit); 
+            if(limit != null)
+                resultTable = resultTable.first(limit); 
+
+
+            LOG.info("rowint"+resultTable.rowCount());
+
+            
 
             // Projection 
             String[] columnNames = query.getColumns().toArray(String[]::new);
-            if(columnNames.length != 0)
+            if(columnNames.length != 0){
                 resultTable = resultTable.selectColumns(columnNames);
+            }
+            
+            List<String> columnsToNormalize = Arrays.asList(columnNames);
+            List<String> filteredColumns = columnsToNormalize.stream()
+                .filter(columnName -> !columnName.equalsIgnoreCase("timestamp") && !columnName.equalsIgnoreCase("datetime"))
+                .collect(Collectors.toList());
+            String normalizationType = query.getScaler(); // Assuming this returns a String now
+            if ("z".equalsIgnoreCase(normalizationType)) {
+                applyZScoreNormalization(resultTable, filteredColumns);
+            } else if ("minmax".equalsIgnoreCase(normalizationType)) {
+                applyMinMaxNormalization(resultTable, filteredColumns);
+            } else if ("log".equalsIgnoreCase(normalizationType)) {
+                applyLogTransformation(resultTable, filteredColumns);
+            } else {
 
+                LOG.info("No normalization applied");
+            }
+           
             visualizationResults.setData(getJsonDataFromTableSawTable(resultTable));
             visualizationResults.setMessage("200");
         } catch (IOException e) {
@@ -154,21 +192,110 @@ public class QueryExecutor {
         
     }
 
-
-    
-
-    private Table sampleData(Table table, int sampleSize, String sampleRule) {
-        // Implement sampling logic based on the rule: equal, range, random
-        switch (sampleRule) {
-            case "equal":
-                return table.sampleN(sampleSize);
-            case "range":
-                // Implement range sampling
-                break;
-            case "random":
-                return table.sampleN(sampleSize);
+    public Table changeGranularity(Table table, String dateTimeColumnName, ChronoUnit granularity) {
+        if (!table.columnNames().contains(dateTimeColumnName)) {
+            LOG.error("Datetime column '{}' not found in the table.", dateTimeColumnName);
+            return table;
         }
-        return table;
+    
+        // Get the original datetime column
+        DateTimeColumn dateTime = (DateTimeColumn) table.column(dateTimeColumnName);
+    
+        // Create a new column with rounded datetime values
+        DateTimeColumn modifiedDateTime = DateTimeColumn.create("RoundedDateTime");
+
+        // Manually rounding the datetime to the specified granularity
+        for (int i = 0; i < dateTime.size(); i++) {
+            switch (granularity) {
+                case MINUTES:
+                    modifiedDateTime.append(dateTime.get(i).truncatedTo(ChronoUnit.MINUTES));
+                    break;
+                case HOURS:
+                    modifiedDateTime.append(dateTime.get(i).truncatedTo(ChronoUnit.HOURS));
+                    break;
+                case DAYS:
+                    modifiedDateTime.append(dateTime.get(i).truncatedTo(ChronoUnit.DAYS));
+                    break;
+                default:
+                    LOG.error("Unsupported granularity '{}'.", granularity);
+                    return table;
+            }
+        }    
+        // Add this new column to the table
+        table.addColumns(modifiedDateTime);
+    
+        // Now, group by this new column and aggregate other columns
+        Table newtable = table.summarize(table.columnNames().stream()
+            .filter(col -> col.equals(dateTimeColumnName) == false && table.column(col) instanceof NumberColumn)
+            .collect(Collectors.toList()), AggregateFunctions.max).by("RoundedDateTime");
+    
+        // Replace or update the original table as needed
+        // table.replaceColumns(resuTable.columns());
+        LOG.info("Data granularity changed and aggregated by '{}'.", newtable.print());
+        return newtable;
+    }
+
+
+
+
+    public void applyMinMaxNormalization(Table table, List<String> columnNames) {
+        for (String columnName : columnNames) {
+            if (table.columnNames().contains(columnName)) {
+            // Cast the column to DoubleColumn to work with numerical data
+                DoubleColumn numericColumn = table.doubleColumn(columnName);
+    
+                Double min = table.doubleColumn(columnName).min();
+                Double max = table.doubleColumn(columnName).max();
+    
+                if (min != max) {
+                    DoubleColumn normalized = numericColumn.map(value -> (value - min) / (max - min));
+                // Replace the original column with the normalized one
+                    table.replaceColumn(columnName, normalized.setName(columnName + "_normalized"));
+                    LOG.info("Normalization applied to column '{}'.", columnName);
+                } else {
+                    LOG.warn("Cannot normalize column '{}' because all values are the same.", columnName);
+                }
+            } else {
+                LOG.warn("Column '{}' not found in the table.", columnName);
+            }
+        }
+    }
+
+
+    public void applyZScoreNormalization(Table table, List<String> columnNames) {
+        for (String columnName : columnNames) {
+            if (table.columnNames().contains(columnName)) {
+                DoubleColumn numericColumn = table.doubleColumn(columnName);
+    
+                double mean = numericColumn.mean();
+                double standardDeviation = numericColumn.standardDeviation();
+    
+                if (standardDeviation > 0) {
+                    DoubleColumn standardized = numericColumn.map(value -> (value - mean) / standardDeviation);
+                    table.replaceColumn(columnName, standardized.setName(columnName + "_standardized"));
+                    LOG.info("Standardization applied to column '{}'.", columnName);
+                } else {
+                    LOG.warn("Cannot standardize column '{}' because standard deviation is zero.", columnName);
+                }
+            } else {
+                LOG.warn("Column '{}' not found in the table.", columnName);
+            }
+        }
+    }
+
+    public void applyLogTransformation(Table table, List<String> columnNames) {
+        for (String columnName : columnNames) {
+            if (table.columnNames().contains(columnName)) {
+                DoubleColumn numericColumn = table.doubleColumn(columnName);
+    
+                // Apply log transformation, adding 1 to avoid log(0)
+                DoubleColumn logTransformed = numericColumn.map(value -> Math.log(value + 1));
+                table.replaceColumn(columnName, logTransformed.setName(columnName + "_log_transformed"));
+                LOG.info("Log transformation applied to column '{}'.", columnName);
+            } else {
+                LOG.warn("Column '{}' not found in the table.", columnName);
+            }
+        }
     }
 
     private CsvReadOptions createCsvReadOptions(InputStream inputStream) {

@@ -66,13 +66,17 @@ public class VisualizationController {
             datasetId,
          visualizationDataRequest.getViewPort(), 
          visualizationDataRequest.getColumns(),
-          visualizationDataRequest.getLimit()
+          visualizationDataRequest.getLimit(),
+          visualizationDataRequest.getScaler()
+          
           );
 
         visualQuery.instantiateFilters(
             visualizationDataRequest.getFilters(),
          dataService.getColumns(datasetId)
          ); // TODO: Cache dataset
+
+        LOG.info("Visualization query before getdata: {}", visualQuery);
         try {
             visualizationResults = dataService.getData(visualQuery);
         } catch (Exception e) {
