@@ -60,7 +60,7 @@ public class CsvDataSource implements DataSource {
         if (isLocalFile(source)) {
             table = readCsvFromFile(source.replace("file://", ""));
         } else { // zenoh
-            table = readCsvFromApi(source);
+            table = readCsvFromApi(source.replace("zenoh://", ""));
         }
         return table;
     }
