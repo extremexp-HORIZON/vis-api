@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
@@ -18,9 +17,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 public class DataService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
-
-    @Value("${app.schema.path}")
-    String schemaPath = "";
     
 
     public VisualizationResults getData(VisualQuery visualQuery) {
