@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,6 +24,12 @@ import io.grpc.ManagedChannelBuilder;
 
 @Service
 public class ExplainabilityService extends ExplanationsImplBase{
+    @Value("${app.grpc.host.name}")
+    String grpcHostName = "";
+
+    @Value("${app.grpc.host.port}")
+    String grpcHostPort = "";
+    
     
     public InitializationRes GetInitialization (InitializationReq req) throws InvalidProtocolBufferException, JsonProcessingException {
 
@@ -31,7 +38,9 @@ public class ExplainabilityService extends ExplanationsImplBase{
                 .build();
 
         // Create a channel to connect to the target gRPC server
-        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
+        // ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
+        ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
+
                 .usePlaintext()
                 .build();
 
@@ -65,7 +74,9 @@ public class ExplainabilityService extends ExplanationsImplBase{
         // .setTarget(req.getTarget())
         // .setFeatures(req.getFeatures())
         .build();
-        ManagedChannel channel = ManagedChannelBuilder.forAddress("leviathan.imsi.athenarc.gr", 50051)
+        // ManagedChannel channel = ManagedChannelBuilder.forAddress("leviathan.imsi.athenarc.gr", 50051)
+        ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
+
         .usePlaintext()
         .build();
 
