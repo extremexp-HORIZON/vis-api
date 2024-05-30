@@ -19,7 +19,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
 
-public class VisualQuery{
+public class VisualQuery {
 
     private static final Logger LOG = LoggerFactory.getLogger(VisualQuery.class);
 
@@ -48,13 +48,9 @@ public class VisualQuery{
         this.aggFunction=aggFunction;
     }
 
-    
-
     public String getAggFunction() {
         return aggFunction;
     }
-
-
 
     public String getScaler() {
         return scaler;
@@ -85,7 +81,7 @@ public class VisualQuery{
     }
 
     public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){
-        this.filters = visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList();
+        this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
     }
 
     private AbstractFilter mapFilter(AbstractFilter filter, List<VisualColumn> columns){

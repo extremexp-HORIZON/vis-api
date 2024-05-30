@@ -47,35 +47,34 @@ public class VisualizationController {
     @PostMapping("/initialization")
     public ResponseEntity<InitializationRes> data(@RequestBody InitializationReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability initialization for dataset {}", request.getModelName());
-
         return ResponseEntity.ok(explainabilityService.GetInitialization(request));
     }
+
     @PostMapping("/explainability")
     public ResponseEntity<ExplanationsRes> data(@RequestBody ExplanationsReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability {}{}{}{}", request.getExplanationType(),request.getExplanationMethod(),request.getFeature1(), request.getModel());
-    
         return ResponseEntity.ok(explainabilityService.GetExplains(request));
     }
 
-    @PostMapping("/visualization/data/{datasetId}")
-    public ResponseEntity<VisualizationResults> data(@PathVariable String datasetId, @Valid @RequestBody VisualizationDataRequest visualizationDataRequest) {
+    @PostMapping("/visualization/data")
+    public ResponseEntity<VisualizationResults> data(@Valid @RequestBody VisualizationDataRequest visualizationDataRequest) {
         LOG.info("RRRRequest for visualization data {}", visualizationDataRequest);
         VisualizationResults visualizationResults = new VisualizationResults();
+        String datasetId = visualizationDataRequest.getDatasetId();
         
         VisualQuery visualQuery = new VisualQuery(
             datasetId,
-         visualizationDataRequest.getViewPort(), 
-         visualizationDataRequest.getColumns(),
-          visualizationDataRequest.getLimit(),
-          visualizationDataRequest.getScaler(),
-          visualizationDataRequest.getAggFunction()
-          
-          );
+            visualizationDataRequest.getViewPort(), 
+            visualizationDataRequest.getColumns(),
+            visualizationDataRequest.getLimit(),
+            visualizationDataRequest.getScaler(),
+            visualizationDataRequest.getAggFunction()
+        );
 
         visualQuery.instantiateFilters(
             visualizationDataRequest.getFilters(),
-         dataService.getColumns(datasetId)
-         ); // TODO: Cache dataset
+            dataService.getColumns(datasetId)
+        );
 
         LOG.info("Visualization query before getdata: {}", visualQuery);
         try {
@@ -84,15 +83,14 @@ public class VisualizationController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
-        if(visualizationResults.getMessage().equals("400"))  return ResponseEntity.badRequest().body(visualizationResults);
+        if(visualizationResults.getData() == null)  return ResponseEntity.badRequest().body(visualizationResults);
         LOG.info("Visualization data retrieval successful");
     
         return ResponseEntity.ok(visualizationResults);
     }
 
-    @GetMapping("/visualization/data/{datasetId}/columns")
-    public ResponseEntity<List<VisualColumn>> getColumns(@PathVariable String datasetId) {
-
+    @GetMapping("/visualization/data/columns")
+    public ResponseEntity<List<VisualColumn>> getColumns(String datasetId) {
         try {
             // Retrieve columns for the specified datasetId
             List<VisualColumn> columns = dataService.getColumns(datasetId);
@@ -110,8 +108,8 @@ public class VisualizationController {
     }
 
 
-    @GetMapping("/visualization/data/{datasetId}/column/{columnName}")
-    public ResponseEntity<String> getColumn(@PathVariable String datasetId, @PathVariable String columnName) {
+    @GetMapping("/visualization/data/columns/{columnName}")
+    public ResponseEntity<String> getColumn(String datasetId, @PathVariable String columnName) {
     
         try {
             // Retrieve the specified column value for the datasetId and columnName
