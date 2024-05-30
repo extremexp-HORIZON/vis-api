@@ -8,20 +8,25 @@ public interface TableContentsOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>repeated string values = 1;</code>
+   * <code>int32 index = 1;</code>
+   */
+  int getIndex();
+
+  /**
+   * <code>repeated string values = 2;</code>
    */
   java.util.List<java.lang.String>
       getValuesList();
   /**
-   * <code>repeated string values = 1;</code>
+   * <code>repeated string values = 2;</code>
    */
   int getValuesCount();
   /**
-   * <code>repeated string values = 1;</code>
+   * <code>repeated string values = 2;</code>
    */
   java.lang.String getValues(int index);
   /**
-   * <code>repeated string values = 1;</code>
+   * <code>repeated string values = 2;</code>
    */
   com.google.protobuf.ByteString
       getValuesBytes(int index);
