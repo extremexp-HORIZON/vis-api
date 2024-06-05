@@ -1,4 +1,31 @@
-12:52:02.470 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
-12:52:02.508 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Starting XtremexpVisApiApplicationTests using Java 21.0.2 with PID 19380 (started by konko in C:\Users\konko\Desktop\vis-api)
-12:52:02.510 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - No active profile set, falling back to 1 default profile: "default"
-12:52:05.707 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Started XtremexpVisApiApplicationTests in 3.527 seconds (process running for 5.051)
+16:53:13.458 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+16:53:13.589 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.11 with PID 13520 (C:\Users\konko\Desktop\vis-api\target\classes started by konko in C:\Users\konko\Desktop\vis-api)
+16:53:13.598 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+16:53:13.711 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+16:53:13.712 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+16:53:16.128 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+16:53:16.150 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+16:53:16.156 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+16:53:16.157 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+16:53:16.269 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+16:53:16.270 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2557 ms
+16:53:16.710 [restartedMain] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'csvDataSource' defined in file [C:\Users\konko\Desktop\vis-api\target\classes\gr\imsi\athenarc\xtremexpvisapi\datasource\CsvDataSource.class]: Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'java.lang.String' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+16:53:16.718 [restartedMain] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+16:53:16.755 [restartedMain] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+16:53:16.810 [restartedMain] ERROR o.s.b.d.LoggingFailureAnalysisReporter - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 0 of constructor in gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource required a bean of type 'java.lang.String' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'java.lang.String' in your configuration.
+

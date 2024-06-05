@@ -26,7 +26,7 @@ import tech.tablesaw.io.csv.CsvReadOptions;
 public class CsvDataSource implements DataSource {
 
     @Value("${app.working.directory}")
-    String workingDirectory;
+    public String workingDirectory;
 
     public String source;
     public CsvQueryExecutor csvQueryExecutor;
