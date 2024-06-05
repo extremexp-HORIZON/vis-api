@@ -9,6 +9,7 @@ public class Feature_Explanation {
     private String[] featureNames;
     private Map<String, ExplanationsRes> plots;
     private Map<String, ExplanationsRes> tables;
+    private String modelMetrics;
 
     public String[] getFeatureNames() {
         return featureNames;
@@ -32,6 +33,14 @@ public class Feature_Explanation {
 
     public void setTables(Map<String, ExplanationsRes> tables) {
         this.tables = tables;
+    }
+
+    public String getModelMetrics() {
+        return modelMetrics;
+    }
+
+    public void setModelMetrics(String modelMetrics) {
+        this.modelMetrics = modelMetrics;
     }
     
 }

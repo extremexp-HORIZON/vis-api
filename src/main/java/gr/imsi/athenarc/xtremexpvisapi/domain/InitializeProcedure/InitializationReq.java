@@ -4,7 +4,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
 public class InitializationReq {
     private String modelName;
-    private VisualQuery visualQuery;
+    private VisualQuery pipelineQuery;
+    private VisualQuery modelQuery;
 
     // Getters and Setters
     public String getModelName() {
@@ -22,13 +23,22 @@ public class InitializationReq {
                 '}';
     }
 
-    public VisualQuery getVisualQuery() {
-        return visualQuery;
+    public VisualQuery getPipelineQuery() {
+        return pipelineQuery;
     }
 
-    public void setVisualQuery(VisualQuery visualQuery) {
-        this.visualQuery = visualQuery;
+    public void setPipelineQuery(VisualQuery pipelineQuery) {
+        this.pipelineQuery = pipelineQuery;
     }
+
+    public VisualQuery getModelQuery() {
+        return modelQuery;
+    }
+
+    public void setModelQuery(VisualQuery modelQuery) {
+        this.modelQuery = modelQuery;
+    }
+    
 }
 
 

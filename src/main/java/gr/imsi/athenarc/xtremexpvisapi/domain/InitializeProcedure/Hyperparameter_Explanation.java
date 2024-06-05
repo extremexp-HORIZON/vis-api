@@ -10,7 +10,7 @@ public class Hyperparameter_Explanation {
     private List<String> hyperparameterNames;
     private Map<String, ExplanationsRes> plots;
     private Map<String, ExplanationsRes> tables;
-    private String experimentMetrics;
+    private String pipelineMetrics;
 
     // Getters    
     public List<String> getHyperparameterNames() {
@@ -47,12 +47,12 @@ public class Hyperparameter_Explanation {
                 '}';
     }
 
-    public String getExperimentMetrics() {
-        return experimentMetrics;
+    public String getPipelineMetrics() {
+        return pipelineMetrics;
     }
 
-    public void setExperimentMetrics(String experimentMetrics) {
-        this.experimentMetrics = experimentMetrics;
+    public void setPipelineMetrics(String pipelineMetrics) {
+        this.pipelineMetrics = pipelineMetrics;
     }
     
 }
