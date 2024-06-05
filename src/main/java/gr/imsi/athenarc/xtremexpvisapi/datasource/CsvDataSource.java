@@ -22,11 +22,7 @@ import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 import tech.tablesaw.io.csv.CsvReadOptions;
 
-@Component
 public class CsvDataSource implements DataSource {
-
-    @Value("${app.working.directory}")
-    public String workingDirectory;
 
     public String source;
     public CsvQueryExecutor csvQueryExecutor;
@@ -65,7 +61,7 @@ public class CsvDataSource implements DataSource {
     private Table getTable(String source){
         Table table;
         if (isLocalFile(source)) {
-            table = readCsvFromFile(workingDirectory + source.replace("file://", ""));
+            table = readCsvFromFile("/data/xtreme/experiments" + source.replace("file://", ""));
         } else { // zenoh
             table = readCsvFromApi(source.replace("zenoh://", ""));
         }
