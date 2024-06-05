@@ -60,21 +60,8 @@ public class VisualizationController {
     public ResponseEntity<VisualizationResults> data(@Valid @RequestBody VisualizationDataRequest visualizationDataRequest) {
         LOG.info("RRRRequest for visualization data {}", visualizationDataRequest);
         VisualizationResults visualizationResults = new VisualizationResults();
-        String datasetId = visualizationDataRequest.getDatasetId();
         
-        VisualQuery visualQuery = new VisualQuery(
-            datasetId,
-            visualizationDataRequest.getViewPort(), 
-            visualizationDataRequest.getColumns(),
-            visualizationDataRequest.getLimit(),
-            visualizationDataRequest.getScaler(),
-            visualizationDataRequest.getAggFunction()
-        );
-
-        visualQuery.instantiateFilters(
-            visualizationDataRequest.getFilters(),
-            dataService.getColumns(datasetId)
-        );
+        VisualQuery visualQuery = dataService.queryPreperation(visualizationDataRequest);
 
         LOG.info("Visualization query before getdata: {}", visualQuery);
         try {

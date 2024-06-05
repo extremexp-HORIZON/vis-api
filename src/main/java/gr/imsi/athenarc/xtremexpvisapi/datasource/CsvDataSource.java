@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
@@ -20,6 +22,9 @@ import tech.tablesaw.columns.Column;
 import tech.tablesaw.io.csv.CsvReadOptions;
 
 public class CsvDataSource implements DataSource {
+
+    @Value("${app.working.directory}")
+    String workingDirectory;
 
     public String source;
     public CsvQueryExecutor csvQueryExecutor;
@@ -58,7 +63,7 @@ public class CsvDataSource implements DataSource {
     private Table getTable(String source){
         Table table;
         if (isLocalFile(source)) {
-            table = readCsvFromFile(source.replace("file://", ""));
+            table = readCsvFromFile(workingDirectory + source.replace("file://", ""));
         } else { // zenoh
             table = readCsvFromApi(source.replace("zenoh://", ""));
         }

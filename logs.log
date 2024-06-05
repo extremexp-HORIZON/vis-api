@@ -1,4 +1,4 @@
-09:30:52.648 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
-09:30:52.654 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Starting XtremexpVisApiApplicationTests using Java 17.0.10 with PID 1800275 (started by kkozanis in /data/kkozanis/vis-api)
-09:30:52.656 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - No active profile set, falling back to 1 default profile: "default"
-09:30:54.429 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Started XtremexpVisApiApplicationTests in 2.037 seconds (process running for 3.191)
+12:52:02.470 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+12:52:02.508 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Starting XtremexpVisApiApplicationTests using Java 21.0.2 with PID 19380 (started by konko in C:\Users\konko\Desktop\vis-api)
+12:52:02.510 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - No active profile set, falling back to 1 default profile: "default"
+12:52:05.707 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Started XtremexpVisApiApplicationTests in 3.527 seconds (process running for 5.051)

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
@@ -17,6 +18,25 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 public class DataService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
+
+    public VisualQuery queryPreperation (VisualizationDataRequest visualizationDataRequest) {
+
+        VisualQuery visualQuery = new VisualQuery(
+            visualizationDataRequest.getDatasetId(),
+            visualizationDataRequest.getViewPort(), 
+            visualizationDataRequest.getColumns(),
+            visualizationDataRequest.getLimit(),
+            visualizationDataRequest.getScaler(),
+            visualizationDataRequest.getAggFunction()
+        );
+
+        visualQuery.instantiateFilters(
+            visualizationDataRequest.getFilters(),
+            getColumns(visualizationDataRequest.getDatasetId())
+        );
+
+        return visualQuery;
+    }
     
 
     public VisualizationResults getData(VisualQuery visualQuery) {

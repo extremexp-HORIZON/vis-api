@@ -29,6 +29,8 @@ public class ExplainabilityService extends ExplanationsImplBase{
 
     @Value("${app.grpc.host.port}")
     String grpcHostPort = "";
+
+    DataService dataService;
     
     
     public InitializationRes GetInitialization (InitializationReq req) throws InvalidProtocolBufferException, JsonProcessingException {
@@ -49,7 +51,7 @@ public class ExplainabilityService extends ExplanationsImplBase{
 
         // Invoke the remote method on the target server
         InitializationResponse response = stub.initialization(request);
-        System.out.println("RRRRRRRRResponse " + response.getHyperparameterExplanation().getPlotsCount());
+        System.out.println("Response " + response.getHyperparameterExplanation().getPlotsCount());
         String json = JsonFormat.printer().print(response);
         // Create an ObjectMapper
         ObjectMapper objectMapper = new ObjectMapper();
@@ -57,6 +59,8 @@ public class ExplainabilityService extends ExplanationsImplBase{
         InitializationRes responseObject = objectMapper.readValue(json, InitializationRes.class);
         // Shutdown the channel
         channel.shutdown();
+
+        responseObject.getHyperparameterExplanation().setExperimentMetrics(dataService.getData(req.getVisualQuery()).getData());
 
         return responseObject;
     }
