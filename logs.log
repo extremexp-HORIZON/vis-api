@@ -1,4 +1,13 @@
-09:30:52.648 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
-09:30:52.654 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Starting XtremexpVisApiApplicationTests using Java 17.0.10 with PID 1800275 (started by kkozanis in /data/kkozanis/vis-api)
-09:30:52.656 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - No active profile set, falling back to 1 default profile: "default"
-09:30:54.429 [main] INFO  g.i.a.x.XtremexpVisApiApplicationTests - Started XtremexpVisApiApplicationTests in 2.037 seconds (process running for 3.191)
+14:43:32.110 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Starting XtremexpVisApiApplication using Java 17.0.8.1 with PID 53420 (C:\Users\Tsosko\Desktop\vis-api\target\classes started by Tsosko in C:\Users\Tsosko\Desktop\vis-api)
+14:43:32.111 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - No active profile set, falling back to 1 default profile: "default"
+14:43:32.407 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8080 (http)
+14:43:32.409 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8080"]
+14:43:32.410 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+14:43:32.410 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.18]
+14:43:32.443 [restartedMain] INFO  o.a.c.c.C.[Tomcat-1].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+14:43:32.443 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 329 ms
+14:43:32.597 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+14:43:32.602 [restartedMain] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8080"]
+14:43:32.605 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/'
+14:43:32.610 [restartedMain] INFO  g.i.a.x.XtremexpVisApiApplication - Started XtremexpVisApiApplication in 0.532 seconds (process running for 1179.597)
+14:43:32.611 [restartedMain] INFO  o.s.b.d.a.ConditionEvaluationDeltaLoggingListener - Condition evaluation unchanged

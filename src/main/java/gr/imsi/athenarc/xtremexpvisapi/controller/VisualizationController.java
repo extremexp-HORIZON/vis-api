@@ -127,6 +127,12 @@ public class VisualizationController {
         }
     }
     
+    @GetMapping("/umap")
+    public float[][] getUMap() {
+        LOG.info("Get UMap");
+        return dataService.getUMapData();
+    }
+    
 }
 
 
