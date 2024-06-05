@@ -24,6 +24,7 @@ import io.grpc.ManagedChannelBuilder;
 
 @Service
 public class ExplainabilityService extends ExplanationsImplBase{
+
     @Value("${app.grpc.host.name}")
     String grpcHostName = "";
 
@@ -31,6 +32,10 @@ public class ExplainabilityService extends ExplanationsImplBase{
     String grpcHostPort = "";
 
     DataService dataService;
+
+    public ExplainabilityService(DataService dataService) {
+        this.dataService = dataService;
+    }
     
     
     public InitializationRes GetInitialization (InitializationReq req) throws InvalidProtocolBufferException, JsonProcessingException {
