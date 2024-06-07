@@ -5,23 +5,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 public class InitializationReq {
     private String modelName;
     private VisualQuery pipelineQuery;
-    private VisualQuery modelQuery;
-
-    // Getters and Setters
-    public String getModelName() {
-        return modelName;
-    }
-
-    public void setModelName(String modelName) {
-        this.modelName = modelName;
-    }
-
-    @Override
-    public String toString() {
-        return "InitializationRequest{" +
-                "modelName='" + modelName + '\'' +
-                '}';
-    }
+    private VisualQuery modelInstancesQuery;
+    private VisualQuery modelConfusionQuery;
 
     public VisualQuery getPipelineQuery() {
         return pipelineQuery;
@@ -31,13 +16,36 @@ public class InitializationReq {
         this.pipelineQuery = pipelineQuery;
     }
 
-    public VisualQuery getModelQuery() {
-        return modelQuery;
+    public String getModelName() {
+        return modelName;
     }
 
-    public void setModelQuery(VisualQuery modelQuery) {
-        this.modelQuery = modelQuery;
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
     }
+
+    public VisualQuery getModelInstancesQuery() {
+        return modelInstancesQuery;
+    }
+
+    public void setModelInstancesQuery(VisualQuery modelInstancesQuery) {
+        this.modelInstancesQuery = modelInstancesQuery;
+    }
+
+    public VisualQuery getModelConfusionQuery() {
+        return modelConfusionQuery;
+    }
+
+    public void setModelConfusionQuery(VisualQuery modelConfusionQuery) {
+        this.modelConfusionQuery = modelConfusionQuery;
+    }
+
+    @Override
+    public String toString() {
+        return "InitializationReq [modelName=" + modelName + ", pipelineQuery=" + pipelineQuery
+                + ", modelInstancesQuery=" + modelInstancesQuery + ", modelConfusionQuery=" + modelConfusionQuery + "]";
+    }
+    
     
 }
 
