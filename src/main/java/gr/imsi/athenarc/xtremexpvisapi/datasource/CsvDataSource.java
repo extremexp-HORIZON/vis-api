@@ -66,7 +66,7 @@ public class CsvDataSource implements DataSource {
     private Table getTable(String source){
         Table table;
         if (isLocalFile(source)) {
-            table = readCsvFromFile(source.replace("file://", ""));
+            table = readCsvFromFile("/data/xtreme/experiments/" + source.replace("file://", ""));
         } else { // zenoh
             table = readCsvFromZenoh(source.replace("zenoh://", ""));
         }
