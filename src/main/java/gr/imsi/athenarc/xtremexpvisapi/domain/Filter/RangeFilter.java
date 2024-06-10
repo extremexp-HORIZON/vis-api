@@ -35,9 +35,9 @@ public class RangeFilter<T> extends AbstractFilter {
         return "RangeFilter [column=" + getColumn() + ", type=" + getType() + ", minValue=" + minValue + ", maxValue=" + maxValue + "]";
     }
 
-    public class NumberRangeFilter extends RangeFilter<Double> {
+    public class DoubleRangeFilter extends RangeFilter<Double> {
 
-        public NumberRangeFilter(String column, Double minValue, Double maxValue) {
+        public DoubleRangeFilter(String column, Double minValue, Double maxValue) {
             super(column, minValue, maxValue);
             setType("range");
         }
@@ -49,6 +49,24 @@ public class RangeFilter<T> extends AbstractFilter {
 
         @Override
         public Double getMinValue() {
+            return super.getMinValue();
+        }
+    }
+
+    public class IntegerRangeFilter extends RangeFilter<Integer> {
+
+        public IntegerRangeFilter(String column, Integer minValue, Integer maxValue) {
+            super(column, minValue, maxValue);
+            setType("range");
+        }
+
+        @Override
+        public Integer getMaxValue() {
+            return super.getMaxValue();
+        }
+
+        @Override
+        public Integer getMinValue() {
             return super.getMinValue();
         }
     }

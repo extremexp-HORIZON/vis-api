@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +14,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.NumberRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DoubleRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import tech.tablesaw.api.DateTimeColumn;
 import tech.tablesaw.api.DoubleColumn;
@@ -40,9 +41,9 @@ public class CsvQueryExecutor {
                 Selection filterSelection = null;
                 if (filter instanceof RangeFilter) {
                     RangeFilter<?> rangeFilter = (RangeFilter<?>) filter;
-                    if (rangeFilter instanceof NumberRangeFilter) {
+                    if (rangeFilter instanceof DoubleRangeFilter) {
                         LOG.debug("Number range filtering {}, with min {} and max {}", rangeFilter.getColumn(), rangeFilter.getMinValue(), rangeFilter.getMaxValue());
-                        NumberRangeFilter numberRangeFilter = (NumberRangeFilter) rangeFilter;
+                        DoubleRangeFilter numberRangeFilter = (DoubleRangeFilter) rangeFilter;
                         // Assuming column is a Number column
                         filterSelection = table.numberColumn(rangeFilter.getColumn())
                                 .isGreaterThanOrEqualTo(numberRangeFilter.getMinValue())
@@ -71,6 +72,10 @@ public class CsvQueryExecutor {
                             break;
                         case "STRING":
                             filterSelection = table.stringColumn(equalsFilter.getColumn()).isEqualTo(equalsFilter.getValue().toString());
+                            break;
+                        case "LOCAL_DATE_TIME":
+                            LocalDateTime localDateTimeValue = LocalDateTime.parse(equalsFilter.getValue().toString());
+                            filterSelection = table.dateTimeColumn(equalsFilter.getColumn()).isEqualTo(localDateTimeValue);
                             break;
                         default:
                             throw new IllegalArgumentException("Unsupported column type for equals filter: " + columnTypeName);

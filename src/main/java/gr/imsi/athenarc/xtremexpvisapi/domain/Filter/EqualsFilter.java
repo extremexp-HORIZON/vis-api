@@ -26,15 +26,28 @@ public class EqualsFilter<T> extends AbstractFilter {
         return "EqualsFilter [column=" + getColumn() + ", type=" + getType() + ", equalValue=" + equalValue + "]";
     }
 
-    public class NumberEqualsFilter extends EqualsFilter<Double> {
+    public class DoubleEqualsFilter extends EqualsFilter<Double> {
 
-        public NumberEqualsFilter(String column, Double value) {
+        public DoubleEqualsFilter(String column, Double value) {
             super(column, value);
             setType("equals");
         }
 
         @Override
         public Double getValue() {
+            return super.getEqualValue();
+        }
+    }
+
+    public class IntegerEqualsFilter extends EqualsFilter<Integer> {
+
+        public IntegerEqualsFilter(String column, Integer value) {
+            super(column, value);
+            setType("equals");
+        }
+
+        @Override
+        public Integer getValue() {
             return super.getEqualValue();
         }
     }

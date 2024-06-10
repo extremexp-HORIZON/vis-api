@@ -28,6 +28,7 @@ public class VisualQuery {
         .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
         .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
         .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+        .parseDefaulting(ChronoField.MILLI_OF_SECOND, 0)
         .toFormatter(); 
         
     String datasetId;
@@ -98,17 +99,17 @@ public class VisualQuery {
                 LOG.info("type: {}", column.getType());
                 switch(column.getType()){
                     case "INTEGER" :
-                        Double minIntNumber = value.get("min").asDouble();
-                        Double maxIntNumber = value.get("max").asDouble();
-                        return rangeFilter.new NumberRangeFilter(column.getName(), minIntNumber, maxIntNumber);
+                        Integer minIntNumber = value.get("min").asInt();
+                        Integer maxIntNumber = value.get("max").asInt();
+                        return rangeFilter.new IntegerRangeFilter(column.getName(), minIntNumber, maxIntNumber);
                     case "FLOAT" :
                         Double minFloatNumber = value.get("min").asDouble();
                         Double maxFloatNumber = value.get("max").asDouble();
-                        return rangeFilter.new NumberRangeFilter(column.getName(), minFloatNumber, maxFloatNumber);
+                        return rangeFilter.new DoubleRangeFilter(column.getName(), minFloatNumber, maxFloatNumber);
                     case "DOUBLE" :
                         Double minDoubleNumber = value.get("min").asDouble();
                         Double maxDoubleNumber = value.get("max").asDouble();
-                        return rangeFilter.new NumberRangeFilter(column.getName(), minDoubleNumber, maxDoubleNumber);
+                        return rangeFilter.new DoubleRangeFilter(column.getName(), minDoubleNumber, maxDoubleNumber);
                     case "LOCAL_DATE_TIME":
                         LocalDateTime minDateTime = LocalDateTime.parse(value.get("min").asText(), dateTimeFormatter);
                         LocalDateTime maxDateTime =  LocalDateTime.parse(value.get("max").asText(), dateTimeFormatter);
@@ -122,13 +123,16 @@ public class VisualQuery {
                 LOG.info("type: {}", column.getType());
                 switch(column.getType()){
                     case "INTEGER":
+                        Integer number = value.asInt();
+                        LOG.debug("Creating equals filter for numeric type: {}", number);
+                        return equalsFilter.new IntegerEqualsFilter(column.getName(), number);
                     case "FLOAT":
                     case "DOUBLE":
-                        Double number = value.get("value").asDouble();
-                        LOG.debug("Creating equals filter for numeric type: {}", number);
-                        return equalsFilter.new NumberEqualsFilter(column.getName(), number);
+                        Double doubleNumber = value.asDouble();
+                        LOG.debug("Creating equals filter for numeric type: {}", doubleNumber);
+                        return equalsFilter.new DoubleEqualsFilter(column.getName(), doubleNumber);
                     case "LOCAL_DATE_TIME":
-                        LocalDateTime dateTime = LocalDateTime.parse(value.get("value").asText(), dateTimeFormatter);
+                        LocalDateTime dateTime = LocalDateTime.parse(value.asText(), dateTimeFormatter);
                         LOG.debug("Creating equals filter for date/time: {}", dateTime);
                         return equalsFilter.new DateTimeEqualsFilter(column.getName(), dateTime);
                     default:

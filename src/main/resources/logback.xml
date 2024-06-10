@@ -22,8 +22,8 @@
     <logger name ="gr.imsi.athenarc.xtremexpvisapi.XtremexpVisApiApplication" level="INFO"/>
     <logger name ="gr.imsi.athenarc.xtremexpvisapi.controller.VisualizationController" level="DEBUG"/>
     <logger name ="gr.imsi.athenarc.xtremexpvisapi.datasource.QueryExecutor" level="DEBUG"/>
-
-    <root level="info">
+    <logger name ="gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery" level="DEBUG"/>
+    <root level="debug">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
     </root>
