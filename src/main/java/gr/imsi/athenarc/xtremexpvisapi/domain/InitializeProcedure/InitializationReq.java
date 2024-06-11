@@ -1,44 +1,60 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 
 public class InitializationReq {
     private String modelName;
-    private VisualQuery pipelineQuery;
-    private VisualQuery modelInstancesQuery;
-    private VisualQuery modelConfusionQuery;
-
-    public VisualQuery getPipelineQuery() {
-        return pipelineQuery;
-    }
-
-    public void setPipelineQuery(VisualQuery pipelineQuery) {
-        this.pipelineQuery = pipelineQuery;
-    }
+    private VisualizationDataRequest pipelineQuery;
+    private VisualizationDataRequest modelInstancesQuery;
+    private VisualizationDataRequest modelConfusionQuery;
 
     public String getModelName() {
         return modelName;
     }
 
+
+
     public void setModelName(String modelName) {
         this.modelName = modelName;
     }
 
-    public VisualQuery getModelInstancesQuery() {
+
+
+    public VisualizationDataRequest getPipelineQuery() {
+        return pipelineQuery;
+    }
+
+
+
+    public void setPipelineQuery(VisualizationDataRequest pipelineQuery) {
+        this.pipelineQuery = pipelineQuery;
+    }
+
+
+
+    public VisualizationDataRequest getModelInstancesQuery() {
         return modelInstancesQuery;
     }
 
-    public void setModelInstancesQuery(VisualQuery modelInstancesQuery) {
+
+
+    public void setModelInstancesQuery(VisualizationDataRequest modelInstancesQuery) {
         this.modelInstancesQuery = modelInstancesQuery;
     }
 
-    public VisualQuery getModelConfusionQuery() {
+
+
+    public VisualizationDataRequest getModelConfusionQuery() {
         return modelConfusionQuery;
     }
 
-    public void setModelConfusionQuery(VisualQuery modelConfusionQuery) {
+
+
+    public void setModelConfusionQuery(VisualizationDataRequest modelConfusionQuery) {
         this.modelConfusionQuery = modelConfusionQuery;
     }
+
+        
 
     @Override
     public String toString() {

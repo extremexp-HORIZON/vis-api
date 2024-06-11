@@ -64,10 +64,9 @@ public class ExplainabilityService extends ExplanationsImplBase{
         InitializationRes responseObject = objectMapper.readValue(json, InitializationRes.class);
         // Shutdown the channel
         channel.shutdown();
-
-        responseObject.getHyperparameterExplanation().setPipelineMetrics(dataService.getData(req.getPipelineQuery()).getData());
-        responseObject.getFeatureExplanation().setModelInstances(dataService.getData(req.getModelInstancesQuery()).getData());
-        responseObject.getFeatureExplanation().setModelConfusionMatrix(dataService.getData(req.getModelConfusionQuery()).getData());
+        responseObject.getHyperparameterExplanation().setPipelineMetrics(dataService.getData(dataService.queryPreperation(req.getPipelineQuery())).getData());
+        responseObject.getFeatureExplanation().setModelInstances(dataService.getData(dataService.queryPreperation(req.getModelInstancesQuery())).getData());
+        responseObject.getFeatureExplanation().setModelConfusionMatrix(dataService.getData(dataService.queryPreperation(req.getModelConfusionQuery())).getData());
 
         return responseObject;
     }
