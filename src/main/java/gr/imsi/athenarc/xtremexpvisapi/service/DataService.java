@@ -62,8 +62,10 @@ public class DataService {
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
-        
-        return dataSource.fetchData(visualQuery);
+        VisualizationResults results = dataSource.fetchData(visualQuery);
+        List<VisualColumn> columns = getColumns(datasetId); // Fetch columns
+        results.setColumns(columns); // Set columns in the results
+        return results;
     }
 
     public List<VisualColumn> getColumns(String datasetId) {
