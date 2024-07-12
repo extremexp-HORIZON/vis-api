@@ -4,7 +4,7 @@ import java.util.Map;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsRes;
 
-public class Feature_Explanation {
+public class FeatureExplanation {
 
     private String[] featureNames;
     private Map<String, ExplanationsRes> plots;

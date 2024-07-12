@@ -20,6 +20,11 @@ public final class GrpcProto {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_InitializationRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_ModelAnalysisTaskRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_ModelAnalysisTaskRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_Feature_Explanation_descriptor;
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -39,6 +44,11 @@ public final class GrpcProto {
   static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_InitializationResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_ModelAnalysisTaskResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_ModelAnalysisTaskResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_Hyperparameter_Explanation_descriptor;
   static final 
@@ -94,49 +104,55 @@ public final class GrpcProto {
   static {
     java.lang.String[] descriptorData = {
       "\n\021xai_service.proto\"+\n\025InitializationReq" +
-      "uest\022\022\n\nmodel_name\030\001 \001(\t\"\231\002\n\023Feature_Exp" +
-      "lanation\022\025\n\rfeature_names\030\001 \003(\t\022.\n\005plots" +
-      "\030\002 \003(\0132\037.Feature_Explanation.PlotsEntry\022" +
-      "0\n\006tables\030\003 \003(\0132 .Feature_Explanation.Ta" +
-      "blesEntry\032C\n\nPlotsEntry\022\013\n\003key\030\001 \001(\t\022$\n\005" +
-      "value\030\002 \001(\0132\025.ExplanationsResponse:\0028\001\032D" +
-      "\n\013TablesEntry\022\013\n\003key\030\001 \001(\t\022$\n\005value\030\002 \001(" +
-      "\0132\025.ExplanationsResponse:\0028\001\"\214\001\n\026Initial" +
-      "izationResponse\0221\n\023feature_explanation\030\001",
-      " \001(\0132\024.Feature_Explanation\022?\n\032hyperparam" +
-      "eter_explanation\030\002 \001(\0132\033.Hyperparameter_" +
-      "Explanation\"\265\002\n\032Hyperparameter_Explanati" +
-      "on\022\034\n\024hyperparameter_names\030\001 \003(\t\0225\n\005plot" +
-      "s\030\002 \003(\0132&.Hyperparameter_Explanation.Plo" +
-      "tsEntry\0227\n\006tables\030\003 \003(\0132\'.Hyperparameter" +
-      "_Explanation.TablesEntry\032C\n\nPlotsEntry\022\013" +
-      "\n\003key\030\001 \001(\t\022$\n\005value\030\002 \001(\0132\025.Explanation" +
-      "sResponse:\0028\001\032D\n\013TablesEntry\022\013\n\003key\030\001 \001(" +
-      "\t\022$\n\005value\030\002 \001(\0132\025.ExplanationsResponse:",
-      "\0028\001\"\337\001\n\023ExplanationsRequest\022\030\n\020explanati" +
-      "on_type\030\001 \001(\t\022\032\n\022explanation_method\030\002 \001(" +
-      "\t\022\r\n\005model\030\003 \001(\t\022\020\n\010feature1\030\004 \001(\t\022\020\n\010fe" +
-      "ature2\030\005 \001(\t\022\027\n\017num_influential\030\006 \001(\005\022\025\n" +
-      "\rproxy_dataset\030\007 \001(\014\022\r\n\005query\030\010 \001(\014\022\020\n\010f" +
-      "eatures\030\t \001(\t\022\016\n\006target\030\n \001(\t\".\n\010Feature" +
-      "s\022\020\n\010feature1\030\001 \001(\t\022\020\n\010feature2\030\002 \001(\t\"A\n" +
-      "\004Axis\022\021\n\taxis_name\030\001 \001(\t\022\023\n\013axis_values\030" +
-      "\002 \003(\t\022\021\n\taxis_type\030\003 \001(\t\".\n\rTableContent" +
-      "s\022\r\n\005index\030\001 \001(\005\022\016\n\006values\030\002 \003(\t\"\216\003\n\024Exp",
-      "lanationsResponse\022\033\n\023explainability_type" +
-      "\030\001 \001(\t\022\032\n\022explanation_method\030\002 \001(\t\022\034\n\024ex" +
-      "plainability_model\030\003 \001(\t\022\021\n\tplot_name\030\004 " +
-      "\001(\t\022\022\n\nplot_descr\030\005 \001(\t\022\021\n\tplot_type\030\006 \001" +
-      "(\t\022\033\n\010features\030\007 \001(\0132\t.Features\022\024\n\005xAxis" +
-      "\030\010 \001(\0132\005.Axis\022\024\n\005yAxis\030\t \001(\0132\005.Axis\022\024\n\005z" +
-      "Axis\030\n \001(\0132\005.Axis\022@\n\016table_contents\030\013 \003(" +
-      "\0132(.ExplanationsResponse.TableContentsEn" +
-      "try\032D\n\022TableContentsEntry\022\013\n\003key\030\001 \001(\t\022\035" +
-      "\n\005value\030\002 \001(\0132\016.TableContents:\0028\0012\220\001\n\014Ex",
-      "planations\022=\n\016GetExplanation\022\024.Explanati" +
-      "onsRequest\032\025.ExplanationsResponse\022A\n\016Ini" +
-      "tialization\022\026.InitializationRequest\032\027.In" +
-      "itializationResponseBG\n8gr.imsi.athenarc" +
+      "uest\022\022\n\nmodel_name\030\001 \001(\t\"@\n\030ModelAnalysi" +
+      "sTaskRequest\022\022\n\nmodel_name\030\001 \001(\t\022\020\n\010mode" +
+      "l_id\030\002 \001(\005\"\231\002\n\023Feature_Explanation\022\025\n\rfe" +
+      "ature_names\030\001 \003(\t\022.\n\005plots\030\002 \003(\0132\037.Featu" +
+      "re_Explanation.PlotsEntry\0220\n\006tables\030\003 \003(" +
+      "\0132 .Feature_Explanation.TablesEntry\032C\n\nP" +
+      "lotsEntry\022\013\n\003key\030\001 \001(\t\022$\n\005value\030\002 \001(\0132\025." +
+      "ExplanationsResponse:\0028\001\032D\n\013TablesEntry\022" +
+      "\013\n\003key\030\001 \001(\t\022$\n\005value\030\002 \001(\0132\025.Explanatio",
+      "nsResponse:\0028\001\"\214\001\n\026InitializationRespons" +
+      "e\0221\n\023feature_explanation\030\001 \001(\0132\024.Feature" +
+      "_Explanation\022?\n\032hyperparameter_explanati" +
+      "on\030\002 \001(\0132\033.Hyperparameter_Explanation\"N\n" +
+      "\031ModelAnalysisTaskResponse\0221\n\023feature_ex" +
+      "planation\030\001 \001(\0132\024.Feature_Explanation\"\265\002" +
+      "\n\032Hyperparameter_Explanation\022\034\n\024hyperpar" +
+      "ameter_names\030\001 \003(\t\0225\n\005plots\030\002 \003(\0132&.Hype" +
+      "rparameter_Explanation.PlotsEntry\0227\n\006tab" +
+      "les\030\003 \003(\0132\'.Hyperparameter_Explanation.T",
+      "ablesEntry\032C\n\nPlotsEntry\022\013\n\003key\030\001 \001(\t\022$\n" +
+      "\005value\030\002 \001(\0132\025.ExplanationsResponse:\0028\001\032" +
+      "D\n\013TablesEntry\022\013\n\003key\030\001 \001(\t\022$\n\005value\030\002 \001" +
+      "(\0132\025.ExplanationsResponse:\0028\001\"\361\001\n\023Explan" +
+      "ationsRequest\022\030\n\020explanation_type\030\001 \001(\t\022" +
+      "\032\n\022explanation_method\030\002 \001(\t\022\r\n\005model\030\003 \001" +
+      "(\t\022\020\n\010model_id\030\004 \001(\005\022\020\n\010feature1\030\005 \001(\t\022\020" +
+      "\n\010feature2\030\006 \001(\t\022\027\n\017num_influential\030\007 \001(" +
+      "\005\022\025\n\rproxy_dataset\030\010 \001(\014\022\r\n\005query\030\t \001(\t\022" +
+      "\020\n\010features\030\n \001(\t\022\016\n\006target\030\013 \001(\t\".\n\010Fea",
+      "tures\022\020\n\010feature1\030\001 \001(\t\022\020\n\010feature2\030\002 \001(" +
+      "\t\"A\n\004Axis\022\021\n\taxis_name\030\001 \001(\t\022\023\n\013axis_val" +
+      "ues\030\002 \003(\t\022\021\n\taxis_type\030\003 \001(\t\".\n\rTableCon" +
+      "tents\022\r\n\005index\030\001 \001(\005\022\016\n\006values\030\002 \003(\t\"\216\003\n" +
+      "\024ExplanationsResponse\022\033\n\023explainability_" +
+      "type\030\001 \001(\t\022\032\n\022explanation_method\030\002 \001(\t\022\034" +
+      "\n\024explainability_model\030\003 \001(\t\022\021\n\tplot_nam" +
+      "e\030\004 \001(\t\022\022\n\nplot_descr\030\005 \001(\t\022\021\n\tplot_type" +
+      "\030\006 \001(\t\022\033\n\010features\030\007 \001(\0132\t.Features\022\024\n\005x" +
+      "Axis\030\010 \001(\0132\005.Axis\022\024\n\005yAxis\030\t \001(\0132\005.Axis\022",
+      "\024\n\005zAxis\030\n \001(\0132\005.Axis\022@\n\016table_contents\030" +
+      "\013 \003(\0132(.ExplanationsResponse.TableConten" +
+      "tsEntry\032D\n\022TableContentsEntry\022\013\n\003key\030\001 \001" +
+      "(\t\022\035\n\005value\030\002 \001(\0132\016.TableContents:\0028\0012\334\001" +
+      "\n\014Explanations\022=\n\016GetExplanation\022\024.Expla" +
+      "nationsRequest\032\025.ExplanationsResponse\022A\n" +
+      "\016Initialization\022\026.InitializationRequest\032" +
+      "\027.InitializationResponse\022J\n\021ModelAnalysi" +
+      "sTask\022\031.ModelAnalysisTaskRequest\032\032.Model" +
+      "AnalysisTaskResponseBG\n8gr.imsi.athenarc",
       ".xtremexpvisapi.domain.GrpcAutoGenerated" +
       "B\tGrpcProtoP\001b\006proto3"
     };
@@ -158,8 +174,14 @@ public final class GrpcProto {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_InitializationRequest_descriptor,
         new java.lang.String[] { "ModelName", });
-    internal_static_Feature_Explanation_descriptor =
+    internal_static_ModelAnalysisTaskRequest_descriptor =
       getDescriptor().getMessageTypes().get(1);
+    internal_static_ModelAnalysisTaskRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_ModelAnalysisTaskRequest_descriptor,
+        new java.lang.String[] { "ModelName", "ModelId", });
+    internal_static_Feature_Explanation_descriptor =
+      getDescriptor().getMessageTypes().get(2);
     internal_static_Feature_Explanation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Feature_Explanation_descriptor,
@@ -177,13 +199,19 @@ public final class GrpcProto {
         internal_static_Feature_Explanation_TablesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_InitializationResponse_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_InitializationResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_InitializationResponse_descriptor,
         new java.lang.String[] { "FeatureExplanation", "HyperparameterExplanation", });
+    internal_static_ModelAnalysisTaskResponse_descriptor =
+      getDescriptor().getMessageTypes().get(4);
+    internal_static_ModelAnalysisTaskResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_ModelAnalysisTaskResponse_descriptor,
+        new java.lang.String[] { "FeatureExplanation", });
     internal_static_Hyperparameter_Explanation_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_Hyperparameter_Explanation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Hyperparameter_Explanation_descriptor,
@@ -201,31 +229,31 @@ public final class GrpcProto {
         internal_static_Hyperparameter_Explanation_TablesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_ExplanationsRequest_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(6);
     internal_static_ExplanationsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ExplanationsRequest_descriptor,
-        new java.lang.String[] { "ExplanationType", "ExplanationMethod", "Model", "Feature1", "Feature2", "NumInfluential", "ProxyDataset", "Query", "Features", "Target", });
+        new java.lang.String[] { "ExplanationType", "ExplanationMethod", "Model", "ModelId", "Feature1", "Feature2", "NumInfluential", "ProxyDataset", "Query", "Features", "Target", });
     internal_static_Features_descriptor =
-      getDescriptor().getMessageTypes().get(5);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_Features_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Features_descriptor,
         new java.lang.String[] { "Feature1", "Feature2", });
     internal_static_Axis_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_Axis_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_Axis_descriptor,
         new java.lang.String[] { "AxisName", "AxisValues", "AxisType", });
     internal_static_TableContents_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_TableContents_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_TableContents_descriptor,
         new java.lang.String[] { "Index", "Values", });
     internal_static_ExplanationsResponse_descriptor =
-      getDescriptor().getMessageTypes().get(8);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_ExplanationsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_ExplanationsResponse_descriptor,

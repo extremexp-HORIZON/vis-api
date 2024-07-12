@@ -21,8 +21,10 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsRes;
+import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.FeatureExplanation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.InitializationReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.InitializationRes;
+import gr.imsi.athenarc.xtremexpvisapi.domain.ModelAnalysisTask.ModelAnalysisTaskReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExplainabilityService;
@@ -48,6 +50,12 @@ public class VisualizationController {
     public ResponseEntity<InitializationRes> data(@RequestBody InitializationReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability initialization for dataset {}", request.getModelName());
         return ResponseEntity.ok(explainabilityService.GetInitialization(request));
+    }
+
+    @PostMapping("/task/modelAnalysis")
+    public ResponseEntity<FeatureExplanation> getModelAnalysisTask(@RequestBody ModelAnalysisTaskReq request) throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Request for model Analysis model_name: {} model_id {}", request.getModelName(),request.getModelId());
+        return ResponseEntity.ok(explainabilityService.GetModelAnalysisTask(request));
     }
 
     @PostMapping("/explainability")

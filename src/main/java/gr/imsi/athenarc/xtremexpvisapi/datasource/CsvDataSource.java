@@ -48,7 +48,24 @@ public class CsvDataSource implements DataSource {
         Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
         VisualizationResults visualizationResults = new VisualizationResults();
         visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
+        visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+        visualizationResults.setTimestampColumn(getTimestampColumn(table));
         return visualizationResults;
+    }
+
+    @Override
+    public String getTimestampColumn(Table table) {
+        boolean hasHeader = table.columnNames().size() > 0;
+        if(!hasHeader) return "";
+            String timestampCol = null;
+            for (int i = 0; i < table.columnCount(); i++) {
+                ColumnType columnType = table.column(i).type();
+                if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
+                    timestampCol = table.column(i).name();
+                    break;
+                }
+            }
+            return timestampCol;
     }
 
     @Override

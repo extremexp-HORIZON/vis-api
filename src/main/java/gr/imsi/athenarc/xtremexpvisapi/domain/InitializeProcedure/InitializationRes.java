@@ -1,22 +1,22 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure;
 
 public class InitializationRes {
-    private Feature_Explanation featureExplanation;
-    private Hyperparameter_Explanation hyperparameterExplanation;
+    private FeatureExplanation featureExplanation;
+    private HyperparameterExplanation hyperparameterExplanation;
 
-    public Feature_Explanation getFeatureExplanation() {
+    public FeatureExplanation getFeatureExplanation() {
         return featureExplanation;
     }
 
-    public void setFeatureExplanation(Feature_Explanation featureExplanation) {
+    public void setFeatureExplanation(FeatureExplanation featureExplanation) {
         this.featureExplanation = featureExplanation;
     }
 
-    public Hyperparameter_Explanation getHyperparameterExplanation() {
+    public HyperparameterExplanation getHyperparameterExplanation() {
         return hyperparameterExplanation;
     }
 
-    public void setHyperparameterExplanation(Hyperparameter_Explanation hyperparameterExplanation) {
+    public void setHyperparameterExplanation(HyperparameterExplanation hyperparameterExplanation) {
         this.hyperparameterExplanation = hyperparameterExplanation;
     }
 

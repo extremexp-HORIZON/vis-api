@@ -18,11 +18,12 @@ public  final class ExplanationsRequest extends
     explanationType_ = "";
     explanationMethod_ = "";
     model_ = "";
+    modelId_ = 0;
     feature1_ = "";
     feature2_ = "";
     numInfluential_ = 0;
     proxyDataset_ = com.google.protobuf.ByteString.EMPTY;
-    query_ = com.google.protobuf.ByteString.EMPTY;
+    query_ = "";
     features_ = "";
     target_ = "";
   }
@@ -70,40 +71,46 @@ public  final class ExplanationsRequest extends
             model_ = s;
             break;
           }
-          case 34: {
-            java.lang.String s = input.readStringRequireUtf8();
+          case 32: {
 
-            feature1_ = s;
+            modelId_ = input.readInt32();
             break;
           }
           case 42: {
             java.lang.String s = input.readStringRequireUtf8();
 
+            feature1_ = s;
+            break;
+          }
+          case 50: {
+            java.lang.String s = input.readStringRequireUtf8();
+
             feature2_ = s;
             break;
           }
-          case 48: {
+          case 56: {
 
             numInfluential_ = input.readInt32();
             break;
           }
-          case 58: {
-
-            proxyDataset_ = input.readBytes();
-            break;
-          }
           case 66: {
 
-            query_ = input.readBytes();
+            proxyDataset_ = input.readBytes();
             break;
           }
           case 74: {
             java.lang.String s = input.readStringRequireUtf8();
 
-            features_ = s;
+            query_ = s;
             break;
           }
           case 82: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            features_ = s;
+            break;
+          }
+          case 90: {
             java.lang.String s = input.readStringRequireUtf8();
 
             target_ = s;
@@ -234,10 +241,19 @@ public  final class ExplanationsRequest extends
     }
   }
 
-  public static final int FEATURE1_FIELD_NUMBER = 4;
+  public static final int MODEL_ID_FIELD_NUMBER = 4;
+  private int modelId_;
+  /**
+   * <code>int32 model_id = 4;</code>
+   */
+  public int getModelId() {
+    return modelId_;
+  }
+
+  public static final int FEATURE1_FIELD_NUMBER = 5;
   private volatile java.lang.Object feature1_;
   /**
-   * <code>string feature1 = 4;</code>
+   * <code>string feature1 = 5;</code>
    */
   public java.lang.String getFeature1() {
     java.lang.Object ref = feature1_;
@@ -252,7 +268,7 @@ public  final class ExplanationsRequest extends
     }
   }
   /**
-   * <code>string feature1 = 4;</code>
+   * <code>string feature1 = 5;</code>
    */
   public com.google.protobuf.ByteString
       getFeature1Bytes() {
@@ -268,10 +284,10 @@ public  final class ExplanationsRequest extends
     }
   }
 
-  public static final int FEATURE2_FIELD_NUMBER = 5;
+  public static final int FEATURE2_FIELD_NUMBER = 6;
   private volatile java.lang.Object feature2_;
   /**
-   * <code>string feature2 = 5;</code>
+   * <code>string feature2 = 6;</code>
    */
   public java.lang.String getFeature2() {
     java.lang.Object ref = feature2_;
@@ -286,7 +302,7 @@ public  final class ExplanationsRequest extends
     }
   }
   /**
-   * <code>string feature2 = 5;</code>
+   * <code>string feature2 = 6;</code>
    */
   public com.google.protobuf.ByteString
       getFeature2Bytes() {
@@ -302,38 +318,63 @@ public  final class ExplanationsRequest extends
     }
   }
 
-  public static final int NUM_INFLUENTIAL_FIELD_NUMBER = 6;
+  public static final int NUM_INFLUENTIAL_FIELD_NUMBER = 7;
   private int numInfluential_;
   /**
-   * <code>int32 num_influential = 6;</code>
+   * <code>int32 num_influential = 7;</code>
    */
   public int getNumInfluential() {
     return numInfluential_;
   }
 
-  public static final int PROXY_DATASET_FIELD_NUMBER = 7;
+  public static final int PROXY_DATASET_FIELD_NUMBER = 8;
   private com.google.protobuf.ByteString proxyDataset_;
   /**
    * <pre>
    * ----- Counterfactual Explanation Fields -----
    * </pre>
    *
-   * <code>bytes proxy_dataset = 7;</code>
+   * <code>bytes proxy_dataset = 8;</code>
    */
   public com.google.protobuf.ByteString getProxyDataset() {
     return proxyDataset_;
   }
 
-  public static final int QUERY_FIELD_NUMBER = 8;
-  private com.google.protobuf.ByteString query_;
+  public static final int QUERY_FIELD_NUMBER = 9;
+  private volatile java.lang.Object query_;
   /**
-   * <code>bytes query = 8;</code>
+   * <code>string query = 9;</code>
    */
-  public com.google.protobuf.ByteString getQuery() {
-    return query_;
+  public java.lang.String getQuery() {
+    java.lang.Object ref = query_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      query_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string query = 9;</code>
+   */
+  public com.google.protobuf.ByteString
+      getQueryBytes() {
+    java.lang.Object ref = query_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      query_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
   }
 
-  public static final int FEATURES_FIELD_NUMBER = 9;
+  public static final int FEATURES_FIELD_NUMBER = 10;
   private volatile java.lang.Object features_;
   /**
    * <pre>
@@ -341,7 +382,7 @@ public  final class ExplanationsRequest extends
    * the other same as Pipeline Explainability plus
    * </pre>
    *
-   * <code>string features = 9;</code>
+   * <code>string features = 10;</code>
    */
   public java.lang.String getFeatures() {
     java.lang.Object ref = features_;
@@ -361,7 +402,7 @@ public  final class ExplanationsRequest extends
    * the other same as Pipeline Explainability plus
    * </pre>
    *
-   * <code>string features = 9;</code>
+   * <code>string features = 10;</code>
    */
   public com.google.protobuf.ByteString
       getFeaturesBytes() {
@@ -377,7 +418,7 @@ public  final class ExplanationsRequest extends
     }
   }
 
-  public static final int TARGET_FIELD_NUMBER = 10;
+  public static final int TARGET_FIELD_NUMBER = 11;
   private volatile java.lang.Object target_;
   /**
    * <pre>
@@ -385,7 +426,7 @@ public  final class ExplanationsRequest extends
    * same as Model explainability plus target target label 
    * </pre>
    *
-   * <code>string target = 10;</code>
+   * <code>string target = 11;</code>
    */
   public java.lang.String getTarget() {
     java.lang.Object ref = target_;
@@ -405,7 +446,7 @@ public  final class ExplanationsRequest extends
    * same as Model explainability plus target target label 
    * </pre>
    *
-   * <code>string target = 10;</code>
+   * <code>string target = 11;</code>
    */
   public com.google.protobuf.ByteString
       getTargetBytes() {
@@ -442,26 +483,29 @@ public  final class ExplanationsRequest extends
     if (!getModelBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 3, model_);
     }
+    if (modelId_ != 0) {
+      output.writeInt32(4, modelId_);
+    }
     if (!getFeature1Bytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 4, feature1_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, feature1_);
     }
     if (!getFeature2Bytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 5, feature2_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 6, feature2_);
     }
     if (numInfluential_ != 0) {
-      output.writeInt32(6, numInfluential_);
+      output.writeInt32(7, numInfluential_);
     }
     if (!proxyDataset_.isEmpty()) {
-      output.writeBytes(7, proxyDataset_);
+      output.writeBytes(8, proxyDataset_);
     }
-    if (!query_.isEmpty()) {
-      output.writeBytes(8, query_);
+    if (!getQueryBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, query_);
     }
     if (!getFeaturesBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 9, features_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, features_);
     }
     if (!getTargetBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 10, target_);
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 11, target_);
     }
   }
 
@@ -479,29 +523,32 @@ public  final class ExplanationsRequest extends
     if (!getModelBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, model_);
     }
+    if (modelId_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(4, modelId_);
+    }
     if (!getFeature1Bytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, feature1_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, feature1_);
     }
     if (!getFeature2Bytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, feature2_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, feature2_);
     }
     if (numInfluential_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(6, numInfluential_);
+        .computeInt32Size(7, numInfluential_);
     }
     if (!proxyDataset_.isEmpty()) {
       size += com.google.protobuf.CodedOutputStream
-        .computeBytesSize(7, proxyDataset_);
+        .computeBytesSize(8, proxyDataset_);
     }
-    if (!query_.isEmpty()) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBytesSize(8, query_);
+    if (!getQueryBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, query_);
     }
     if (!getFeaturesBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, features_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, features_);
     }
     if (!getTargetBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, target_);
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, target_);
     }
     memoizedSize = size;
     return size;
@@ -525,6 +572,8 @@ public  final class ExplanationsRequest extends
         .equals(other.getExplanationMethod());
     result = result && getModel()
         .equals(other.getModel());
+    result = result && (getModelId()
+        == other.getModelId());
     result = result && getFeature1()
         .equals(other.getFeature1());
     result = result && getFeature2()
@@ -555,6 +604,8 @@ public  final class ExplanationsRequest extends
     hash = (53 * hash) + getExplanationMethod().hashCode();
     hash = (37 * hash) + MODEL_FIELD_NUMBER;
     hash = (53 * hash) + getModel().hashCode();
+    hash = (37 * hash) + MODEL_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getModelId();
     hash = (37 * hash) + FEATURE1_FIELD_NUMBER;
     hash = (53 * hash) + getFeature1().hashCode();
     hash = (37 * hash) + FEATURE2_FIELD_NUMBER;
@@ -704,6 +755,8 @@ public  final class ExplanationsRequest extends
 
       model_ = "";
 
+      modelId_ = 0;
+
       feature1_ = "";
 
       feature2_ = "";
@@ -712,7 +765,7 @@ public  final class ExplanationsRequest extends
 
       proxyDataset_ = com.google.protobuf.ByteString.EMPTY;
 
-      query_ = com.google.protobuf.ByteString.EMPTY;
+      query_ = "";
 
       features_ = "";
 
@@ -743,6 +796,7 @@ public  final class ExplanationsRequest extends
       result.explanationType_ = explanationType_;
       result.explanationMethod_ = explanationMethod_;
       result.model_ = model_;
+      result.modelId_ = modelId_;
       result.feature1_ = feature1_;
       result.feature2_ = feature2_;
       result.numInfluential_ = numInfluential_;
@@ -803,6 +857,9 @@ public  final class ExplanationsRequest extends
         model_ = other.model_;
         onChanged();
       }
+      if (other.getModelId() != 0) {
+        setModelId(other.getModelId());
+      }
       if (!other.getFeature1().isEmpty()) {
         feature1_ = other.feature1_;
         onChanged();
@@ -817,8 +874,9 @@ public  final class ExplanationsRequest extends
       if (other.getProxyDataset() != com.google.protobuf.ByteString.EMPTY) {
         setProxyDataset(other.getProxyDataset());
       }
-      if (other.getQuery() != com.google.protobuf.ByteString.EMPTY) {
-        setQuery(other.getQuery());
+      if (!other.getQuery().isEmpty()) {
+        query_ = other.query_;
+        onChanged();
       }
       if (!other.getFeatures().isEmpty()) {
         features_ = other.features_;
@@ -1061,9 +1119,35 @@ public  final class ExplanationsRequest extends
       return this;
     }
 
+    private int modelId_ ;
+    /**
+     * <code>int32 model_id = 4;</code>
+     */
+    public int getModelId() {
+      return modelId_;
+    }
+    /**
+     * <code>int32 model_id = 4;</code>
+     */
+    public Builder setModelId(int value) {
+      
+      modelId_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 model_id = 4;</code>
+     */
+    public Builder clearModelId() {
+      
+      modelId_ = 0;
+      onChanged();
+      return this;
+    }
+
     private java.lang.Object feature1_ = "";
     /**
-     * <code>string feature1 = 4;</code>
+     * <code>string feature1 = 5;</code>
      */
     public java.lang.String getFeature1() {
       java.lang.Object ref = feature1_;
@@ -1078,7 +1162,7 @@ public  final class ExplanationsRequest extends
       }
     }
     /**
-     * <code>string feature1 = 4;</code>
+     * <code>string feature1 = 5;</code>
      */
     public com.google.protobuf.ByteString
         getFeature1Bytes() {
@@ -1094,7 +1178,7 @@ public  final class ExplanationsRequest extends
       }
     }
     /**
-     * <code>string feature1 = 4;</code>
+     * <code>string feature1 = 5;</code>
      */
     public Builder setFeature1(
         java.lang.String value) {
@@ -1107,7 +1191,7 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>string feature1 = 4;</code>
+     * <code>string feature1 = 5;</code>
      */
     public Builder clearFeature1() {
       
@@ -1116,7 +1200,7 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>string feature1 = 4;</code>
+     * <code>string feature1 = 5;</code>
      */
     public Builder setFeature1Bytes(
         com.google.protobuf.ByteString value) {
@@ -1132,7 +1216,7 @@ public  final class ExplanationsRequest extends
 
     private java.lang.Object feature2_ = "";
     /**
-     * <code>string feature2 = 5;</code>
+     * <code>string feature2 = 6;</code>
      */
     public java.lang.String getFeature2() {
       java.lang.Object ref = feature2_;
@@ -1147,7 +1231,7 @@ public  final class ExplanationsRequest extends
       }
     }
     /**
-     * <code>string feature2 = 5;</code>
+     * <code>string feature2 = 6;</code>
      */
     public com.google.protobuf.ByteString
         getFeature2Bytes() {
@@ -1163,7 +1247,7 @@ public  final class ExplanationsRequest extends
       }
     }
     /**
-     * <code>string feature2 = 5;</code>
+     * <code>string feature2 = 6;</code>
      */
     public Builder setFeature2(
         java.lang.String value) {
@@ -1176,7 +1260,7 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>string feature2 = 5;</code>
+     * <code>string feature2 = 6;</code>
      */
     public Builder clearFeature2() {
       
@@ -1185,7 +1269,7 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>string feature2 = 5;</code>
+     * <code>string feature2 = 6;</code>
      */
     public Builder setFeature2Bytes(
         com.google.protobuf.ByteString value) {
@@ -1201,13 +1285,13 @@ public  final class ExplanationsRequest extends
 
     private int numInfluential_ ;
     /**
-     * <code>int32 num_influential = 6;</code>
+     * <code>int32 num_influential = 7;</code>
      */
     public int getNumInfluential() {
       return numInfluential_;
     }
     /**
-     * <code>int32 num_influential = 6;</code>
+     * <code>int32 num_influential = 7;</code>
      */
     public Builder setNumInfluential(int value) {
       
@@ -1216,7 +1300,7 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>int32 num_influential = 6;</code>
+     * <code>int32 num_influential = 7;</code>
      */
     public Builder clearNumInfluential() {
       
@@ -1231,7 +1315,7 @@ public  final class ExplanationsRequest extends
      * ----- Counterfactual Explanation Fields -----
      * </pre>
      *
-     * <code>bytes proxy_dataset = 7;</code>
+     * <code>bytes proxy_dataset = 8;</code>
      */
     public com.google.protobuf.ByteString getProxyDataset() {
       return proxyDataset_;
@@ -1241,7 +1325,7 @@ public  final class ExplanationsRequest extends
      * ----- Counterfactual Explanation Fields -----
      * </pre>
      *
-     * <code>bytes proxy_dataset = 7;</code>
+     * <code>bytes proxy_dataset = 8;</code>
      */
     public Builder setProxyDataset(com.google.protobuf.ByteString value) {
       if (value == null) {
@@ -1257,7 +1341,7 @@ public  final class ExplanationsRequest extends
      * ----- Counterfactual Explanation Fields -----
      * </pre>
      *
-     * <code>bytes proxy_dataset = 7;</code>
+     * <code>bytes proxy_dataset = 8;</code>
      */
     public Builder clearProxyDataset() {
       
@@ -1266,17 +1350,43 @@ public  final class ExplanationsRequest extends
       return this;
     }
 
-    private com.google.protobuf.ByteString query_ = com.google.protobuf.ByteString.EMPTY;
+    private java.lang.Object query_ = "";
     /**
-     * <code>bytes query = 8;</code>
+     * <code>string query = 9;</code>
      */
-    public com.google.protobuf.ByteString getQuery() {
-      return query_;
+    public java.lang.String getQuery() {
+      java.lang.Object ref = query_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        query_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
     }
     /**
-     * <code>bytes query = 8;</code>
+     * <code>string query = 9;</code>
      */
-    public Builder setQuery(com.google.protobuf.ByteString value) {
+    public com.google.protobuf.ByteString
+        getQueryBytes() {
+      java.lang.Object ref = query_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        query_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string query = 9;</code>
+     */
+    public Builder setQuery(
+        java.lang.String value) {
       if (value == null) {
     throw new NullPointerException();
   }
@@ -1286,11 +1396,25 @@ public  final class ExplanationsRequest extends
       return this;
     }
     /**
-     * <code>bytes query = 8;</code>
+     * <code>string query = 9;</code>
      */
     public Builder clearQuery() {
       
       query_ = getDefaultInstance().getQuery();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string query = 9;</code>
+     */
+    public Builder setQueryBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      query_ = value;
       onChanged();
       return this;
     }
@@ -1302,7 +1426,7 @@ public  final class ExplanationsRequest extends
      * the other same as Pipeline Explainability plus
      * </pre>
      *
-     * <code>string features = 9;</code>
+     * <code>string features = 10;</code>
      */
     public java.lang.String getFeatures() {
       java.lang.Object ref = features_;
@@ -1322,7 +1446,7 @@ public  final class ExplanationsRequest extends
      * the other same as Pipeline Explainability plus
      * </pre>
      *
-     * <code>string features = 9;</code>
+     * <code>string features = 10;</code>
      */
     public com.google.protobuf.ByteString
         getFeaturesBytes() {
@@ -1343,7 +1467,7 @@ public  final class ExplanationsRequest extends
      * the other same as Pipeline Explainability plus
      * </pre>
      *
-     * <code>string features = 9;</code>
+     * <code>string features = 10;</code>
      */
     public Builder setFeatures(
         java.lang.String value) {
@@ -1361,7 +1485,7 @@ public  final class ExplanationsRequest extends
      * the other same as Pipeline Explainability plus
      * </pre>
      *
-     * <code>string features = 9;</code>
+     * <code>string features = 10;</code>
      */
     public Builder clearFeatures() {
       
@@ -1375,7 +1499,7 @@ public  final class ExplanationsRequest extends
      * the other same as Pipeline Explainability plus
      * </pre>
      *
-     * <code>string features = 9;</code>
+     * <code>string features = 10;</code>
      */
     public Builder setFeaturesBytes(
         com.google.protobuf.ByteString value) {
@@ -1396,7 +1520,7 @@ public  final class ExplanationsRequest extends
      * same as Model explainability plus target target label 
      * </pre>
      *
-     * <code>string target = 10;</code>
+     * <code>string target = 11;</code>
      */
     public java.lang.String getTarget() {
       java.lang.Object ref = target_;
@@ -1416,7 +1540,7 @@ public  final class ExplanationsRequest extends
      * same as Model explainability plus target target label 
      * </pre>
      *
-     * <code>string target = 10;</code>
+     * <code>string target = 11;</code>
      */
     public com.google.protobuf.ByteString
         getTargetBytes() {
@@ -1437,7 +1561,7 @@ public  final class ExplanationsRequest extends
      * same as Model explainability plus target target label 
      * </pre>
      *
-     * <code>string target = 10;</code>
+     * <code>string target = 11;</code>
      */
     public Builder setTarget(
         java.lang.String value) {
@@ -1455,7 +1579,7 @@ public  final class ExplanationsRequest extends
      * same as Model explainability plus target target label 
      * </pre>
      *
-     * <code>string target = 10;</code>
+     * <code>string target = 11;</code>
      */
     public Builder clearTarget() {
       
@@ -1469,7 +1593,7 @@ public  final class ExplanationsRequest extends
      * same as Model explainability plus target target label 
      * </pre>
      *
-     * <code>string target = 10;</code>
+     * <code>string target = 11;</code>
      */
     public Builder setTargetBytes(
         com.google.protobuf.ByteString value) {

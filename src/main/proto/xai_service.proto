@@ -8,11 +8,16 @@ option java_outer_classname="GrpcProto";
 service Explanations {
     rpc GetExplanation (ExplanationsRequest) returns (ExplanationsResponse);
     rpc Initialization (InitializationRequest) returns (InitializationResponse);
+    rpc ModelAnalysisTask (ModelAnalysisTaskRequest) returns (ModelAnalysisTaskResponse);
 }
-
 
 message InitializationRequest {
     string model_name = 1;
+}
+
+message ModelAnalysisTaskRequest {
+    string model_name = 1;
+    int32 model_id = 2;
 }
 
 
@@ -25,6 +30,10 @@ message Feature_Explanation {
 message InitializationResponse {
     Feature_Explanation feature_explanation = 1;
     Hyperparameter_Explanation hyperparameter_explanation = 2;
+}
+
+message ModelAnalysisTaskResponse {
+    Feature_Explanation feature_explanation = 1;
 }
 
 message Hyperparameter_Explanation {
@@ -46,26 +55,27 @@ message ExplanationsRequest {
     // ----- PDP - ALE Fields -----
 
     string model = 3;
-    string feature1 = 4;
-    string feature2 = 5;
+    int32 model_id = 4;
+    string feature1 = 5;
+    string feature2 = 6;
 
     // ----- Influence Functions Fields -----
 
-    int32 num_influential = 6;
+    int32 num_influential = 7;
 
     // ----- Counterfactual Explanation Fields -----
-    bytes proxy_dataset = 7;
-    bytes query = 8;
+    bytes proxy_dataset = 8;
+    string query = 9;
 
 //------------------ Model Explainability --------------------------------------------------
 
     // ------------ PDP Fields -------------------------
     // the other same as Pipeline Explainability plus
-    string features = 9;
+    string features = 10;
 
     // ------------ CounterfactualExplanations Fields -------------------------
     // same as Model explainability plus target target label 
-    string target = 10;
+    string target = 11;
 
 
 

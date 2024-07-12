@@ -5,7 +5,7 @@ import java.util.Map;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsRes;;
 
-public class Hyperparameter_Explanation {
+public class HyperparameterExplanation {
 
     private List<String> hyperparameterNames;
     private Map<String, ExplanationsRes> plots;

@@ -38,27 +38,32 @@ public interface ExplanationsRequestOrBuilder extends
       getModelBytes();
 
   /**
-   * <code>string feature1 = 4;</code>
+   * <code>int32 model_id = 4;</code>
+   */
+  int getModelId();
+
+  /**
+   * <code>string feature1 = 5;</code>
    */
   java.lang.String getFeature1();
   /**
-   * <code>string feature1 = 4;</code>
+   * <code>string feature1 = 5;</code>
    */
   com.google.protobuf.ByteString
       getFeature1Bytes();
 
   /**
-   * <code>string feature2 = 5;</code>
+   * <code>string feature2 = 6;</code>
    */
   java.lang.String getFeature2();
   /**
-   * <code>string feature2 = 5;</code>
+   * <code>string feature2 = 6;</code>
    */
   com.google.protobuf.ByteString
       getFeature2Bytes();
 
   /**
-   * <code>int32 num_influential = 6;</code>
+   * <code>int32 num_influential = 7;</code>
    */
   int getNumInfluential();
 
@@ -67,14 +72,19 @@ public interface ExplanationsRequestOrBuilder extends
    * ----- Counterfactual Explanation Fields -----
    * </pre>
    *
-   * <code>bytes proxy_dataset = 7;</code>
+   * <code>bytes proxy_dataset = 8;</code>
    */
   com.google.protobuf.ByteString getProxyDataset();
 
   /**
-   * <code>bytes query = 8;</code>
+   * <code>string query = 9;</code>
    */
-  com.google.protobuf.ByteString getQuery();
+  java.lang.String getQuery();
+  /**
+   * <code>string query = 9;</code>
+   */
+  com.google.protobuf.ByteString
+      getQueryBytes();
 
   /**
    * <pre>
@@ -82,7 +92,7 @@ public interface ExplanationsRequestOrBuilder extends
    * the other same as Pipeline Explainability plus
    * </pre>
    *
-   * <code>string features = 9;</code>
+   * <code>string features = 10;</code>
    */
   java.lang.String getFeatures();
   /**
@@ -91,7 +101,7 @@ public interface ExplanationsRequestOrBuilder extends
    * the other same as Pipeline Explainability plus
    * </pre>
    *
-   * <code>string features = 9;</code>
+   * <code>string features = 10;</code>
    */
   com.google.protobuf.ByteString
       getFeaturesBytes();
@@ -102,7 +112,7 @@ public interface ExplanationsRequestOrBuilder extends
    * same as Model explainability plus target target label 
    * </pre>
    *
-   * <code>string target = 10;</code>
+   * <code>string target = 11;</code>
    */
   java.lang.String getTarget();
   /**
@@ -111,7 +121,7 @@ public interface ExplanationsRequestOrBuilder extends
    * same as Model explainability plus target target label 
    * </pre>
    *
-   * <code>string target = 10;</code>
+   * <code>string target = 11;</code>
    */
   com.google.protobuf.ByteString
       getTargetBytes();
