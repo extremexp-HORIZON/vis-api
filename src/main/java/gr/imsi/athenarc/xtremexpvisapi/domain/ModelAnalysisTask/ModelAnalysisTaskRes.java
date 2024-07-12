@@ -5,14 +5,14 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.FeatureExplana
 public class ModelAnalysisTaskRes {
     FeatureExplanation featureExplanation;
 
-    public FeatureExplanation getFeatureExplanations() {
+    public ModelAnalysisTaskRes() {
+    }
+
+    public FeatureExplanation getFeatureExplanation() {
         return featureExplanation;
     }
 
-    public void setFeatureExplanations(FeatureExplanation featureExplanation) {
+    public void setFeatureExplanation(FeatureExplanation featureExplanation) {
         this.featureExplanation = featureExplanation;
-    }
-
-    public ModelAnalysisTaskRes() {
     }
 }

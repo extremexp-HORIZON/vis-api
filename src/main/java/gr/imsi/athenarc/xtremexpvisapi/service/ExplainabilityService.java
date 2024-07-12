@@ -154,7 +154,7 @@ public class ExplainabilityService extends ExplanationsImplBase{
         // Shutdown the channel
         channel.shutdown();
 
-        return responseObject.getFeatureExplanations();
+        return responseObject.getFeatureExplanation();
 
         
     }
