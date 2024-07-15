@@ -70,7 +70,7 @@ public class ExplainabilityService extends ExplanationsImplBase{
         // Shutdown the channel
         channel.shutdown();
 
-        if(!req.getModelConfusionQuery().equals(null)){
+        if(req.getModelConfusionQuery() != null){
             responseObject.getHyperparameterExplanation().setPipelineMetrics(dataService.getData(dataService.queryPreperation(req.getPipelineQuery())).getData());
             responseObject.getFeatureExplanation().setModelInstances(dataService.getData(dataService.queryPreperation(req.getModelInstancesQuery())).getData());
             responseObject.getFeatureExplanation().setModelConfusionMatrix(dataService.getData(dataService.queryPreperation(req.getModelConfusionQuery())).getData());
