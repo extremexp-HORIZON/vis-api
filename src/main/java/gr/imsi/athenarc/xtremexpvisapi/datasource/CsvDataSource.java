@@ -69,6 +69,11 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
             visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
             visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
+        } else if(visualQuery.getDatasetId().endsWith(".json")){
+            String source = normalizeSource(visualQuery.getDatasetId());
+            Path path = Paths.get(source);
+            Table table = readJsonFromFile(path);
+            visualizationResults.setData(table.toString());
         }
         return visualizationResults;
     }
@@ -125,6 +130,14 @@ public class CsvDataSource implements DataSource {
                         .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException("Failed to read CSVs from directory", e);
+        }
+    }
+
+    private Table readJsonFromFile(Path filePath) {
+        try (InputStream inputStream = Files.newInputStream(filePath)) {
+            return Table.read().file(filePath.toString());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read JSON from file", e);
         }
     }
 
