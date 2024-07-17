@@ -51,8 +51,9 @@ public class CsvDataSource implements DataSource {
             for (Table table : tables) {
                 Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
                 jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
-                if(columns.isEmpty()){
-                    columns.addAll(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                if (columns.isEmpty()) {
+                    columns.addAll(
+                            resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
                 }
                 if (timestampColumn.isEmpty()) {
                     timestampColumn = getTimestampColumn(resultsTable);
@@ -61,19 +62,22 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
             visualizationResults.setColumns(columns);
             visualizationResults.setTimestampColumn(timestampColumn);
-        } else if(visualQuery.getDatasetId().startsWith("file://")){
-            String source = normalizeSource(visualQuery.getDatasetId());
-            Path path = Paths.get(source);
-            Table table = readCsvFromFile(path);
-            Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-            visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
-            visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-            visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
-        } else if(visualQuery.getDatasetId().endsWith(".json")){
-            String source = normalizeSource(visualQuery.getDatasetId());
-            Path path = Paths.get(source);
-            Table table = readJsonFromFile(path);
-            visualizationResults.setData(table.toString());
+        } else if (visualQuery.getDatasetId().startsWith("file://")) {
+            if (visualQuery.getDatasetId().endsWith(".json")) {
+                String source = normalizeSource(visualQuery.getDatasetId());
+                Path path = Paths.get(source);
+                Table table = readJsonFromFile(path);
+                visualizationResults.setData(table.toString());
+            } else {
+                String source = normalizeSource(visualQuery.getDatasetId());
+                Path path = Paths.get(source);
+                Table table = readCsvFromFile(path);
+                Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+                visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
+                visualizationResults.setColumns(
+                        resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
+            }
         }
         return visualizationResults;
     }
@@ -92,7 +96,8 @@ public class CsvDataSource implements DataSource {
     @Override
     public String getTimestampColumn(Table table) {
         boolean hasHeader = table.columnNames().size() > 0;
-        if (!hasHeader) return "";
+        if (!hasHeader)
+            return "";
         for (int i = 0; i < table.columnCount(); i++) {
             ColumnType columnType = table.column(i).type();
             if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
@@ -104,13 +109,15 @@ public class CsvDataSource implements DataSource {
 
     @Override
     public String getColumn(String source, String columnName) {
-        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for simplicity
-        return getJsonDataFromTableSawTable(table.selectColumns(new String[]{columnName}));
+        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for
+                                                                                    // simplicity
+        return getJsonDataFromTableSawTable(table.selectColumns(new String[] { columnName }));
     }
 
     @Override
     public List<VisualColumn> getColumns(String source) {
-        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for simplicity
+        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for
+                                                                                    // simplicity
         return table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList();
     }
 
@@ -125,9 +132,9 @@ public class CsvDataSource implements DataSource {
     private List<Table> readCsvFromDirectory(Path directoryPath) {
         try (Stream<Path> paths = Files.walk(directoryPath)) {
             return paths.filter(Files::isRegularFile)
-                        .filter(p -> p.toString().endsWith(".csv"))
-                        .map(this::readCsvFromFile)
-                        .collect(Collectors.toList());
+                    .filter(p -> p.toString().endsWith(".csv"))
+                    .map(this::readCsvFromFile)
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException("Failed to read CSVs from directory", e);
         }
