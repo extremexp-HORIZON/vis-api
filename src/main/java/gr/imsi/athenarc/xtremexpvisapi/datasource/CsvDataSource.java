@@ -1,6 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.domain.*;
@@ -20,6 +21,9 @@ public class CsvDataSource implements DataSource {
     private final CsvQueryExecutor csvQueryExecutor;
     private final DataService dataService;
 
+    @Value("${app.working.directory}")
+    private String workingDirectory;
+
     @Autowired
     public CsvDataSource(DataService dataService) {
         this.csvQueryExecutor = new CsvQueryExecutor();
@@ -36,7 +40,7 @@ public class CsvDataSource implements DataSource {
 
         VisualizationResults visualizationResults = new VisualizationResults();
 
-        if (visualQuery.getDatasetId().contains("folder://")) {
+        if (visualQuery.getDatasetId().startsWith("folder://")) {
             String source = normalizeSource(visualQuery.getDatasetId());
             Path path = Paths.get(source);
             List<Table> tables = getTablesFromPath(path);
@@ -57,7 +61,7 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
             visualizationResults.setColumns(columns);
             visualizationResults.setTimestampColumn(timestampColumn);
-        } else if(visualQuery.getDatasetId().contains("file://")){
+        } else if(visualQuery.getDatasetId().startsWith("file://")){
             String source = normalizeSource(visualQuery.getDatasetId());
             Path path = Paths.get(source);
             Table table = readCsvFromFile(path);
@@ -71,9 +75,9 @@ public class CsvDataSource implements DataSource {
 
     private String normalizeSource(String source) {
         if (source.startsWith("file://")) {
-            return source.replace("file://", "");
+            return Path.of(workingDirectory, source.replace("file://", "")).toString();
         } else if (source.startsWith("folder://")) {
-            return source.replace("folder://", "");
+            return Path.of(workingDirectory, source.replace("folder://", "")).toString();
         } else if (source.startsWith("zenoh://")) {
             return source.replace("zenoh://", "");
         }
