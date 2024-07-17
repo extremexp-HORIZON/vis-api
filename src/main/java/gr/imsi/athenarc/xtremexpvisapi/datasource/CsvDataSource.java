@@ -1,28 +1,18 @@
-
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-
 import gr.imsi.athenarc.xtremexpvisapi.domain.*;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import tech.tablesaw.api.*;
 import tech.tablesaw.columns.*;
 import tech.tablesaw.io.csv.CsvReadOptions;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-
-
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.stream.*;
 
 @Component
 public class CsvDataSource implements DataSource {
@@ -38,64 +28,90 @@ public class CsvDataSource implements DataSource {
 
     @Override
     public String getSource() {
-        // Not needed anymore, so return null or throw UnsupportedOperationException
         throw new UnsupportedOperationException("getSource() is not used.");
     }
 
     @Override
     public VisualizationResults fetchData(VisualQuery visualQuery) {
-        Table table = getTable(visualQuery.getDatasetId());
-        Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+        List<Table> tables = getTables(visualQuery.getDatasetId());
+        List<String> jsonDataList = new ArrayList<>();
+        List<VisualColumn> columns = new ArrayList<>();
+        String timestampColumn = "";
+
+        for (Table table : tables) {
+            Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+            jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
+            columns.addAll(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+            if (timestampColumn.isEmpty()) {
+                timestampColumn = getTimestampColumn(resultsTable);
+            }
+        }
+
         VisualizationResults visualizationResults = new VisualizationResults();
-        visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
-        visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-        visualizationResults.setTimestampColumn(getTimestampColumn(table));
+        visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
+        visualizationResults.setColumns(columns);
+        visualizationResults.setTimestampColumn(timestampColumn);
+
         return visualizationResults;
     }
 
     @Override
     public String getTimestampColumn(Table table) {
         boolean hasHeader = table.columnNames().size() > 0;
-        if(!hasHeader) return "";
-            String timestampCol = null;
-            for (int i = 0; i < table.columnCount(); i++) {
-                ColumnType columnType = table.column(i).type();
-                if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
-                    timestampCol = table.column(i).name();
-                    break;
-                }
+        if (!hasHeader) return "";
+        for (int i = 0; i < table.columnCount(); i++) {
+            ColumnType columnType = table.column(i).type();
+            if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
+                return table.column(i).name();
             }
-            return timestampCol;
+        }
+        return null;
     }
 
     @Override
     public String getColumn(String source, String columnName) {
-        Table table = getTable(source);
+        Table table = getTables(source).get(0); // Assuming the first table for simplicity
         return getJsonDataFromTableSawTable(table.selectColumns(new String[]{columnName}));
     }
 
     @Override
     public List<VisualColumn> getColumns(String source) {
-        Table table = getTable(source);
+        Table table = getTables(source).get(0); // Assuming the first table for simplicity
         return table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList();
     }
 
-    private Table getTable(String source){
-        Table table;
+    private List<Table> getTables(String source) {
         if (isLocalFile(source)) {
-            table = readCsvFromFile("/data/xtreme/experiments/" + source.replace("file://", ""));
+            return readCsvFromPath("/data/xtreme/experiments/" + source.replace("file://", "").replace("folder://", ""));
         } else { // zenoh
-            table = readCsvFromZenoh(source.replace("zenoh://", ""));
+            return List.of(readCsvFromZenoh(source.replace("zenoh://", "")));
         }
-        return table;
     }
 
     private boolean isLocalFile(String source) {
-        return source.startsWith("file://");
+        return source.startsWith("file://") || source.startsWith("folder://");
     }
 
-    private Table readCsvFromFile(String filePath) {
-        try (InputStream inputStream = new FileInputStream(filePath)) {
+    private List<Table> readCsvFromPath(String pathStr) {
+        try {
+            Path path = Paths.get(pathStr);
+            if (Files.isDirectory(path)) {
+                try (Stream<Path> paths = Files.walk(path)) {
+                    return paths.filter(Files::isRegularFile)
+                                .filter(p -> p.toString().endsWith(".csv"))
+                                .map(this::readCsvFromFile)
+                                .collect(Collectors.toList());
+                }
+            } else {
+                return List.of(readCsvFromFile(path));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read CSV from path", e);
+        }
+    }
+
+    private Table readCsvFromFile(Path filePath) {
+        try (InputStream inputStream = Files.newInputStream(filePath)) {
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
             return Table.read().usingOptions(csvReadOptions);
         } catch (IOException e) {
