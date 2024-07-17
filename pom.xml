@@ -52,6 +52,11 @@
 			<version>${tablesaw.version}</version>
 		</dependency>
 		<dependency>
+  			<groupId>tech.tablesaw</groupId>
+  			<artifactId>tablesaw-json</artifactId>
+			<version>${tablesaw.version}</version>
+		</dependency>
+		<dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
             <version>${protobuf.version}</version>
