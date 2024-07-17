@@ -33,12 +33,12 @@ public class CsvDataSource implements DataSource {
 
     @Override
     public VisualizationResults fetchData(VisualQuery visualQuery) {
-        String normalizedSource = normalizeSource(visualQuery.getDatasetId());
-        Path path = Paths.get(normalizedSource);
 
         VisualizationResults visualizationResults = new VisualizationResults();
 
-        if (Files.isDirectory(path)) {
+        if (visualQuery.getDatasetId().contains("folder://")) {
+            String source = normalizeSource(visualQuery.getDatasetId());
+            Path path = Paths.get(source);
             List<Table> tables = getTablesFromPath(path);
             List<String> jsonDataList = new ArrayList<>();
             List<VisualColumn> columns = new ArrayList<>();
@@ -57,15 +57,27 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
             visualizationResults.setColumns(columns);
             visualizationResults.setTimestampColumn(timestampColumn);
-        } else {
+        } else if(visualQuery.getDatasetId().contains("file://")){
+            String source = normalizeSource(visualQuery.getDatasetId());
+            Path path = Paths.get(source);
             Table table = readCsvFromFile(path);
             Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
             visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
             visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
             visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
         }
-
         return visualizationResults;
+    }
+
+    private String normalizeSource(String source) {
+        if (source.startsWith("file://")) {
+            return source.replace("file://", "");
+        } else if (source.startsWith("folder://")) {
+            return source.replace("folder://", "");
+        } else if (source.startsWith("zenoh://")) {
+            return source.replace("zenoh://", "");
+        }
+        return source;
     }
 
     @Override
@@ -99,19 +111,6 @@ public class CsvDataSource implements DataSource {
         } else {
             return List.of(readCsvFromFile(path));
         }
-    }
-
-    private String normalizeSource(String source) {
-        if (source.startsWith("file://")) {
-            return source.replace("file://", "");
-        } else if (source.startsWith("zenoh://")) {
-            return source.replace("zenoh://", "");
-        }
-        return source;
-    }
-
-    private boolean isLocalFile(String source) {
-        return !source.startsWith("zenoh://");
     }
 
     private List<Table> readCsvFromDirectory(Path directoryPath) {
