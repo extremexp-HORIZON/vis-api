@@ -66,8 +66,8 @@ public class CsvDataSource implements DataSource {
             if (visualQuery.getDatasetId().endsWith(".json")) {
                 String source = normalizeSource(visualQuery.getDatasetId());
                 Path path = Paths.get(source);
-                Table table = readJsonFromFile(path);
-                visualizationResults.setData(table.toString());
+                String json = readJsonFromFile(path);
+                visualizationResults.setData(json);
             } else {
                 String source = normalizeSource(visualQuery.getDatasetId());
                 Path path = Paths.get(source);
@@ -140,12 +140,14 @@ public class CsvDataSource implements DataSource {
         }
     }
 
-    private Table readJsonFromFile(Path filePath) {
-        try (InputStream inputStream = Files.newInputStream(filePath)) {
-            return Table.read().file(filePath.toString());
+    private String readJsonFromFile(Path filePath) {
+        byte[] jsonData;
+        try {
+            jsonData = Files.readAllBytes(filePath);
         } catch (IOException e) {
             throw new RuntimeException("Failed to read JSON from file", e);
         }
+        return new String(jsonData);
     }
 
     private Table readCsvFromFile(Path filePath) {
