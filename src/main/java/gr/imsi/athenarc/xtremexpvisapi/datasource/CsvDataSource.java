@@ -33,24 +33,37 @@ public class CsvDataSource implements DataSource {
 
     @Override
     public VisualizationResults fetchData(VisualQuery visualQuery) {
-        List<Table> tables = getTables(visualQuery.getDatasetId());
-        List<String> jsonDataList = new ArrayList<>();
-        List<VisualColumn> columns = new ArrayList<>();
-        String timestampColumn = "";
-
-        for (Table table : tables) {
-            Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-            jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
-            columns.addAll(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-            if (timestampColumn.isEmpty()) {
-                timestampColumn = getTimestampColumn(resultsTable);
-            }
-        }
+        String normalizedSource = normalizeSource(visualQuery.getDatasetId());
+        Path path = Paths.get(normalizedSource);
 
         VisualizationResults visualizationResults = new VisualizationResults();
-        visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
-        visualizationResults.setColumns(columns);
-        visualizationResults.setTimestampColumn(timestampColumn);
+
+        if (Files.isDirectory(path)) {
+            List<Table> tables = getTablesFromPath(path);
+            List<String> jsonDataList = new ArrayList<>();
+            List<VisualColumn> columns = new ArrayList<>();
+            String timestampColumn = "";
+
+            for (Table table : tables) {
+                Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+                jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
+                if(columns.isEmpty()){
+                    columns.addAll(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                }
+                if (timestampColumn.isEmpty()) {
+                    timestampColumn = getTimestampColumn(resultsTable);
+                }
+            }
+            visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
+            visualizationResults.setColumns(columns);
+            visualizationResults.setTimestampColumn(timestampColumn);
+        } else {
+            Table table = readCsvFromFile(path);
+            Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+            visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
+            visualizationResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+            visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
+        }
 
         return visualizationResults;
     }
@@ -70,43 +83,45 @@ public class CsvDataSource implements DataSource {
 
     @Override
     public String getColumn(String source, String columnName) {
-        Table table = getTables(source).get(0); // Assuming the first table for simplicity
+        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for simplicity
         return getJsonDataFromTableSawTable(table.selectColumns(new String[]{columnName}));
     }
 
     @Override
     public List<VisualColumn> getColumns(String source) {
-        Table table = getTables(source).get(0); // Assuming the first table for simplicity
+        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for simplicity
         return table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList();
     }
 
-    private List<Table> getTables(String source) {
-        if (isLocalFile(source)) {
-            return readCsvFromPath("/data/xtreme/experiments/" + source.replace("file://", "").replace("folder://", ""));
-        } else { // zenoh
-            return List.of(readCsvFromZenoh(source.replace("zenoh://", "")));
+    private List<Table> getTablesFromPath(Path path) {
+        if (Files.isDirectory(path)) {
+            return readCsvFromDirectory(path);
+        } else {
+            return List.of(readCsvFromFile(path));
         }
     }
 
-    private boolean isLocalFile(String source) {
-        return source.startsWith("file://") || source.startsWith("folder://");
+    private String normalizeSource(String source) {
+        if (source.startsWith("file://")) {
+            return source.replace("file://", "");
+        } else if (source.startsWith("zenoh://")) {
+            return source.replace("zenoh://", "");
+        }
+        return source;
     }
 
-    private List<Table> readCsvFromPath(String pathStr) {
-        try {
-            Path path = Paths.get(pathStr);
-            if (Files.isDirectory(path)) {
-                try (Stream<Path> paths = Files.walk(path)) {
-                    return paths.filter(Files::isRegularFile)
-                                .filter(p -> p.toString().endsWith(".csv"))
-                                .map(this::readCsvFromFile)
-                                .collect(Collectors.toList());
-                }
-            } else {
-                return List.of(readCsvFromFile(path));
-            }
+    private boolean isLocalFile(String source) {
+        return !source.startsWith("zenoh://");
+    }
+
+    private List<Table> readCsvFromDirectory(Path directoryPath) {
+        try (Stream<Path> paths = Files.walk(directoryPath)) {
+            return paths.filter(Files::isRegularFile)
+                        .filter(p -> p.toString().endsWith(".csv"))
+                        .map(this::readCsvFromFile)
+                        .collect(Collectors.toList());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read CSV from path", e);
+            throw new RuntimeException("Failed to read CSVs from directory", e);
         }
     }
 
