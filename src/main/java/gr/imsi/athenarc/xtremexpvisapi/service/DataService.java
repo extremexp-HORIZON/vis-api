@@ -41,12 +41,12 @@ public class DataService {
             visualizationDataRequest.getScaler(),
             visualizationDataRequest.getAggFunction()
         );
-
-        visualQuery.instantiateFilters(
+        if(!visualizationDataRequest.getDatasetId().endsWith(".json")){
+            visualQuery.instantiateFilters(
             visualizationDataRequest.getFilters(),
             getColumns(visualizationDataRequest.getDatasetId())
         );
-
+        }
         return visualQuery;
     }
     
