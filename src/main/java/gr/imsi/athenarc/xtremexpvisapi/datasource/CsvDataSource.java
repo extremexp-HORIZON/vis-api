@@ -1,9 +1,12 @@
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
+import gr.imsi.athenarc.xtremexpvisapi.controller.VisualizationController;
 import gr.imsi.athenarc.xtremexpvisapi.domain.*;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import tech.tablesaw.api.*;
@@ -17,6 +20,7 @@ import java.util.stream.*;
 
 @Component
 public class CsvDataSource implements DataSource {
+    private static final Logger LOG = LoggerFactory.getLogger(CsvDataSource.class);
 
     private final CsvQueryExecutor csvQueryExecutor;
     private final DataService dataService;
@@ -53,12 +57,14 @@ public class CsvDataSource implements DataSource {
                 jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
                 if (columns.isEmpty()) {
                     columns.addAll(
-                            resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                        resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
                 }
                 if (timestampColumn.isEmpty()) {
                     timestampColumn = getTimestampColumn(resultsTable);
                 }
             }
+            LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
+            visualizationResults.setFileNames(tables.stream().map(table -> table.name()).toList());
             visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
             visualizationResults.setColumns(columns);
             visualizationResults.setTimestampColumn(timestampColumn);
@@ -73,6 +79,7 @@ public class CsvDataSource implements DataSource {
                 Path path = Paths.get(source);
                 Table table = readCsvFromFile(path);
                 Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+                visualizationResults.setFileNames(Arrays.asList(new String[]{table.name()}));
                 visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
                 visualizationResults.setColumns(
                         resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
@@ -153,7 +160,7 @@ public class CsvDataSource implements DataSource {
     private Table readCsvFromFile(Path filePath) {
         try (InputStream inputStream = Files.newInputStream(filePath)) {
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
-            return Table.read().usingOptions(csvReadOptions);
+            return Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
         } catch (IOException e) {
             throw new RuntimeException("Failed to read CSV from file", e);
         }

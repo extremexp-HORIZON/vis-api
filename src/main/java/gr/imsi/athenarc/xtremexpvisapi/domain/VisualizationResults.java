@@ -5,6 +5,7 @@ import java.util.List;
 public class VisualizationResults {
 
     private String data;
+    private List<String> fileNames;
     private List<VisualColumn> columns; // List to store column metadata
     private String timestampColumn; 
 
@@ -17,6 +18,7 @@ public class VisualizationResults {
     }
 
     public VisualizationResults() {
+
     }
 
     public String getData() {
@@ -34,4 +36,14 @@ public class VisualizationResults {
     public void setTimestampColumn(String timestampColumn) {
         this.timestampColumn = timestampColumn;
     }
+
+    public List<String> getFileNames() {
+        return fileNames;
+    }
+
+    public void setFileNames(List<String> fileNames) {
+        this.fileNames = fileNames;
+    }
+
+    
 }
