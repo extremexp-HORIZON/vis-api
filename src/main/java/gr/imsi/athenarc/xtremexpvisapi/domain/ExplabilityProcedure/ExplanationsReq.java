@@ -6,13 +6,20 @@ public class ExplanationsReq {
     private String model ;
     private String feature1 ;
     private String feature2 ;
+    private Integer modelId ;
     private int numInfluential;
     private byte[] proxyDataset;
     private byte[] query;
     private String features ;
     private String target ;
 
+    public Integer getModelId() {
+        return modelId;
+    }
 
+    public void setModelId(Integer modelId) {
+        this.modelId = modelId;
+    }
     
     public int getNumInfluential() {
         return numInfluential;

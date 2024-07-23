@@ -86,6 +86,7 @@ public class ExplainabilityService extends ExplanationsImplBase{
         .setModel(req.getModel())
         .setFeature1(req.getFeature1())
         .setFeature2(req.getFeature2())
+        .setModelId(req.getModelId())
         // .setNumInfluential(req.getNumInfluential())
         // .setProxyDataset(req.getProxyDataset())
         // .setQuery(req.getQuery())
