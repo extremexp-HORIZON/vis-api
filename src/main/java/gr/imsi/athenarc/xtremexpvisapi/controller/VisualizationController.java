@@ -50,6 +50,7 @@ public class VisualizationController {
     public ResponseEntity<InitializationRes> data(@RequestBody InitializationReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability initialization for dataset {}", request.getModelName());
         return ResponseEntity.ok(explainabilityService.GetInitialization(request));
+    
     }
 
     @PostMapping("/task/modelAnalysis")
@@ -66,7 +67,12 @@ public class VisualizationController {
 
     @PostMapping("/visualization/data")
     public ResponseEntity<VisualizationResults> data(@Valid @RequestBody VisualizationDataRequest visualizationDataRequest) {
-        LOG.info("RRRRequest for visualization data {}", visualizationDataRequest);
+        LOG.info("Request for visualization data {}", visualizationDataRequest);
+
+        if (visualizationDataRequest.getVisualizationType() == null || visualizationDataRequest.getVisualizationMethod() == null) {
+            LOG.error("Visualization type or method is missing");
+            return ResponseEntity.badRequest().build();
+        }
         VisualizationResults visualizationResults = new VisualizationResults();
         
         VisualQuery visualQuery = dataService.queryPreperation(visualizationDataRequest);
@@ -78,8 +84,10 @@ public class VisualizationController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
-        if(visualizationResults.getData() == null)  return ResponseEntity.badRequest().body(visualizationResults);
-        LOG.info("Visualization data retrieval successful");
+        if (visualizationResults.getData() == null) {
+            LOG.warn("No data found for the request");
+            return ResponseEntity.badRequest().body(visualizationResults);
+        }        LOG.info("Visualization data retrieval successful");
     
         return ResponseEntity.ok(visualizationResults);
     }

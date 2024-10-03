@@ -11,6 +11,8 @@ public class EqualsFilter<T> extends AbstractFilter {
     public EqualsFilter(String column, T equalValue) {
         super(column);
         this.equalValue = equalValue;
+        setType("equals");  // You can set type here for consistency
+
     }
 
     public T getEqualValue() {
@@ -69,12 +71,8 @@ public class EqualsFilter<T> extends AbstractFilter {
 
         public StringEqualsFilter(String column, String value) {
             super(column, value);
-            setType("equals");
         }
 
-        @Override
-        public String getValue() {
-            return super.getEqualValue();
-        }
+        
     }
 }

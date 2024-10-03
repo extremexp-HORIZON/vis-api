@@ -18,6 +18,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
+import java.time.temporal.ChronoUnit;
 
 public class VisualQuery {
 
@@ -38,17 +39,30 @@ public class VisualQuery {
     List<AbstractFilter> filters;
     String scaler;
     String aggFunction;
+
+    // Add fields for geographical parameters
+    String latColumn;
+    String lonColumn;
+    Integer offset;
+    String temporalGroupColumn;
+    ChronoUnit temporalGranularity;
     
 
-    public VisualQuery(String datasetId, ViewPort viewPort, List<String> columns, Integer limit, String scaler, String aggFunction){ 
+    public VisualQuery(String datasetId, ViewPort viewPort, List<String> columns, Integer limit, String scaler, String aggFunction, Integer offset) {
+        
+    
         this.datasetId = datasetId;
         this.viewPort = viewPort;
         this.columns = columns;
         this.limit = limit;
         this.scaler=scaler;
         this.aggFunction=aggFunction;
+        this.offset = offset;
     }
 
+    public Integer getOffset() {
+        return offset;
+    }
     public String getAggFunction() {
         return aggFunction;
     }
@@ -75,11 +89,7 @@ public class VisualQuery {
         return limit;
     }
     
-    @Override
-    public String toString() {
-        return "VisualQuery [datasetId=" + datasetId + ", filters=" + filters + ", columns=" + columns 
-                + ", viewPort=" + viewPort + ", limit=" + limit + ", isMinMaxScale=" + scaler + ", aggFunction=" + aggFunction + "]";
-    }
+   
 
     public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){
         this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
@@ -135,6 +145,10 @@ public class VisualQuery {
                         LocalDateTime dateTime = LocalDateTime.parse(value.asText(), dateTimeFormatter);
                         LOG.debug("Creating equals filter for date/time: {}", dateTime);
                         return equalsFilter.new DateTimeEqualsFilter(column.getName(), dateTime);
+                    case "STRING":  // Add this case
+                        String stringValue = value.asText();  // Extract the string value
+                        LOG.debug("Creating equals filter for string type: {}", stringValue);
+                        return equalsFilter.new StringEqualsFilter(column.getName(), stringValue);  // Return a StringEqualsFilter
                     default:
                         LOG.error("Unsupported column type for equals filter: {}", column.getType());
                         return null;
@@ -143,5 +157,41 @@ public class VisualQuery {
                 //TODO: add sth here
                 return null;
         }
+    }
+
+    
+
+    public void setTemporalParams(String  groupColumn, ChronoUnit granularity) {
+       this.temporalGroupColumn=groupColumn;
+       this.temporalGranularity=granularity;
+    }
+
+    public String getTemporalGroupColumn() {
+        return temporalGroupColumn;
+    }
+
+    public ChronoUnit getTemporalGranularity() {
+        return temporalGranularity;
+    }
+
+    public void setGeographicalParams(String lat, String lon) {
+        this.latColumn = lat;
+        this.lonColumn = lon;
+    }
+
+    @Override
+    public String toString() {
+        return "VisualQuery [datasetId=" + datasetId 
+                + ", filters=" + filters 
+                + ", columns=" + columns 
+                + ", viewPort=" + viewPort 
+                + ", limit=" + limit 
+                + ", scaler=" + scaler 
+                + ", aggFunction=" + aggFunction 
+                + ", latColumn=" + latColumn 
+                + ", lonColumn=" + lonColumn 
+                + ", offset=" + offset 
+                + ", temporalGroupColumn=" + temporalGroupColumn 
+                + ", temporalGranularity=" + temporalGranularity + "]";
     }
 }

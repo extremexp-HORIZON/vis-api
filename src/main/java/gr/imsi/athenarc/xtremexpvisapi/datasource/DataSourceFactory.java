@@ -19,6 +19,7 @@ public class DataSourceFactory {
     public DataSource createDataSource(String type, String source) {
         switch (type.toLowerCase()) {
             case "csv":
+            case "json":
             case "zenoh":
                 CsvDataSource csvDataSource = applicationContext.getBean(CsvDataSource.class);
                 return csvDataSource;

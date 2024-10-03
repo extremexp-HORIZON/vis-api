@@ -8,6 +8,16 @@ public class VisualizationResults {
     private List<String> fileNames;
     private List<VisualColumn> columns; // List to store column metadata
     private String timestampColumn; 
+    private int totalItems; // New field for total item count
+
+
+    public int getTotalItems() {
+        return totalItems;
+    }
+
+    public void setTotalItems(int totalItems) {
+        this.totalItems = totalItems;
+    }
 
     public List<VisualColumn> getColumns() {
         return columns;

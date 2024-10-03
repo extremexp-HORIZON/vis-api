@@ -39,8 +39,30 @@ public class DataService {
             visualizationDataRequest.getColumns(),
             visualizationDataRequest.getLimit(),
             visualizationDataRequest.getScaler(),
-            visualizationDataRequest.getAggFunction()
+            visualizationDataRequest.getAggFunction(),
+            visualizationDataRequest.getOffset()
         );
+        switch (visualizationDataRequest.getVisualizationType()) {
+            case "tabular":
+                // Specific handling for tabular data
+                break;
+            case "temporal":
+                visualQuery.setTemporalParams(
+                    visualizationDataRequest.getTemporalParams().getGroupColumn(),
+                    visualizationDataRequest.getTemporalParams().getGranularity()
+                );
+                break;
+            case "geographical":
+                visualQuery.setGeographicalParams(
+                    visualizationDataRequest.getGeographicalParams().getLat(),
+                    visualizationDataRequest.getGeographicalParams().getLon()
+                );
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported visualization type: " + visualizationDataRequest.getVisualizationType());
+        }
+
+
         if(!visualizationDataRequest.getDatasetId().endsWith(".json")){
             visualQuery.instantiateFilters(
             visualizationDataRequest.getFilters(),
