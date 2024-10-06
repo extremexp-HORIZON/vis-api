@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +15,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DatabindException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
@@ -26,6 +32,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.Initialization
 import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.InitializationRes;
 import gr.imsi.athenarc.xtremexpvisapi.domain.ModelAnalysisTask.ModelAnalysisTaskReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExplainabilityService;
 
@@ -65,13 +73,68 @@ public class VisualizationController {
         return ResponseEntity.ok(explainabilityService.GetExplains(request));
     }
 
+
+    @PostMapping("/visualization/timeseries")
+    public ResponseEntity<TimeSeriesResponse> getTimeSeriesData(@Valid @RequestBody TimeSeriesRequest timeSeriesRequest) {
+        LOG.info("Request for visualization data {}", timeSeriesRequest);
+
+        if (timeSeriesRequest.getDatasetId() == null) {
+            LOG.error("Dataset ID is missing");
+            return ResponseEntity.badRequest().body(new TimeSeriesResponse());
+        }
+        TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
+        
+        TimeSeriesQuery timeSeriesQuery = dataService.timeSeriesQueryPreperation(timeSeriesRequest);
+
+        LOG.info("Tabular query before getdata: {}", timeSeriesQuery);
+        try {
+            timeSeriesResponse = dataService.getTimeSeriesData(timeSeriesQuery);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+        if (timeSeriesResponse.getData() == null) {
+            LOG.warn("No data found for the request");
+            return ResponseEntity.badRequest().body(timeSeriesResponse);
+        }        LOG.info("Visualization data retrieval successful");
+    
+        return ResponseEntity.ok(timeSeriesResponse);
+    }
+   
     @PostMapping("/visualization/data")
+    public ResponseEntity<TabularResults> tabulardata(@Valid @RequestBody TabularRequest tabularRequest) {
+        LOG.info("Request for visualization data {}", tabularRequest);
+
+        if (tabularRequest.getDatasetId() == null) {
+            LOG.error("Dataset ID is missing");
+            return ResponseEntity.badRequest().body(new TabularResults());
+        }
+        TabularResults tabularResults = new TabularResults();
+        
+        TabularQuery tabularQuery = dataService.tabularQueryPreperation(tabularRequest);
+
+        LOG.info("Tabular query before getdata: {}", tabularQuery);
+        try {
+            tabularResults = dataService.getTabularData(tabularQuery);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+        if (tabularResults.getData() == null) {
+            LOG.warn("No data found for the request");
+            return ResponseEntity.badRequest().body(tabularResults);
+        }        LOG.info("Visualization data retrieval successful");
+    
+        return ResponseEntity.ok(tabularResults);
+    }
+
+    @PostMapping("/visualization/olddata")
     public ResponseEntity<VisualizationResults> data(@Valid @RequestBody VisualizationDataRequest visualizationDataRequest) {
         LOG.info("Request for visualization data {}", visualizationDataRequest);
 
-        if (visualizationDataRequest.getVisualizationType() == null || visualizationDataRequest.getVisualizationMethod() == null) {
-            LOG.error("Visualization type or method is missing");
-            return ResponseEntity.badRequest().build();
+        if (visualizationDataRequest.getDatasetId() == null) {
+            LOG.error("Dataset ID is missing");
+            return ResponseEntity.badRequest().body(new VisualizationResults());
         }
         VisualizationResults visualizationResults = new VisualizationResults();
         

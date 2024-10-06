@@ -5,6 +5,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.List;
+import java.util.Map;
+
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +22,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
 import java.time.temporal.ChronoUnit;
 
-public class VisualQuery {
+public class TabularQuery {
 
     private static final Logger LOG = LoggerFactory.getLogger(VisualQuery.class);
 
@@ -33,43 +35,26 @@ public class VisualQuery {
         .toFormatter(); 
         
     String datasetId;
-    ViewPort viewPort;
     Integer limit;
     List<String> columns;
     List<AbstractFilter> filters;
-    String scaler;
-    String aggFunction;
-
-    // Add fields for geographical parameters
-    String latColumn;
-    String lonColumn;
     Integer offset;
-    String temporalGroupColumn;
-    ChronoUnit temporalGranularity;
+    List<String> groupBy;
+    Map<String, Object> aggregation;
     
 
-    public VisualQuery(String datasetId, ViewPort viewPort, List<String> columns, Integer limit, String scaler, String aggFunction, Integer offset) {
-        
-    
+   
+
+    public TabularQuery(String datasetId, Integer limit, List<String> columns, Integer offset, List<String> groupBy, Map<String, Object> aggregation) {
+
         this.datasetId = datasetId;
-        this.viewPort = viewPort;
-        this.columns = columns;
         this.limit = limit;
-        this.scaler=scaler;
-        this.aggFunction=aggFunction;
+        this.columns = columns;
         this.offset = offset;
+        this.groupBy = groupBy;
+        this.aggregation = aggregation;
     }
 
-    public Integer getOffset() {
-        return offset;
-    }
-    public String getAggFunction() {
-        return aggFunction;
-    }
-
-    public String getScaler() {
-        return scaler;
-    }
 
     public String getDatasetId() {
         return datasetId;
@@ -79,16 +64,26 @@ public class VisualQuery {
         return columns;
     }
 
-    public ViewPort getViewPort() {
-        return viewPort;
-    }
+   
     public List<AbstractFilter> getFilters() {
         return filters;
     }
     public Integer getLimit() {
         return limit;
     }
+
+    public Integer getOffset() {
+        return offset;
+    }
+    public List<String> getGroupBy() {
+        return groupBy;
+    }
+
+    public Map<String, Object> getAggregation() {
+        return aggregation;
+    }
     
+   
 
     public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){
         this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
@@ -158,37 +153,15 @@ public class VisualQuery {
         }
     }
 
-    public void setTemporalParams(String  groupColumn, ChronoUnit granularity) {
-       this.temporalGroupColumn=groupColumn;
-       this.temporalGranularity=granularity;
-    }
-
-    public String getTemporalGroupColumn() {
-        return temporalGroupColumn;
-    }
-
-    public ChronoUnit getTemporalGranularity() {
-        return temporalGranularity;
-    }
-
-    public void setGeographicalParams(String lat, String lon) {
-        this.latColumn = lat;
-        this.lonColumn = lon;
-    }
-
+    
     @Override
     public String toString() {
-        return "VisualQuery [datasetId=" + datasetId 
+        return "TabularQuery [datasetId=" + datasetId 
                 + ", filters=" + filters 
                 + ", columns=" + columns 
-                + ", viewPort=" + viewPort 
                 + ", limit=" + limit 
-                + ", scaler=" + scaler 
-                + ", aggFunction=" + aggFunction 
-                + ", latColumn=" + latColumn 
-                + ", lonColumn=" + lonColumn 
                 + ", offset=" + offset 
-                + ", temporalGroupColumn=" + temporalGroupColumn 
-                + ", temporalGranularity=" + temporalGranularity + "]";
+                + ", groupBy=" + groupBy
+                + ", aggregation=" + aggregation + "]";
     }
 }

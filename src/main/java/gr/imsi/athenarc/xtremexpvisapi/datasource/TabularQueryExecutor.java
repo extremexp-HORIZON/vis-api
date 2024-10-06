@@ -1,0 +1,223 @@
+
+
+package gr.imsi.athenarc.xtremexpvisapi.datasource;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DoubleRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.IntegerRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
+import tech.tablesaw.aggregate.AggregateFunctions;
+import tech.tablesaw.api.Table;
+import tech.tablesaw.columns.Column;
+import tech.tablesaw.selection.Selection;
+
+
+public class TabularQueryExecutor {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TabularQueryExecutor.class);
+
+    public Table queryTabularData(Table table, TabularQuery query) {
+        // Table resultTable = null;
+ 
+        Selection selection = null;
+        if(query.getFilters() != null){
+            for (AbstractFilter filter : query.getFilters()) {
+                Selection filterSelection = null;
+                if (filter instanceof RangeFilter) {
+                    RangeFilter<?> rangeFilter = (RangeFilter<?>) filter;
+                    //Handle Double RangeFilter
+                    if (rangeFilter instanceof DoubleRangeFilter) {
+                        LOG.debug("Number range filtering {}, with min {} and max {}", rangeFilter.getColumn(), rangeFilter.getMinValue(), rangeFilter.getMaxValue());
+                        DoubleRangeFilter numberRangeFilter = (DoubleRangeFilter) rangeFilter;
+                        // Assuming column is a Number column
+                        filterSelection = table.numberColumn(rangeFilter.getColumn())
+                                .isGreaterThanOrEqualTo(numberRangeFilter.getMinValue())
+                                .and(table.numberColumn(rangeFilter.getColumn())
+                                .isLessThanOrEqualTo(numberRangeFilter.getMaxValue()));
+
+                    // Handle Datetime RangeFilter           
+                    } else if (rangeFilter instanceof DateTimeRangeFilter) {
+                        LOG.debug("Date range filtering {}, with min {} and max {}", rangeFilter.getColumn(), rangeFilter.getMinValue(), rangeFilter.getMaxValue());
+                        DateTimeRangeFilter dateTimeRangeFilter = (DateTimeRangeFilter) rangeFilter;
+                        // Assuming column is a Date-Time column
+                        filterSelection = table.dateTimeColumn(rangeFilter.getColumn())
+                                .isBetweenIncluding(dateTimeRangeFilter.getMinValue(), dateTimeRangeFilter.getMaxValue());
+                    } else if (rangeFilter instanceof IntegerRangeFilter) {
+                        LOG.debug("Integer range filtering {}, with min {} and max {}", rangeFilter.getColumn(), rangeFilter.getMinValue(), rangeFilter.getMaxValue());
+                        IntegerRangeFilter integerRangeFilter = (IntegerRangeFilter) rangeFilter;
+                        // Assuming column is an Integer column
+                        filterSelection = table.intColumn(rangeFilter.getColumn())
+                                .isGreaterThanOrEqualTo(integerRangeFilter.getMinValue())
+                                .and(table.intColumn(rangeFilter.getColumn())
+                                .isLessThanOrEqualTo(integerRangeFilter.getMaxValue()));
+                    }
+                    // Add other types of RangeFilters here if needed
+                }else if (filter instanceof EqualsFilter) {
+                    EqualsFilter equalsFilter = (EqualsFilter) filter;
+                    Column<?> column = table.column(equalsFilter.getColumn());
+                    String columnTypeName = column.type().name();
+                    switch (columnTypeName) {
+                        case "DOUBLE":
+                            double doubleValue = Double.parseDouble(equalsFilter.getValue().toString());
+                            filterSelection = table.doubleColumn(equalsFilter.getColumn()).isEqualTo(doubleValue);
+                            break;
+                        case "INTEGER":
+                            int intValue = Integer.parseInt(equalsFilter.getValue().toString());
+                            filterSelection = table.intColumn(equalsFilter.getColumn()).isEqualTo(intValue);
+                            break;
+                        case "STRING":
+                            LOG.debug("String equals filtering {}, with value {}", equalsFilter.getColumn(), equalsFilter.getValue());
+
+                            filterSelection = table.stringColumn(equalsFilter.getColumn()).isEqualTo(equalsFilter.getEqualValue().toString());
+                            break;
+                        case "LOCAL_DATE_TIME":
+                            LocalDateTime localDateTimeValue = LocalDateTime.parse(equalsFilter.getValue().toString());
+                            filterSelection = table.dateTimeColumn(equalsFilter.getColumn()).isEqualTo(localDateTimeValue);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unsupported column type for equals filter: " + columnTypeName);
+                    }
+                }
+                
+                // Add other types of filters here 
+                selection = selection == null ? filterSelection : selection.and(filterSelection);
+            }
+        }
+        LOG.debug("Selection is: {}", selection);
+     
+        Table resultTable = (selection != null) ? table.where(selection) : table;
+
+        resultTable = applyPagination(resultTable, query.getLimit(), query.getOffset());
+        resultTable = applyColumnSelection(resultTable, query.getColumns());
+        if (query.getAggregation() != null && !query.getAggregation().isEmpty()) {
+            resultTable = applyAggregation(resultTable, query.getGroupBy(), query.getAggregation());
+        }
+
+        LOG.info("Final table after query has {} rows.", resultTable.rowCount());
+    
+        return resultTable;
+
+    }
+
+
+
+
+    // Apply pagination
+    private Table applyPagination(Table table, Integer limit, Integer offset) {
+        if (offset != null && offset > 0) {
+            table = table.dropRange(0, offset);
+        }
+
+        if (limit != null && limit > 0) {
+            table = table.first(limit);
+        }
+
+        return table;
+    }
+
+    // Apply column selection
+    private Table applyColumnSelection(Table table, List<String> columns) {
+        if (columns != null && !columns.isEmpty()) {
+            table = table.selectColumns(columns.toArray(new String[0]));
+        }
+        return table;
+    }
+
+
+    private Table applyAggregation(Table table, List<String> groupByColumns, Map<String, Object> aggregation) {
+        Table resultTable = null;
+    
+        // Iterate over the aggregation map
+        for (Map.Entry<String, Object> agg : aggregation.entrySet()) {
+            String column = agg.getKey();
+            Object aggFunctions = agg.getValue();
+    
+            // Check if the aggregation functions are in an array (multiple functions for the same column)
+            if (aggFunctions instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<String> aggList = (List<String>) aggFunctions;
+                for (String aggFunction : aggList) {
+                    resultTable = applySingleAggregation(table, groupByColumns, resultTable, column, aggFunction);
+                }
+            } else if (aggFunctions instanceof String) {
+                // Single aggregation function for the column
+                String aggFunction = (String) aggFunctions;
+                resultTable = applySingleAggregation(table, groupByColumns, resultTable, column, aggFunction);
+            } else {
+                LOG.error("Unsupported aggregation value type for column '{}'", column);
+            }
+        }
+    
+        return resultTable;
+    }
+    
+    
+    
+
+
+    private Table applySingleAggregation(Table table, List<String> groupByColumns, Table resultTable, String column, String aggFunction) {
+        Table aggregatedTable;
+    
+        // Check if groupByColumns is null or empty, indicating global aggregation
+        boolean globalAggregation = (groupByColumns == null || groupByColumns.isEmpty());
+    
+        switch (aggFunction.toLowerCase()) {
+            case "sum":
+                if (globalAggregation) {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.sum).apply(); // Global aggregation
+                } else {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.sum).by(groupByColumns.toArray(new String[0]));
+                }
+                break;
+            case "avg":
+                if (globalAggregation) {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.mean).apply(); // Global aggregation
+                } else {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.mean).by(groupByColumns.toArray(new String[0]));
+                }
+                break;
+            case "count":
+                if (globalAggregation) {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.count).apply(); // Global aggregation
+                } else {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.count).by(groupByColumns.toArray(new String[0]));
+                }
+                break;
+            case "max":
+                if (globalAggregation) {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.max).apply(); // Global aggregation
+                } else {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.max).by(groupByColumns.toArray(new String[0]));
+                }
+                break;
+            case "min":
+                if (globalAggregation) {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.min).apply(); // Global aggregation
+                } else {
+                    aggregatedTable = table.summarize(column, AggregateFunctions.min).by(groupByColumns.toArray(new String[0]));
+                }
+                break;
+            default:
+                LOG.error("Unsupported aggregation function '{}'", aggFunction);
+                return resultTable; // Return the resultTable unchanged if the function is unsupported
+        }
+    
+        // If it's the first aggregation, set it as the resultTable, else join the tables
+        if (resultTable == null) {
+            return aggregatedTable;
+        } else {
+            return resultTable.joinOn(groupByColumns.toArray(new String[0])).inner(aggregatedTable);
+        }
+    }
+    
+
+}

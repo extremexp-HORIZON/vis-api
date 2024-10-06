@@ -4,6 +4,7 @@
 
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 
@@ -14,9 +15,17 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
+
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
 @Service
@@ -71,7 +80,81 @@ public class DataService {
         }
         return visualQuery;
     }
+
+    public TabularQuery tabularQueryPreperation (TabularRequest tabularRequest) {
+
+        TabularQuery tabularQuery = new TabularQuery(
+            tabularRequest.getDatasetId(),
+            tabularRequest.getLimit(),
+            tabularRequest.getColumns(),
+            tabularRequest.getOffset(),
+            tabularRequest.getGroupBy(),
+            tabularRequest.getAggregation()
+        );
+        
+
+
+        if(!tabularQuery.getDatasetId().endsWith(".json")){
+            tabularQuery.instantiateFilters(
+            tabularRequest.getFilters(),
+            getColumns(tabularRequest.getDatasetId())
+        );
+        }
+        return tabularQuery;
+    }
     
+
+    public TimeSeriesQuery timeSeriesQueryPreperation(TimeSeriesRequest timeSeriesRequest) {
+        TimeSeriesQuery timeSeriesQuery = new TimeSeriesQuery(
+            timeSeriesRequest.getDatasetId(),
+            timeSeriesRequest.getTimestampColumn(),
+            timeSeriesRequest.getColumns(),
+            timeSeriesRequest.getFrom(),
+            timeSeriesRequest.getTo(),
+            timeSeriesRequest.getLimit(),
+            timeSeriesRequest.getOffset(),
+            timeSeriesRequest.getDataReduction()
+        
+        );
+        
+      
+        
+
+
+        if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
+            timeSeriesQuery.instantiateFilters();
+        }
+        return timeSeriesQuery;
+        
+    }
+    public TabularResults getTabularData(TabularQuery tabularQuery) {
+        LOG.info("Retrieving tabcolumns for datasetId: {}", tabularQuery.getDatasetId());
+
+        String datasetId = tabularQuery.getDatasetId();
+        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
+
+
+        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
+        // Print datasetId being processed
+        LOG.info("Processing data for datasetId: {}", datasetId);
+        TabularResults results = dataSource.fetchTabularData(tabularQuery);
+        return results;
+    }
+    
+    public TimeSeriesResponse getTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
+        LOG.info("Retrieving tabcolumns for datasetId: {}", timeSeriesQuery.getDatasetId());
+
+        String datasetId = timeSeriesQuery.getDatasetId();
+        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
+
+
+        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
+        // Print datasetId being processed
+        LOG.info("Processing data for datasetId: {}", datasetId);
+        TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesQuery);
+        return results;
+        
+    }
     
 
     public VisualizationResults getData(VisualQuery visualQuery) {
@@ -87,6 +170,8 @@ public class DataService {
         VisualizationResults results = dataSource.fetchData(visualQuery);
         return results;
     }
+
+
 
     public List<VisualColumn> getColumns(String datasetId) {
         LOG.info("Retrieving columns for datasetId: {}", datasetId);
@@ -105,4 +190,8 @@ public class DataService {
     public String fetchZenohData(String useCase, String folder, String subfolder, String filename) throws Exception {
         return zenohService.CasesFiles(useCase, folder, subfolder, filename);
     }
+
+
+
+
 }
