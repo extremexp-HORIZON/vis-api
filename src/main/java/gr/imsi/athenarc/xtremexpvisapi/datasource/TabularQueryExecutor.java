@@ -8,6 +8,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
@@ -25,7 +26,7 @@ public class TabularQueryExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(TabularQueryExecutor.class);
 
-    public Table queryTabularData(Table table, TabularQuery query) {
+    public QueryResult queryTabularData(Table table, TabularQuery query) {
         // Table resultTable = null;
  
         Selection selection = null;
@@ -93,37 +94,52 @@ public class TabularQueryExecutor {
             }
         }
         LOG.debug("Selection is: {}", selection);
+
      
         Table resultTable = (selection != null) ? table.where(selection) : table;
+        int rowCount = resultTable.rowCount();
+        LOG.info("Row count after filtering: {}", rowCount);
 
-        resultTable = applyPagination(resultTable, query.getLimit(), query.getOffset());
         resultTable = applyColumnSelection(resultTable, query.getColumns());
         if (query.getAggregation() != null && !query.getAggregation().isEmpty()) {
             resultTable = applyAggregation(resultTable, query.getGroupBy(), query.getAggregation());
         }
 
+        resultTable = applyPagination(resultTable, query.getLimit(), query.getOffset());
+
+
         LOG.info("Final table after query has {} rows.", resultTable.rowCount());
     
-        return resultTable;
+        return new QueryResult(resultTable, rowCount); 
 
     }
-
-
-
 
     // Apply pagination
     private Table applyPagination(Table table, Integer limit, Integer offset) {
-        if (offset != null && offset > 0) {
+        // Set default values for limit and offset
+        if (limit == null || limit <= 0) {
+            limit = 1000; // Default limit if none is provided
+        }
+        if (offset == null || offset < 0) {
+            offset = 0; // Reset negative offsets to 0
+        }
+    
+        // Log pagination values for debugging
+        LOG.debug("Applying pagination with offset: {} and limit: {}", offset, limit);
+    
+        // If offset is greater than 0, drop rows to get to the desired starting point
+        if (offset > 0) {
             table = table.dropRange(0, offset);
         }
-
-        if (limit != null && limit > 0) {
+    
+        // Get the first 'limit' rows after applying the offset
+        if (limit > 0) {
             table = table.first(limit);
         }
-
+    
+        LOG.debug("Table after pagination has {} rows.", table.rowCount());
         return table;
     }
-
     // Apply column selection
     private Table applyColumnSelection(Table table, List<String> columns) {
         if (columns != null && !columns.isEmpty()) {
@@ -156,13 +172,25 @@ public class TabularQueryExecutor {
                 LOG.error("Unsupported aggregation value type for column '{}'", column);
             }
         }
-    
+        resultTable = renameAggregatedColumns(resultTable);
         return resultTable;
     }
+    private Table renameAggregatedColumns(Table resultTable) {
+        // Create a new table to hold the renamed columns
+        Table renamedTable = Table.create(resultTable.name());
     
+        for (Column<?> col : resultTable.columns()) {
+            String originalName = col.name();
+            // Replace spaces and brackets with underscores (e.g., "Mean [state]" -> "Mean_state")
+            String newName = originalName.replace(" [", "_").replace("]", "");
     
+            // Add renamed column to the new table
+            renamedTable.addColumns(col.copy().setName(newName));
+        }
     
-
+        return renamedTable;
+    }
+    
 
     private Table applySingleAggregation(Table table, List<String> groupByColumns, Table resultTable, String column, String aggFunction) {
         Table aggregatedTable;

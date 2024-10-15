@@ -183,46 +183,46 @@ public class CsvDataSource implements DataSource {
             // tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
             // tabularResults.setColumns(columns);
             // tabularResults.setTimestampColumn(timestampColumn);
-        } else if (tabularQuery.getDatasetId().startsWith("file://")) {
-            if (tabularQuery.getDatasetId().endsWith(".json")) {
-                LOG.info("Prepei  na ftiaksw to JSON");
+            } else if (tabularQuery.getDatasetId().startsWith("file://")) {
+                if (tabularQuery.getDatasetId().endsWith(".json")) {
+                    LOG.info("Prepei  na ftiaksw to JSON");
 
-                // String source = normalizeSource(tabularQuery.getDatasetId());
-                // Path path = Paths.get(source);
-                // Map<String, List<Object>> jsonData = readJsonData(path);
-                // LOG.info("jsonData {}", jsonData);
-                // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
-                // String jsonString = filteredData.stream()
-                // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                // .collect(Collectors.joining(",", "[", "]")); 
-                // List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                // tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                // tabularResults.setData(jsonString);
-                // tabularResults.setColumns(columnNames.stream()
-                // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                // .toList());
-            } else {
-                String source = normalizeSource(tabularQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Table table = readCsvFromFile(path);
-                Table resultsTable = tabularQueryExecutor.queryTabularData(table, tabularQuery);
-                tabularResults.setFileNames(Arrays.asList(new String[]{table.name()}));
-                tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                tabularResults.setColumns(
-                    table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList()
-                    );
-                // // tabularResults.setTimestampColumn(getTimestampColumn(resultsTable));
-                tabularResults.setTotalItems(resultsTable.rowCount()); // Add this line to return total items
+                    // String source = normalizeSource(tabularQuery.getDatasetId());
+                    // Path path = Paths.get(source);
+                    // Map<String, List<Object>> jsonData = readJsonData(path);
+                    // LOG.info("jsonData {}", jsonData);
+                    // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+                    // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+                    // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
+                    // String jsonString = filteredData.stream()
+                    // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+                    // .collect(Collectors.joining(",", "[", "]")); 
+                    // List<String> columnNames = new ArrayList<>(jsonData.keySet());
+                    // tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+                    // tabularResults.setData(jsonString);
+                    // tabularResults.setColumns(columnNames.stream()
+                    // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+                    // .toList());
+                    } else {
+                        String source = normalizeSource(tabularQuery.getDatasetId());
+                        Path path = Paths.get(source);
+                        Table table = readCsvFromFile(path);
+                        // Table resultsTable = tabularQueryExecutor.queryTabularData(table, tabularQuery);
+                        QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularQuery);
+                        Table resultsTable = queryResult.getResultTable();
+                        Map<String, List<Object>>uniqueColumnValues = getUniqueValuesForColumns(table, table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
 
+                        tabularResults.setFileNames(Arrays.asList(new String[]{table.name()}));
+                        tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
+                        tabularResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                        tabularResults.setOriginalColumns(table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                        tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
+                        tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
+                        tabularResults.setUniqueColumnValues(uniqueColumnValues);
+                    }
+                }
+            return tabularResults;
             }
-        }
-        return tabularResults;
-    
-
-
-    }
 
 
     @Override
@@ -427,6 +427,22 @@ public class CsvDataSource implements DataSource {
         jsonNodeList.add(jsonObject);
     }
     return jsonNodeList;
+}
+
+private Map<String, List<Object>> getUniqueValuesForColumns(Table table, List<VisualColumn> visualColumns) {
+    Map<String, List<Object>> uniqueValues = new HashMap<>();
+
+    // Iterate through all the visual columns passed
+    for (VisualColumn visualColumn : visualColumns) {
+        String columnName = visualColumn.getName();
+        Column<?> column = table.column(columnName);
+
+        // Fetch the unique values for each column and store them in the map
+        List<Object> uniqueColumnValues = (List<Object>) column.unique().asList();
+            uniqueValues.put(columnName, uniqueColumnValues);
+    }
+    
+    return uniqueValues;
 }
 
     
