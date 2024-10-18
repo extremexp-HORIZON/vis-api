@@ -10,7 +10,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,7 @@ public class JsonQueryExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(JsonQueryExecutor.class);
 
     // This method accepts the parsed JSON array and the VisualQuery
-    public List<JsonNode> queryJson(List<JsonNode> jsonData, TabularQuery query) {
+    public List<JsonNode> queryJson(List<JsonNode> jsonData, VisualQuery query) {
         // Apply filters to JSON data
         if (query.getFilters() != null) {
             for (AbstractFilter filter : query.getFilters()) {
@@ -37,12 +38,13 @@ public class JsonQueryExecutor {
         jsonData = applyProjections(jsonData, query.getColumns());
 
         // Apply normalization if needed
-        // applyNormalization(jsonData, query.getScaler(), query.getColumns());
+        applyNormalization(jsonData, query.getScaler(), query.getColumns());
 
         // Apply aggregation if needed
-        // if (query.getAggregation() != null) {
-        //     jsonData = applyAggregation(jsonData, query.getAggregation());
-        // }
+        if (query.getAggFunction() != null) {
+            jsonData = applyAggregation(jsonData, query.getAggFunction());
+        }
+
 
         // Apply offset and limit
         jsonData = applyLimitAndOffset(jsonData, query.getLimit(), query.getOffset());
@@ -97,19 +99,19 @@ public class JsonQueryExecutor {
         }).collect(Collectors.toList());
     }
 
-    // private void applyNormalization(List<JsonNode> jsonData, String scaler, List<String> columns) {
-    //     // Apply normalization logic like min-max or Z-score
-    //     if (scaler != null && columns != null) {
-    //         // Implement normalization logic similar to CSV case
-    //         // ...
-    //     }
-    // }
+    private void applyNormalization(List<JsonNode> jsonData, String scaler, List<String> columns) {
+        // Apply normalization logic like min-max or Z-score
+        if (scaler != null && columns != null) {
+            // Implement normalization logic similar to CSV case
+            // ...
+        }
+    }
 
-    // private List<JsonNode> applyAggregation(List<JsonNode> jsonData, String aggFunction) {
-    //     // Apply aggregation logic if needed (e.g., sum, mean)
-    //     // ...
-    //     return jsonData;
-    // }
+    private List<JsonNode> applyAggregation(List<JsonNode> jsonData, String aggFunction) {
+        // Apply aggregation logic if needed (e.g., sum, mean)
+        // ...
+        return jsonData;
+    }
 
     private List<JsonNode> applyLimitAndOffset(List<JsonNode> jsonData, Integer limit, Integer offset) {
         // Apply offset and limit to the resulting data
