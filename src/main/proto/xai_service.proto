@@ -107,8 +107,11 @@ message ExplanationsResponse {
     string plot_descr = 5;
     string plot_type = 6;
     Features features = 7;
-    Axis xAxis = 8;
-    Axis yAxis = 9;
-    Axis zAxis = 10; 
-    map<string, TableContents> table_contents= 11;
+    repeated string hyperparameter_list = 8;
+    repeated string feature_list = 9;
+    Axis xAxis = 10;
+    Axis yAxis = 11;
+    Axis zAxis = 12; 
+    map<string, TableContents> table_contents= 13;
+
 }

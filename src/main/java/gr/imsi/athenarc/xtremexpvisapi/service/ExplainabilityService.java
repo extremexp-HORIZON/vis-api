@@ -112,12 +112,9 @@ public class ExplainabilityService extends ExplanationsImplBase{
 
         // Create an ObjectMapper
         ObjectMapper objectMapper = new ObjectMapper();
-        System.out.println("Raw object response: " + objectMapper);
-
 
         // Deserialize the JSON string into a Response object
         ExplanationsRes responseObject = objectMapper.readValue(json, ExplanationsRes.class);
-        System.out.println("Raw object response: " + responseObject);
 
         // Shutdown the channel
         channel.shutdown();

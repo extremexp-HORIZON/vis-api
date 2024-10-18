@@ -1,4 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -16,6 +17,8 @@ public class ExplanationsRes {
     private String plotDescr ;
     private String plotType ;
     private Features features;
+    private String[] featureList;
+    private String[] hyperparameterList;
     private Axis  xAxis;
     private Axis  yAxis;
     private Axis  zAxis;
@@ -89,6 +92,18 @@ public class ExplanationsRes {
     public void setPlotType(String plotType) {
         this.plotType = plotType;
     }
-   
+    public String[] getFeatureList() {
+        return featureList;
+    }
+    public void setFeatureList(String[] featureList) {
+        this.featureList = featureList;
+    }
+    public String[] getHyperparameterList() {
+        return hyperparameterList;
+    }
+    public void setHyperparameterList(String[] hyperparameterList) {
+        this.hyperparameterList = hyperparameterList;
+    }
+
     
 }
