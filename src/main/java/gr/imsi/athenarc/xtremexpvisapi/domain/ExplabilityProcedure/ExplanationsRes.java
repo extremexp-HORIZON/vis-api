@@ -17,8 +17,8 @@ public class ExplanationsRes {
     private String plotDescr ;
     private String plotType ;
     private Features features;
-    private List<String> feature_list;
-    private List<String> hyperparameter_list;
+    private String[] feature_list;
+    private String[] hyperparameter_list;
     private Axis  xAxis;
     private Axis  yAxis;
     private Axis  zAxis;
@@ -92,19 +92,17 @@ public class ExplanationsRes {
     public void setPlotType(String plotType) {
         this.plotType = plotType;
     }
-    public List<String> getFeature_list() {
+    public String[] getFeature_list() {
         return feature_list;
     }
-    public void setFeature_list(List<String> feature_list) {
+    public void setFeature_list(String[] feature_list) {
         this.feature_list = feature_list;
     }
-    public List<String> getHyperparameter_list() {
+    public String[] getHyperparameter_list() {
         return hyperparameter_list;
     }
-    public void setHyperparameter_list(List<String> hyperparameter_list) {
+    public void setHyperparameter_list(String[] hyperparameter_list) {
         this.hyperparameter_list = hyperparameter_list;
     }
-   
-    
     
 }
