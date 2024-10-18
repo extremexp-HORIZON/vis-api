@@ -117,9 +117,7 @@ public class TabularQueryExecutor {
     // Apply pagination
     private Table applyPagination(Table table, Integer limit, Integer offset) {
         // Set default values for limit and offset
-        if (limit == null || limit <= 0) {
-            limit = 1000; // Default limit if none is provided
-        }
+       
         if (offset == null || offset < 0) {
             offset = 0; // Reset negative offsets to 0
         }
@@ -136,6 +134,7 @@ public class TabularQueryExecutor {
         if (limit > 0) {
             table = table.first(limit);
         }
+
     
         LOG.debug("Table after pagination has {} rows.", table.rowCount());
         return table;
