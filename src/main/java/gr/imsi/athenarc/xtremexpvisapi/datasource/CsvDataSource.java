@@ -82,39 +82,39 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setColumns(columns);
             visualizationResults.setTimestampColumn(timestampColumn);
         } else if (visualQuery.getDatasetId().startsWith("file://")) {
-            if (visualQuery.getDatasetId().endsWith(".json")) {
-                String source = normalizeSource(visualQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Map<String, List<Object>> jsonData = readJsonData(path);
-                LOG.info("jsonData {}", jsonData);
-                List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
-                String jsonString = filteredData.stream()
-                .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                .collect(Collectors.joining(",", "[", "]")); 
-                List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                visualizationResults.setData(jsonString);
-                visualizationResults.setColumns(columnNames.stream()
-                .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                .toList());
-                visualizationResults.setTimestampColumn(""); 
-            } else {
-                String source = normalizeSource(visualQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Table table = readCsvFromFile(path);
-                Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-                totalItemCount = resultsTable.rowCount();
-                visualizationResults.setFileNames(Arrays.asList(new String[]{table.name()}));
-                visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                visualizationResults.setColumns(
-                    resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList()
-                    );
-                visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
-                visualizationResults.setTotalItems(totalItemCount); // Add this line to return total items
+            // if (visualQuery.getDatasetId().endsWith(".json")) {
+            //     String source = normalizeSource(visualQuery.getDatasetId());
+            //     Path path = Paths.get(source);
+            //     Map<String, List<Object>> jsonData = readJsonData(path);
+            //     LOG.info("jsonData {}", jsonData);
+            //     List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+            //     JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+            //     List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
+            //     String jsonString = filteredData.stream()
+            //     .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+            //     .collect(Collectors.joining(",", "[", "]")); 
+            //     List<String> columnNames = new ArrayList<>(jsonData.keySet());
+            //     visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+            //     visualizationResults.setData(jsonString);
+            //     visualizationResults.setColumns(columnNames.stream()
+            //     .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+            //     .toList());
+            //     visualizationResults.setTimestampColumn(""); 
+            // } else {
+            //     String source = normalizeSource(visualQuery.getDatasetId());
+            //     Path path = Paths.get(source);
+            //     Table table = readCsvFromFile(path);
+            //     Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
+            //     totalItemCount = resultsTable.rowCount();
+            //     visualizationResults.setFileNames(Arrays.asList(new String[]{table.name()}));
+            //     visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
+            //     visualizationResults.setColumns(
+            //         resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList()
+            //         );
+            //     visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
+            //     visualizationResults.setTotalItems(totalItemCount); // Add this line to return total items
 
-            }
+            // }
         }
         return visualizationResults;
     }
@@ -158,7 +158,6 @@ public class CsvDataSource implements DataSource {
         int totalItemCount = 0; 
 
         if (tabularQuery.getDatasetId().startsWith("folder://")) {
-            LOG.info("prepei na ftiaksw to FOLDER ");
             // String source = normalizeSource(tabularQuery.getDatasetId());
             // Path path = Paths.get(source);
             // List<Table> tables = getTablesFromPath(path);
@@ -185,24 +184,22 @@ public class CsvDataSource implements DataSource {
             // tabularResults.setTimestampColumn(timestampColumn);
             } else if (tabularQuery.getDatasetId().startsWith("file://")) {
                 if (tabularQuery.getDatasetId().endsWith(".json")) {
-                    LOG.info("Prepei  na ftiaksw to JSON");
-
-                    // String source = normalizeSource(tabularQuery.getDatasetId());
-                    // Path path = Paths.get(source);
-                    // Map<String, List<Object>> jsonData = readJsonData(path);
-                    // LOG.info("jsonData {}", jsonData);
-                    // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                    // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                    // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
-                    // String jsonString = filteredData.stream()
-                    // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                    // .collect(Collectors.joining(",", "[", "]")); 
-                    // List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                    // tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                    // tabularResults.setData(jsonString);
-                    // tabularResults.setColumns(columnNames.stream()
-                    // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                    // .toList());
+                    String source = normalizeSource(tabularQuery.getDatasetId());
+                    Path path = Paths.get(source);
+                    Map<String, List<Object>> jsonData = readJsonData(path);
+                    LOG.info("jsonData {}", jsonData);
+                    List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+                    JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+                    List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
+                    String jsonString = filteredData.stream()
+                    .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+                    .collect(Collectors.joining(",", "[", "]")); 
+                    List<String> columnNames = new ArrayList<>(jsonData.keySet());
+                    tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+                    tabularResults.setData(jsonString);
+                    tabularResults.setColumns(columnNames.stream()
+                    .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+                    .toList());
                     } else {
                         String source = normalizeSource(tabularQuery.getDatasetId());
                         Path path = Paths.get(source);
