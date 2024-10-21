@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -83,7 +84,16 @@ public class TabularQuery {
         return aggregation;
     }
     
-   
+   public void populateAllColumnsIfEmpty(Map<String, List<Object>> jsonData) {
+        if (this.columns == null || this.columns.isEmpty()) {
+            // Set columns to all available keys in the JSON data
+            this.columns = new ArrayList<>(jsonData.keySet());
+        }
+    }
+
+
+    
+
 
     public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){
         this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;

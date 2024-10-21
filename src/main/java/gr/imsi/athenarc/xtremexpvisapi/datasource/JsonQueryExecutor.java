@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ public class JsonQueryExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(JsonQueryExecutor.class);
 
     // This method accepts the parsed JSON array and the VisualQuery
-    public List<JsonNode> queryJson(List<JsonNode> jsonData, VisualQuery query) {
+    public List<JsonNode> queryJson(List<JsonNode> jsonData, TabularQuery query) {
         // Apply filters to JSON data
         if (query.getFilters() != null) {
             for (AbstractFilter filter : query.getFilters()) {
@@ -38,12 +39,12 @@ public class JsonQueryExecutor {
         jsonData = applyProjections(jsonData, query.getColumns());
 
         // Apply normalization if needed
-        applyNormalization(jsonData, query.getScaler(), query.getColumns());
+        // applyNormalization(jsonData, query.getScaler(), query.getColumns());
 
-        // Apply aggregation if needed
-        if (query.getAggFunction() != null) {
-            jsonData = applyAggregation(jsonData, query.getAggFunction());
-        }
+        // // Apply aggregation if needed
+        // if (query.getAggFunction() != null) {
+        //     jsonData = applyAggregation(jsonData, query.getAggFunction());
+        // }
 
 
         // Apply offset and limit

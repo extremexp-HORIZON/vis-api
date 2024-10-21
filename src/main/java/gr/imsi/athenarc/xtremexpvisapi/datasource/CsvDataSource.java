@@ -155,7 +155,6 @@ public class CsvDataSource implements DataSource {
     @Override
     public TabularResults fetchTabularData(TabularQuery tabularQuery) {
         TabularResults tabularResults = new TabularResults();
-        int totalItemCount = 0; 
 
         if (tabularQuery.getDatasetId().startsWith("folder://")) {
             // String source = normalizeSource(tabularQuery.getDatasetId());
@@ -184,22 +183,35 @@ public class CsvDataSource implements DataSource {
             // tabularResults.setTimestampColumn(timestampColumn);
             } else if (tabularQuery.getDatasetId().startsWith("file://")) {
                 if (tabularQuery.getDatasetId().endsWith(".json")) {
-                    // String source = normalizeSource(tabularQuery.getDatasetId());
-                    // Path path = Paths.get(source);
-                    // Map<String, List<Object>> jsonData = readJsonData(path);
+                    LOG.info("Processing JSON file...");
+
+                    String source = normalizeSource(tabularQuery.getDatasetId());
+                    Path path = Paths.get(source);
+                    Map<String, List<Object>> jsonData = readJsonData(path);
+                    List<String> originalColumnNames = new ArrayList<>(jsonData.keySet());
+
+                    tabularQuery.populateAllColumnsIfEmpty(jsonData);
+
                     // LOG.info("jsonData {}", jsonData);
-                    // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                    // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                    // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
-                    // String jsonString = filteredData.stream()
-                    // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                    // .collect(Collectors.joining(",", "[", "]")); 
+                    List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+                    JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+                    List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
+                    String jsonString = filteredData.stream()
+                    .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+                    .collect(Collectors.joining(",", "[", "]")); 
                     // List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                    // tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                    // tabularResults.setData(jsonString);
-                    // tabularResults.setColumns(columnNames.stream()
-                    // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                    // .toList());
+                    List<String> columnNames = tabularQuery.getColumns();  // Use the columns from the query (populated if empty)
+
+                    tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+                    tabularResults.setData(jsonString);
+                    List<VisualColumn> originalColumns = originalColumnNames.stream()
+                    .map(col -> new VisualColumn(col, "string"))  // Assuming all columns are of type 'string'
+                    .toList();
+                    tabularResults.setOriginalColumns(originalColumns); 
+
+                    tabularResults.setColumns(columnNames.stream()
+                    .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+                    .toList());
                     } else {
                         String source = normalizeSource(tabularQuery.getDatasetId());
                         Path path = Paths.get(source);
@@ -399,33 +411,28 @@ public class CsvDataSource implements DataSource {
 
 
     private List<JsonNode> convertMapToJsonNodeList(Map<String, List<Object>> jsonData) {
-    List<JsonNode> jsonNodeList = new ArrayList<>();
-    ObjectMapper mapper = new ObjectMapper();
-
-    // Assuming all lists in the map have the same size
-    int size = jsonData.values().iterator().next().size();
-
-    // Iterate through the lists and create a JsonNode for each "row"
-    for (int i = 0; i < size; i++) {
-        ObjectNode jsonObject = mapper.createObjectNode();
-        for (String key : jsonData.keySet()) {
-            // Add the corresponding value for each column
-            Object value = jsonData.get(key).get(i);
-            if (value instanceof Integer) {
-                jsonObject.put(key, (Integer) value);
-            } else if (value instanceof Double) {
-                jsonObject.put(key, (Double) value);
-            } else if (value instanceof String) {
-                jsonObject.put(key, (String) value);
-            } else if (value instanceof Boolean) {
-                jsonObject.put(key, (Boolean) value);
-            } // Add other types as needed
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<JsonNode> jsonNodeList = new ArrayList<>();
+        
+        // Assuming that each entry in the map corresponds to a "column" of data,
+        // you can loop through and construct JSON objects for each "row".
+        int numRows = jsonData.values().stream().findFirst().get().size();  // Assuming all lists are of equal size.
+        
+        for (int i = 0; i < numRows; i++) {
+            ObjectNode rowNode = objectMapper.createObjectNode();
+            
+            for (Map.Entry<String, List<Object>> entry : jsonData.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue().get(i);
+                rowNode.set(key, objectMapper.valueToTree(value));  // Convert each value to JsonNode.
+            }
+            
+            jsonNodeList.add(rowNode);
         }
-        jsonNodeList.add(jsonObject);
+        
+        return jsonNodeList;
     }
-    return jsonNodeList;
-}
-
+    
 private Map<String, List<Object>> getUniqueValuesForColumns(Table table, List<VisualColumn> visualColumns) {
     Map<String, List<Object>> uniqueValues = new HashMap<>();
 
