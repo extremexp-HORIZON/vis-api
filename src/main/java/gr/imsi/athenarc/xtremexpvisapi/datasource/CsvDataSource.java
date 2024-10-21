@@ -83,22 +83,22 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setTimestampColumn(timestampColumn);
         } else if (visualQuery.getDatasetId().startsWith("file://")) {
             if (visualQuery.getDatasetId().endsWith(".json")) {
-                String source = normalizeSource(visualQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Map<String, List<Object>> jsonData = readJsonData(path);
-                LOG.info("jsonData {}", jsonData);
-                List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
-                String jsonString = filteredData.stream()
-                .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                .collect(Collectors.joining(",", "[", "]")); 
-                List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                visualizationResults.setData(jsonString);
-                visualizationResults.setColumns(columnNames.stream()
-                .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                .toList());
+                // String source = normalizeSource(visualQuery.getDatasetId());
+                // Path path = Paths.get(source);
+                // Map<String, List<Object>> jsonData = readJsonData(path);
+                // LOG.info("jsonData {}", jsonData);
+                // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+                // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+                // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
+                // String jsonString = filteredData.stream()
+                // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+                // .collect(Collectors.joining(",", "[", "]")); 
+                // List<String> columnNames = new ArrayList<>(jsonData.keySet());
+                // visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+                // visualizationResults.setData(jsonString);
+                // visualizationResults.setColumns(columnNames.stream()
+                // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+                // .toList());
                 visualizationResults.setTimestampColumn(""); 
             } else {
                 String source = normalizeSource(visualQuery.getDatasetId());
