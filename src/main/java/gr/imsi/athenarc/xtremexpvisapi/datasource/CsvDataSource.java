@@ -83,22 +83,22 @@ public class CsvDataSource implements DataSource {
             visualizationResults.setTimestampColumn(timestampColumn);
         } else if (visualQuery.getDatasetId().startsWith("file://")) {
             if (visualQuery.getDatasetId().endsWith(".json")) {
-                // String source = normalizeSource(visualQuery.getDatasetId());
-                // Path path = Paths.get(source);
-                // Map<String, List<Object>> jsonData = readJsonData(path);
-                // LOG.info("jsonData {}", jsonData);
-                // List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                // JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                // List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
-                // String jsonString = filteredData.stream()
-                // .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                // .collect(Collectors.joining(",", "[", "]")); 
-                // List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                // visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                // visualizationResults.setData(jsonString);
-                // visualizationResults.setColumns(columnNames.stream()
-                // .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                // .toList());
+                String source = normalizeSource(visualQuery.getDatasetId());
+                Path path = Paths.get(source);
+                Map<String, List<Object>> jsonData = readJsonData(path);
+                LOG.info("jsonData {}", jsonData);
+                List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
+                JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
+                List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
+                String jsonString = filteredData.stream()
+                .map(JsonNode::toString)  // Convert each JsonNode to its string representation
+                .collect(Collectors.joining(",", "[", "]")); 
+                List<String> columnNames = new ArrayList<>(jsonData.keySet());
+                visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
+                visualizationResults.setData(jsonString);
+                visualizationResults.setColumns(columnNames.stream()
+                .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
+                .toList());
                 visualizationResults.setTimestampColumn(""); 
             } else {
                 String source = normalizeSource(visualQuery.getDatasetId());
@@ -183,35 +183,12 @@ public class CsvDataSource implements DataSource {
             // tabularResults.setTimestampColumn(timestampColumn);
             } else if (tabularQuery.getDatasetId().startsWith("file://")) {
                 if (tabularQuery.getDatasetId().endsWith(".json")) {
-                    LOG.info("Processing JSON file...");
-
                     String source = normalizeSource(tabularQuery.getDatasetId());
-                    Path path = Paths.get(source);
-                    Map<String, List<Object>> jsonData = readJsonData(path);
-                    List<String> originalColumnNames = new ArrayList<>(jsonData.keySet());
+                Path path = Paths.get(source);
+                String json = readJsonFromFile(path);
+                tabularResults.setData(json);
 
-                    tabularQuery.populateAllColumnsIfEmpty(jsonData);
-
-                    // LOG.info("jsonData {}", jsonData);
-                    List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                    JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                    List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, tabularQuery);
-                    String jsonString = filteredData.stream()
-                    .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                    .collect(Collectors.joining(",", "[", "]")); 
-                    // List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                    List<String> columnNames = tabularQuery.getColumns();  // Use the columns from the query (populated if empty)
-
-                    tabularResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                    tabularResults.setData(jsonString);
-                    List<VisualColumn> originalColumns = originalColumnNames.stream()
-                    .map(col -> new VisualColumn(col, "string"))  // Assuming all columns are of type 'string'
-                    .toList();
-                    tabularResults.setOriginalColumns(originalColumns); 
-
-                    tabularResults.setColumns(columnNames.stream()
-                    .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                    .toList());
+                   
                     } else {
                         String source = normalizeSource(tabularQuery.getDatasetId());
                         Path path = Paths.get(source);
@@ -281,7 +258,16 @@ public class CsvDataSource implements DataSource {
             return List.of(readCsvFromFile(path));
         }
     }
-
+    private String jsonDataToString(Map<String, List<Object>> jsonData) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            // Convert the Map<String, List<Object>> to a JSON String
+            return objectMapper.writeValueAsString(jsonData);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to convert Map to JSON string", e);
+        }
+    }
+    
     private List<Table> readCsvFromDirectory(Path directoryPath) {
         try (Stream<Path> paths = Files.walk(directoryPath)) {
             return paths.filter(Files::isRegularFile)
@@ -364,28 +350,67 @@ public class CsvDataSource implements DataSource {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode root = objectMapper.readTree(jsonFilePath.toFile());
-
+    
             if (root.isArray()) {
                 for (JsonNode row : root) {
-                    Iterator<Map.Entry<String, JsonNode>> fields = row.fields();
-                    while (fields.hasNext()) {
-                        Map.Entry<String, JsonNode> field = fields.next();
-                        String fieldName = field.getKey();
-                        JsonNode fieldValue = field.getValue();
-                        
-                        jsonDataMap.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(fieldValue.asText());
-                    }
+                    flattenJson("", row, jsonDataMap);  // Flatten the entire row
                 }
             } else {
                 throw new RuntimeException("Expected JSON array format.");
             }
-
+    
         } catch (IOException e) {
             throw new RuntimeException("Failed to read JSON from file", e);
         }
-
+    
         return jsonDataMap;
     }
+    
+    private void flattenJson(String parentKey, JsonNode node, Map<String, List<Object>> jsonDataMap) {
+        if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                String fieldName = parentKey.isEmpty() ? field.getKey() : parentKey + "." + field.getKey();
+                flattenJson(fieldName, field.getValue(), jsonDataMap);  // Recurse on nested objects
+            }
+        } else if (node.isArray()) {
+            // If you want to handle arrays in a special way, you can modify this part
+            // For now, we convert arrays to a string representation.
+            jsonDataMap.computeIfAbsent(parentKey, k -> new ArrayList<>()).add(node.toString());
+        } else {
+            // Handle simple fields
+            jsonDataMap.computeIfAbsent(parentKey, k -> new ArrayList<>()).add(node.asText());
+        }
+    }
+
+    // private Map<String, List<Object>> readJsonData(Path jsonFilePath) {
+    //     Map<String, List<Object>> jsonDataMap = new HashMap<>();
+    //     try {
+    //         ObjectMapper objectMapper = new ObjectMapper();
+    //         JsonNode root = objectMapper.readTree(jsonFilePath.toFile());
+
+    //         if (root.isArray()) {
+    //             for (JsonNode row : root) {
+    //                 Iterator<Map.Entry<String, JsonNode>> fields = row.fields();
+    //                 while (fields.hasNext()) {
+    //                     Map.Entry<String, JsonNode> field = fields.next();
+    //                     String fieldName = field.getKey();
+    //                     JsonNode fieldValue = field.getValue();
+                        
+    //                     jsonDataMap.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(fieldValue.asText());
+    //                 }
+    //             }
+    //         } else {
+    //             throw new RuntimeException("Expected JSON array format.");
+    //         }
+
+    //     } catch (IOException e) {
+    //         throw new RuntimeException("Failed to read JSON from file", e);
+    //     }
+
+    //     return jsonDataMap;
+    // }
 
     // Convert JSON data map into a list of rows in JSON format (for each row in the dataset)
     private List<String> convertJsonDataToTable(Map<String, List<Object>> jsonDataMap, List<String> columnNames) {

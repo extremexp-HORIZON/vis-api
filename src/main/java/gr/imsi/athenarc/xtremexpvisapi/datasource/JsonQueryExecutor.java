@@ -21,7 +21,7 @@ public class JsonQueryExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(JsonQueryExecutor.class);
 
     // This method accepts the parsed JSON array and the VisualQuery
-    public List<JsonNode> queryJson(List<JsonNode> jsonData, TabularQuery query) {
+    public List<JsonNode> queryJson(List<JsonNode> jsonData, VisualQuery query) {
         // Apply filters to JSON data
         if (query.getFilters() != null) {
             for (AbstractFilter filter : query.getFilters()) {
