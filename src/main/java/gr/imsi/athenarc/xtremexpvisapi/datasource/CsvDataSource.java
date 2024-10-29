@@ -19,6 +19,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 import tech.tablesaw.api.*;
 import tech.tablesaw.columns.*;
 import tech.tablesaw.io.csv.CsvReadOptions;
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.io.*;
 import java.nio.file.*;
@@ -33,6 +34,7 @@ public class CsvDataSource implements DataSource {
     private final DataService dataService;
     private final TabularQueryExecutor tabularQueryExecutor;
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
+    private final ConcurrentHashMap<Path, Table> tableCache = new ConcurrentHashMap<>();
 
     @Value("${app.working.directory}")
     private String workingDirectory;
@@ -290,9 +292,15 @@ public class CsvDataSource implements DataSource {
     }
 
     private Table readCsvFromFile(Path filePath) {
+        // Check if the table is already cached
+        if (tableCache.containsKey(filePath)) {
+            return tableCache.get(filePath);
+        }
         try (InputStream inputStream = Files.newInputStream(filePath)) {
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
-            return Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
+            Table table = Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
+            tableCache.put(filePath, table);
+            return table;
         } catch (IOException e) {
             throw new RuntimeException("Failed to read CSV from file", e);
         }
