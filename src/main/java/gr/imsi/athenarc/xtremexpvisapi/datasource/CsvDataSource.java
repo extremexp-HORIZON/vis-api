@@ -159,30 +159,35 @@ public class CsvDataSource implements DataSource {
         TabularResults tabularResults = new TabularResults();
 
         if (tabularQuery.getDatasetId().startsWith("folder://")) {
-            // String source = normalizeSource(tabularQuery.getDatasetId());
-            // Path path = Paths.get(source);
-            // List<Table> tables = getTablesFromPath(path);
-            // List<String> jsonDataList = new ArrayList<>();
-            // List<VisualColumn> columns = new ArrayList<>();
-            // String timestampColumn = "";
+            String source = normalizeSource(tabularQuery.getDatasetId());
+            Path path = Paths.get(source);
+            List<Table> tables = getTablesFromPath(path);
+            List<String> jsonDataList = new ArrayList<>();
+            List<VisualColumn> columns = new ArrayList<>();
+            String timestampColumn = "";
 
-            // for (Table table : tables) {
+            //tranform tabularQuery to VisualQuery
+            VisualQuery tranformedQuery = new VisualQuery(tabularQuery.getDatasetId(), 
+            null, tabularQuery.getColumns(), tabularQuery.getLimit(), 
+            null, null, tabularQuery.getOffset());
+
+            for (Table table : tables) {
                 
-            //     Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-            //     jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
-            //     if (columns.isEmpty()) {
-            //         columns.addAll(
-            //             resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-            //     }
-            //     if (timestampColumn.isEmpty()) {
-            //         timestampColumn = getTimestampColumn(resultsTable);
-            //     }
-            // }
-            // LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
-            // tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
-            // tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
-            // tabularResults.setColumns(columns);
-            // tabularResults.setTimestampColumn(timestampColumn);
+                Table resultsTable = csvQueryExecutor.queryTable(table, tranformedQuery);
+                jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
+                if (columns.isEmpty()) {
+                    columns.addAll(
+                        resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
+                }
+                if (timestampColumn.isEmpty()) {
+                    timestampColumn = getTimestampColumn(resultsTable);
+                }
+            }
+            LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
+            tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
+            tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
+            tabularResults.setColumns(columns);
+            tabularResults.setTimestampColumn(timestampColumn);
             } else if (tabularQuery.getDatasetId().startsWith("file://")) {
                 if (tabularQuery.getDatasetId().endsWith(".json")) {
                     String source = normalizeSource(tabularQuery.getDatasetId());
