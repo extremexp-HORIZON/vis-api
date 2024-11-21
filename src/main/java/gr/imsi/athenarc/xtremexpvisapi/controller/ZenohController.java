@@ -1,12 +1,17 @@
 package gr.imsi.athenarc.xtremexpvisapi.controller;
 
+import java.net.URL;
+
+import org.checkerframework.checker.units.qual.A;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Zenoh.AuthenticationRequest;
+import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ZenohService;
 
 @RestController
@@ -16,9 +21,12 @@ public class ZenohController {
 
     private static final Logger LOG = LoggerFactory.getLogger(ZenohController.class);
     private final ZenohService zenohService;
+    private final FileService fileService;
 
-    public ZenohController(ZenohService zenohService) {
+    @Autowired
+    public ZenohController(ZenohService zenohService, FileService fileService) {
         this.zenohService = zenohService;
+        this.fileService = fileService;
     }
     private String accessToken = null; // You might want to manage the token more securely or refresh it as needed
 
@@ -44,6 +52,16 @@ public class ZenohController {
         } catch (Exception e) {
             LOG.error("Failed to list files", e);
             return ResponseEntity.internalServerError().body("Failed to list files from Zenoh");
+        }
+    }
+
+    @PostMapping("/getfile")
+    public void getFile (@RequestBody String path) {
+        try {
+            URL url = new URL("https://download.mozilla.org/?product=firefox-stub&os=win&lang=en-GB");
+            fileService.downloadFile(url);
+        } catch (Exception e) {
+            LOG.error("Failed to get file", e);
         }
     }
     
