@@ -123,7 +123,8 @@ public class VisualizationController {
         if (tabularResults.getData() == null) {
             LOG.warn("No data found for the request");
             return ResponseEntity.badRequest().body(tabularResults);
-        }        LOG.info("Visualization data retrieval successful");
+        }        
+        LOG.info("Visualization data retrieval successful");
     
         return ResponseEntity.ok(tabularResults);
     }

@@ -9,7 +9,8 @@ public class DataReduction {
     private String aggInterval; // required for aggregation
     private Map<String, String> aggFunctions; // required for aggregation
     private ViewPort viewport; // required for visualization-aware
-    private Double errorBound; // optional
+    private double errorBound; // optional
+
     public String getType() {
         return type;
     }
@@ -34,10 +35,10 @@ public class DataReduction {
     public void setViewport(ViewPort viewport) {
         this.viewport = viewport;
     }
-    public Double getErrorBound() {
+    public double getErrorBound() {
         return errorBound;
     }
-    public void setErrorBound(Double errorBound) {
+    public void setErrorBound(double errorBound) {
         this.errorBound = errorBound;
     }
     

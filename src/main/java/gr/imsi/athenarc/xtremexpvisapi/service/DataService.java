@@ -4,7 +4,6 @@
 
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 
@@ -22,8 +21,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
-
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
@@ -32,7 +29,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 public class DataService {
     private final ZenohService zenohService;
     private final DataSourceFactory dataSourceFactory;    // private final DataSourceFactory dataSourceFactory;
-
+     
     @Autowired
     public DataService(ZenohService zenohService, DataSourceFactory dataSourceFactory) {
         this.zenohService = zenohService;
@@ -41,7 +38,7 @@ public class DataService {
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
     public VisualQuery queryPreperation (VisualizationDataRequest visualizationDataRequest) {
-
+        
         VisualQuery visualQuery = new VisualQuery(
             visualizationDataRequest.getDatasetId(),
             visualizationDataRequest.getViewPort(), 
@@ -116,11 +113,7 @@ public class DataService {
             timeSeriesRequest.getDataReduction()
         
         );
-        
-      
-        
-
-
+    
         if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
             timeSeriesQuery.instantiateFilters();
         }
@@ -146,11 +139,13 @@ public class DataService {
 
         String datasetId = timeSeriesQuery.getDatasetId();
         String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
+        if(timeSeriesQuery.getTimestampColumn() == null){
+            dataSource.getTimestampColumn();
+        }
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
+
         TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesQuery);
         return results;
         
@@ -162,7 +157,6 @@ public class DataService {
 
         String datasetId = visualQuery.getDatasetId();
         String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
 
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
         // Print datasetId being processed
@@ -178,13 +172,13 @@ public class DataService {
         String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
 
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        return dataSource.getColumns(datasetId);
+        return dataSource.getColumns();
     }
 
     public String getColumn(String datasetId, String columnName) {
         LOG.info("Retrieving column {} for datasetId: {}", columnName, datasetId);
         DataSource dataSource = dataSourceFactory.createDataSource("csv", datasetId);
-        return dataSource.getColumn(datasetId, columnName);
+        return dataSource.getColumn(columnName);
     } 
 
     public String fetchZenohData(String useCase, String folder, String subfolder, String filename) throws Exception {
