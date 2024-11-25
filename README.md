@@ -25,10 +25,10 @@ Welcome to the XtremeXP Visualization API! This API is designed to provide visua
 
 3. Install Docker and Docker Compose if you haven't already.
 
-4. Run Docker Compose to build and start the containers:
+4. Run the following command to build and start the container:
 
     ```
-    docker-compose up --build
+    mvnw compile jib:dockerBuild exec:exec@run-docker-container
     ```
 
 5. Once the containers are up and running, you can access the API at `http://localhost:8080`.

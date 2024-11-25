@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.controller.VisualizationController;
 import gr.imsi.athenarc.xtremexpvisapi.domain.*;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
@@ -333,7 +332,7 @@ public class CsvDataSource implements DataSource {
         return CsvReadOptions.builder(inputStream).build();
     }
 
-    private VisualColumn getVisualColumnFromTableSawColumn(Column tableSawColumn) {
+    private VisualColumn getVisualColumnFromTableSawColumn(Column<?> tableSawColumn) {
         String name = tableSawColumn.name();
         ColumnType type = tableSawColumn.type();
         return new VisualColumn(name, type.name());

@@ -2,7 +2,6 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,9 +12,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DoubleRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.IntegerRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
-import tech.tablesaw.aggregate.AggregateFunctions;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 import tech.tablesaw.selection.Selection;

@@ -6,7 +6,8 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.3.0-M1</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
+		<!-- lookup parent from repository -->
 	</parent>
 	<groupId>gr.imsi.athenarc</groupId>
 	<artifactId>xtremexp-vis-api</artifactId>
@@ -17,10 +18,10 @@
 		<java.version>17</java.version>
 		<tablesaw.version>0.43.1</tablesaw.version>
 		<grpc.version>1.62.2</grpc.version>
-        <protobuf.version>3.25.3</protobuf.version>
+		<protobuf.version>3.25.3</protobuf.version>
 	</properties>
 	<dependencies>
-		<!-- Spring boot dependencies -->
+		<!-- Spring Boot Dependencies -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
@@ -30,7 +31,7 @@
 			<artifactId>spring-session-core</artifactId>
 		</dependency>
 		<dependency>
-		<groupId>org.springframework.boot</groupId>
+			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 		<dependency>
@@ -47,50 +48,48 @@
 			<artifactId>spring-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<!-- Table Saw Dependancies -->
+		<dependency>
 			<groupId>tech.tablesaw</groupId>
 			<artifactId>tablesaw-core</artifactId>
 			<version>${tablesaw.version}</version>
 		</dependency>
 		<dependency>
-  			<groupId>tech.tablesaw</groupId>
-  			<artifactId>tablesaw-json</artifactId>
+			<groupId>tech.tablesaw</groupId>
+			<artifactId>tablesaw-json</artifactId>
 			<version>${tablesaw.version}</version>
 		</dependency>
+		<!-- GRPC Dependancies -->
 		<dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java-util</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-stub</artifactId>
-            <version>${grpc.version}</version>
-        </dependency>
-		<dependency>
-			<groupId>org.jfree</groupId>
-			<artifactId>jfreechart</artifactId>
-			<version>1.5.3</version>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java-util</artifactId>
+			<version>${protobuf.version}</version>
 		</dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-protobuf</artifactId>
-            <version>${grpc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-netty</artifactId>
-            <version>${grpc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>4.1.101.Final</version>
-        </dependency>
 		<dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <optional>true</optional>
-    	</dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-stub</artifactId>
+			<version>${grpc.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-protobuf</artifactId>
+			<version>${grpc.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.grpc</groupId>
+			<artifactId>grpc-netty</artifactId>
+			<version>${grpc.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-all</artifactId>
+			<version>4.1.101.Final</version>
+		</dependency>
+		<!-- Other Dependancies -->
 		<dependency>
 			<groupId>javax.annotation</groupId>
 			<artifactId>javax.annotation-api</artifactId>
@@ -110,34 +109,41 @@
 		</dependency> -->
 	</dependencies>
 	<build>
-	 	<extensions>    
-			<extension>      
-				<groupId>kr.motd.maven</groupId>      
-				<artifactId>os-maven-plugin</artifactId>     
-				 <version>1.4.1.Final</version>    
-			</extension>  
-		</extensions> 
+		<extensions>
+			<extension>
+				<groupId>kr.motd.maven</groupId>
+				<artifactId>os-maven-plugin</artifactId>
+				<version>1.4.1.Final</version>
+			</extension>
+		</extensions>
 		<plugins>
-		 	<plugin>     
-				<groupId>org.xolstice.maven.plugins</groupId>      
-				<artifactId>protobuf-maven-plugin</artifactId>      
-				<version>0.6.1</version>      
-				<configuration>   
-					 <protoSourceRoot>src/main/proto</protoSourceRoot> 
-					 <outputDirectory>src/main/java</outputDirectory>
-					 <protocArtifact>com.google.protobuf:protoc:3.3.0:exe:${os.detected.classifier}</protocArtifact>        
-					 <pluginId>grpc-java</pluginId>        
-					 <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.4.0:exe:${os.detected.classifier}</pluginArtifact>     
-					 <clearOutputDirectory>false</clearOutputDirectory> 
-				</configuration>     
-				<executions>        
-					<execution>         
-						<goals>            
-							<goal>compile</goal>            
-							<goal>compile-custom</goal>          
-						</goals>       
-					</execution>      
-				</executions>   
+			<plugin>
+				<groupId>org.xolstice.maven.plugins</groupId>
+				<artifactId>protobuf-maven-plugin</artifactId>
+				<version>0.6.1</version>
+				<configuration>
+					<protocArtifact>com.google.protobuf:protoc:3.3.0:exe:${os.detected.classifier}</protocArtifact>
+					<pluginId>grpc-java</pluginId>
+					<pluginArtifact>io.grpc:protoc-gen-grpc-java:1.4.0:exe:${os.detected.classifier}</pluginArtifact>
+					<clearOutputDirectory>false</clearOutputDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>compile</goal>
+							<goal>compile-custom</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -146,6 +152,55 @@
 					<mainClass>gr.imsi.athenarc.xtremexpvisapi.XtremexpVisApiApplication</mainClass>
 					<layout>JAR</layout>
 				</configuration>
+			</plugin>
+			<!-- Plugin that creates a docker image for this project -->
+			<plugin>
+				<groupId>com.google.cloud.tools</groupId>
+				<artifactId>jib-maven-plugin</artifactId>
+				<version>3.3.2</version>
+				<configuration>
+					<from>
+						<image>openjdk:21-jdk-slim</image>
+					</from>
+					<to>
+						<image>vis-api</image>
+					</to>
+					<container>
+						<ports>
+							<port>8080</port>
+						</ports>
+					</container>
+				</configuration>
+			</plugin>
+			<!-- Plugin that creates docker container from the image created by the jib plugin -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.0.0</version>
+				<executions>
+					<execution>
+						<id>run-docker-container</id>
+						<phase>none</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>docker</executable>
+							<arguments>
+								<argument>run</argument>
+								<argument>-d</argument>
+								<argument>-p</argument>
+								<argument>8080:8080</argument>
+								<argument>--name</argument>
+								<argument>vis-api-container</argument>
+								<argument>-v</argument>
+								<!-- change this accordingly for the volume creation -->
+								<argument>/opt/experiments:/opt/experiments</argument>
+								<argument>vis-api</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
@@ -169,5 +224,4 @@
 			</snapshots>
 		</pluginRepository>
 	</pluginRepositories>
-
 </project>
