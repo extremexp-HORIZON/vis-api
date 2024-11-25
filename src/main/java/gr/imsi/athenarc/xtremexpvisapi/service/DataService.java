@@ -111,9 +111,7 @@ public class DataService {
             timeSeriesRequest.getLimit(),
             timeSeriesRequest.getOffset(),
             timeSeriesRequest.getDataReduction()
-        
         );
-    
         if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
             timeSeriesQuery.instantiateFilters();
         }
@@ -151,7 +149,6 @@ public class DataService {
         
     }
     
-
     public VisualizationResults getData(VisualQuery visualQuery) {
         LOG.info("Retrieving columns for datasetId: {}", visualQuery.getDatasetId());
 
@@ -164,8 +161,6 @@ public class DataService {
         VisualizationResults results = dataSource.fetchData(visualQuery);
         return results;
     }
-
-
 
     public List<VisualColumn> getColumns(String datasetId) {
         LOG.info("Retrieving columns for datasetId: {}", datasetId);
