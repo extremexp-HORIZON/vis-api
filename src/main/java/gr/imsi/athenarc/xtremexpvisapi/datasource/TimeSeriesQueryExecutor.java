@@ -2,7 +2,6 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

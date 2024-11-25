@@ -2,9 +2,7 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -270,6 +268,7 @@ public class CsvDataSource implements DataSource {
             return List.of(readCsvFromFile(path));
         }
     }
+    
     private String jsonDataToString(Map<String, List<Object>> jsonData) {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
@@ -321,7 +320,7 @@ public class CsvDataSource implements DataSource {
         return CsvReadOptions.builder(inputStream).build();
     }
 
-    private VisualColumn getVisualColumnFromTableSawColumn(Column tableSawColumn) {
+    private VisualColumn getVisualColumnFromTableSawColumn(Column<?> tableSawColumn) {
         String name = tableSawColumn.name();
         ColumnType type = tableSawColumn.type();
         return new VisualColumn(name, type.name());
