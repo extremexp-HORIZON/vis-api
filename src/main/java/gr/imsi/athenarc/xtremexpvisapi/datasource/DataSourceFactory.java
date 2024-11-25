@@ -1,10 +1,9 @@
 
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
-import org.springframework.stereotype.Component;
 
-
-@Component
 public class DataSourceFactory {
+
+    public DataSourceFactory() {}
 
     public DataSource createDataSource(String type, String source) {
         switch (type.toLowerCase()) {

@@ -27,7 +27,6 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.*;
 
-@Component
 public class CsvDataSource implements DataSource {
     private static final Logger LOG = LoggerFactory.getLogger(CsvDataSource.class);
 
@@ -42,7 +41,6 @@ public class CsvDataSource implements DataSource {
     @Value("${app.working.directory}")
     private String workingDirectory;
 
-    @Autowired
     public CsvDataSource(String source) {
         this.source = Path.of(workingDirectory, source).toString();
         this.csvQueryExecutor = new CsvQueryExecutor();

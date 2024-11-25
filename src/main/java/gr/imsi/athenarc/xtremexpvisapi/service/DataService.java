@@ -28,12 +28,12 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 @Service
 public class DataService {
     private final ZenohService zenohService;
-    private final DataSourceFactory dataSourceFactory;    // private final DataSourceFactory dataSourceFactory;
+    private final DataSourceFactory dataSourceFactory;  
      
     @Autowired
-    public DataService(ZenohService zenohService, DataSourceFactory dataSourceFactory) {
+    public DataService(ZenohService zenohService) {
         this.zenohService = zenohService;
-        this.dataSourceFactory = dataSourceFactory;
+        this.dataSourceFactory = new DataSourceFactory();
     }
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
