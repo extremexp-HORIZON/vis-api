@@ -101,12 +101,6 @@
 			<version>1.18.36</version>
 			<scope>provided</scope>
 		</dependency>
-		<!-- TODO: enable this for umap implementation -->
-		<!-- <dependency>
-    		<groupId>tech.molecules</groupId>
-    		<artifactId>external-umap-java</artifactId>
-    		<version>1.0</version>
-		</dependency> -->
 	</dependencies>
 	<build>
 		<extensions>
@@ -143,6 +137,7 @@
 				<configuration>
 					<source>17</source>
 					<target>17</target>
+					<generatedSources>target/generated-sources/protobuf/java</generatedSources>
 				</configuration>
 			</plugin>
 			<plugin>

@@ -185,37 +185,4 @@ public class DataService {
         return zenohService.CasesFiles(useCase, folder, subfolder, filename);
     }
 
-    //TODO: implement this old Commit for Umap
-    // public float[][] getUMapData() {
-    //     try (InputStream inputStream = new FileInputStream("/opt/xxp/msi.csv")) {
-    //         CsvReadOptions csvReadOptions = CsvReadOptions.builder(inputStream).build();
-    //         Table msi = Table.read().usingOptions(csvReadOptions);
-    //         LOG.info(msi.structure().toString());
-            
-    //         int rowCount = msi.rowCount();
-    //         int columnCount = msi.columnCount();
-    //         float[][] dataArray = new float[rowCount][columnCount];
-            
-    //         for (int i = 0; i < rowCount; i++) {
-    //             Row row = msi.row(i);
-    //             for (int j = 0; j < columnCount; j++) {
-    //                 if (row.getColumnType(j) == ColumnType.INTEGER) {
-    //                     dataArray[i][j] = (float) row.getInt(j);
-    //                 } else if (row.getColumnType(j) == ColumnType.DOUBLE) {
-    //                     dataArray[i][j] = (float) row.getDouble(j);
-    //                 } else if (row.getColumnType(j) == ColumnType.FLOAT) {
-    //                     dataArray[i][j] = row.getFloat(j);
-    //                 }
-    //             }
-    //         }
-    //         final Umap umap = new Umap();
-    //         umap.setNumberComponents(2);
-    //         umap.setNumberNearestNeighbours(15);
-    //         umap.setThreads(1); 
-    //         return umap.fitTransform(dataArray);
-    //     } catch (IOException e) {
-    //         throw new RuntimeException("Failed to read CSV from file", e);
-    //     }
-    // }
-
 }
