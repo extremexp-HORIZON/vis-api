@@ -2,6 +2,9 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.DataExplorationAdditionalParams;
 
 import java.util.List;
 
+import lombok.Data;
+
+@Data
 public class GeographicalParams {
     private String lat;
     private String lon;
@@ -40,38 +43,5 @@ public class GeographicalParams {
             this.west = west;
         }
     }
-    
-   
-    // Getters and Setters for GeographicalParams
-    public String getLat() {
-        return lat;
-    }
-    public void setLat(String lat) {
-        this.lat = lat;
-    }
-    public String getLon() {
-        return lon;
-    }
-    public void setLon(String lon) {
-        this.lon = lon;
-    }
-    public List<String> getAttributes() {
-        return attributes;
-    }
-    public void setAttributes(List<String> attributes) {
-        this.attributes = attributes;
-    }
-    public BoundingBox getBbox() {
-        return bbox;
-    }
-    public void setBbox(BoundingBox bbox) {
-        this.bbox = bbox;
-    }
-    public int getZoomLevel() {
-        return zoomLevel;
-    }
-    public void setZoomLevel(int zoomLevel) {
-        this.zoomLevel = zoomLevel;
-    }
-   
+
 }

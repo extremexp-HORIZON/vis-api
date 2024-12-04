@@ -42,43 +42,6 @@ public class ExplainabilityService extends ExplanationsImplBase{
         this.dataService = dataService;
     }
     
-    
-    public InitializationRes GetInitialization (InitializationReq req) throws InvalidProtocolBufferException, JsonProcessingException {
-
-        InitializationRequest request = InitializationRequest.newBuilder()
-                .setModelName(req.getModelName())
-                .build();
-
-        // Create a channel to connect to the target gRPC server
-        // ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
-
-                .usePlaintext()
-                .build();
-
-        // Create a stub using the generated code and the channel
-        ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
-
-        // Invoke the remote method on the target server
-        InitializationResponse response = stub.initialization(request);
-        System.out.println("Response " + response.getHyperparameterExplanation().getPlotsCount());
-        String json = JsonFormat.printer().print(response);
-        // Create an ObjectMapper
-        ObjectMapper objectMapper = new ObjectMapper();
-        // Deserialize the JSON string into a Response object
-        InitializationRes responseObject = objectMapper.readValue(json, InitializationRes.class);
-        // Shutdown the channel
-        channel.shutdown();
-
-        if(req.getModelConfusionQuery() != null){
-            responseObject.getHyperparameterExplanation().setPipelineMetrics(dataService.getData(dataService.queryPreperation(req.getPipelineQuery())).getData());
-            responseObject.getFeatureExplanation().setModelInstances(dataService.getData(dataService.queryPreperation(req.getModelInstancesQuery())).getData());
-            responseObject.getFeatureExplanation().setModelConfusionMatrix(dataService.getData(dataService.queryPreperation(req.getModelConfusionQuery())).getData());
-        }
-
-        return responseObject;
-    }
-
     public ExplanationsRes GetExplains (ExplanationsReq req) throws InvalidProtocolBufferException, JsonProcessingException {
         ExplanationsRequest request = ExplanationsRequest.newBuilder()
         .setExplanationType(req.getExplanationType())

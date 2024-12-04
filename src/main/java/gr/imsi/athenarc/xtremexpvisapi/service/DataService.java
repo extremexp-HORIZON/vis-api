@@ -1,7 +1,8 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
 import java.util.List;
-
+import java.util.HashMap;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,70 +11,25 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.domain.SOURCE_TYPE;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
-
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
 @Service
 public class DataService {
-    private final ZenohService zenohService;
-    private final DataSourceFactory dataSourceFactory;  
+    private final DataSourceFactory dataSourceFactory;
+    private final Map<String, DataSource> dataSourceCache = new HashMap<>();
      
     @Autowired
-    public DataService(ZenohService zenohService) {
-        this.zenohService = zenohService;
-        this.dataSourceFactory = new DataSourceFactory();
+    public DataService(DataSourceFactory dataSourceFactory) {
+        this.dataSourceFactory = dataSourceFactory;
     }
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
-
-    public VisualQuery queryPreperation (VisualizationDataRequest visualizationDataRequest) {
-        
-        VisualQuery visualQuery = new VisualQuery(
-            visualizationDataRequest.getDatasetId(),
-            visualizationDataRequest.getViewPort(), 
-            visualizationDataRequest.getColumns(),
-            visualizationDataRequest.getLimit(),
-            visualizationDataRequest.getScaler(),
-            visualizationDataRequest.getAggFunction(),
-            visualizationDataRequest.getOffset()
-        );
-        switch (visualizationDataRequest.getVisualizationType()) {
-            case "tabular":
-                // Specific handling for tabular data
-                break;
-            case "temporal":
-                visualQuery.setTemporalParams(
-                    visualizationDataRequest.getTemporalParams().getGroupColumn(),
-                    visualizationDataRequest.getTemporalParams().getGranularity()
-                );
-                break;
-            case "geographical":
-                visualQuery.setGeographicalParams(
-                    visualizationDataRequest.getGeographicalParams().getLat(),
-                    visualizationDataRequest.getGeographicalParams().getLon()
-                );
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported visualization type: " + visualizationDataRequest.getVisualizationType());
-        }
-
-
-        if(!visualizationDataRequest.getDatasetId().endsWith(".json")){
-            visualQuery.instantiateFilters(
-            visualizationDataRequest.getFilters(),
-            getColumns(visualizationDataRequest.getDatasetId())
-        );
-        }
-        return visualQuery;
-    }
 
     public TabularQuery tabularQueryPreperation (TabularRequest tabularRequest) {
 
@@ -83,11 +39,10 @@ public class DataService {
             tabularRequest.getColumns(),
             tabularRequest.getOffset(),
             tabularRequest.getGroupBy(),
-            tabularRequest.getAggregation()
+            tabularRequest.getAggregation(),
+            tabularRequest.getType()
         );
         
-
-
         if(!tabularQuery.getDatasetId().endsWith(".json")){
             tabularQuery.instantiateFilters(
             tabularRequest.getFilters(),
@@ -107,7 +62,8 @@ public class DataService {
             timeSeriesRequest.getTo(),
             timeSeriesRequest.getLimit(),
             timeSeriesRequest.getOffset(),
-            timeSeriesRequest.getDataReduction()
+            timeSeriesRequest.getDataReduction(),
+            timeSeriesRequest.getType()
         );
         if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
             timeSeriesQuery.instantiateFilters();
@@ -119,10 +75,8 @@ public class DataService {
         LOG.info("Retrieving tabcolumns for datasetId: {}", tabularQuery.getDatasetId());
 
         String datasetId = tabularQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
+        SOURCE_TYPE type = tabularQuery.getType();
+        DataSource dataSource = dataSourceCache.computeIfAbsent(datasetId, id -> dataSourceFactory.createDataSource(type, id));
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
         TabularResults results = dataSource.fetchTabularData(tabularQuery);
@@ -133,11 +87,9 @@ public class DataService {
         LOG.info("Retrieving tabcolumns for datasetId: {}", timeSeriesQuery.getDatasetId());
 
         String datasetId = timeSeriesQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        if(timeSeriesQuery.getTimestampColumn() == null){
-            dataSource.getTimestampColumn();
-        }
+        SOURCE_TYPE type = timeSeriesQuery.getType();
+
+        DataSource dataSource = dataSourceCache.computeIfAbsent(datasetId, id -> dataSourceFactory.createDataSource(type, id));
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
 
@@ -146,68 +98,14 @@ public class DataService {
         
     }
     
-    public VisualizationResults getData(VisualQuery visualQuery) {
-        LOG.info("Retrieving columns for datasetId: {}", visualQuery.getDatasetId());
-
-        String datasetId = visualQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        // Print datasetId being processed
-        LOG.info("Processing data for datasetId: {}", datasetId);
-        VisualizationResults results = dataSource.fetchData(visualQuery);
-        return results;
-    }
-
-    public List<VisualColumn> getColumns(String datasetId) {
+    public List<TabularColumn> getColumns(String datasetId) {
         LOG.info("Retrieving columns for datasetId: {}", datasetId);
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
+        DataSource dataSource = dataSourceCache.get(datasetId);
+        if (dataSource == null) {
+            LOG.error("No DataSource found for datasetId: {}", datasetId);
+            return null; // or throw an exception
+        }
         return dataSource.getColumns();
     }
-
-    public String getColumn(String datasetId, String columnName) {
-        LOG.info("Retrieving column {} for datasetId: {}", columnName, datasetId);
-        DataSource dataSource = dataSourceFactory.createDataSource("csv", datasetId);
-        return dataSource.getColumn(columnName);
-    } 
-
-    public String fetchZenohData(String useCase, String folder, String subfolder, String filename) throws Exception {
-        return zenohService.CasesFiles(useCase, folder, subfolder, filename);
-    }
-
-    //TODO: implement this old Commit for Umap
-    // public float[][] getUMapData() {
-    //     try (InputStream inputStream = new FileInputStream("/opt/xxp/msi.csv")) {
-    //         CsvReadOptions csvReadOptions = CsvReadOptions.builder(inputStream).build();
-    //         Table msi = Table.read().usingOptions(csvReadOptions);
-    //         LOG.info(msi.structure().toString());
-            
-    //         int rowCount = msi.rowCount();
-    //         int columnCount = msi.columnCount();
-    //         float[][] dataArray = new float[rowCount][columnCount];
-            
-    //         for (int i = 0; i < rowCount; i++) {
-    //             Row row = msi.row(i);
-    //             for (int j = 0; j < columnCount; j++) {
-    //                 if (row.getColumnType(j) == ColumnType.INTEGER) {
-    //                     dataArray[i][j] = (float) row.getInt(j);
-    //                 } else if (row.getColumnType(j) == ColumnType.DOUBLE) {
-    //                     dataArray[i][j] = (float) row.getDouble(j);
-    //                 } else if (row.getColumnType(j) == ColumnType.FLOAT) {
-    //                     dataArray[i][j] = row.getFloat(j);
-    //                 }
-    //             }
-    //         }
-    //         final Umap umap = new Umap();
-    //         umap.setNumberComponents(2);
-    //         umap.setNumberNearestNeighbours(15);
-    //         umap.setThreads(1); 
-    //         return umap.fitTransform(dataArray);
-    //     } catch (IOException e) {
-    //         throw new RuntimeException("Failed to read CSV from file", e);
-    //     }
-    // }
-
+    
 }

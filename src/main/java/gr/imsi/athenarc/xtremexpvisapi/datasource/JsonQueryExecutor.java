@@ -11,7 +11,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +19,8 @@ public class JsonQueryExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(JsonQueryExecutor.class);
 
-    // This method accepts the parsed JSON array and the VisualQuery
-    public List<JsonNode> queryJson(List<JsonNode> jsonData, VisualQuery query) {
+    // This method accepts the parsed JSON array and the TabularQuery
+    public List<JsonNode> queryJson(List<JsonNode> jsonData, TabularQuery query) {
         // Apply filters to JSON data
         if (query.getFilters() != null) {
             for (AbstractFilter filter : query.getFilters()) {

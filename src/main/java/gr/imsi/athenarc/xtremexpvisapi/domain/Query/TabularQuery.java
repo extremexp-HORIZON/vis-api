@@ -15,17 +15,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.ViewPort;
+import gr.imsi.athenarc.xtremexpvisapi.domain.SOURCE_TYPE;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
-import java.time.temporal.ChronoUnit;
 
 public class TabularQuery {
 
-    private static final Logger LOG = LoggerFactory.getLogger(VisualQuery.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TabularQuery.class);
 
     private static DateTimeFormatter dateTimeFormatter =  
         new DateTimeFormatterBuilder().appendPattern("yyyy-MM-dd[ [HH][:mm][:ss][.SSS]]")
@@ -42,11 +41,9 @@ public class TabularQuery {
     Integer offset;
     List<String> groupBy;
     Map<String, Object> aggregation;
+    SOURCE_TYPE type;
     
-
-   
-
-    public TabularQuery(String datasetId, Integer limit, List<String> columns, Integer offset, List<String> groupBy, Map<String, Object> aggregation) {
+    public TabularQuery(String datasetId, Integer limit, List<String> columns, Integer offset, List<String> groupBy, Map<String, Object> aggregation, SOURCE_TYPE type) {
 
         this.datasetId = datasetId;
         this.limit = limit;
@@ -54,35 +51,10 @@ public class TabularQuery {
         this.offset = offset;
         this.groupBy = groupBy;
         this.aggregation = aggregation;
+        this.type = type;
     }
 
 
-    public String getDatasetId() {
-        return datasetId;
-    }
-
-    public List<String> getColumns() {
-        return columns;
-    }
-
-   
-    public List<AbstractFilter> getFilters() {
-        return filters;
-    }
-    public Integer getLimit() {
-        return limit;
-    }
-
-    public Integer getOffset() {
-        return offset;
-    }
-    public List<String> getGroupBy() {
-        return groupBy;
-    }
-
-    public Map<String, Object> getAggregation() {
-        return aggregation;
-    }
     
    public void populateAllColumnsIfEmpty(Map<String, List<Object>> jsonData) {
         if (this.columns == null || this.columns.isEmpty()) {
@@ -91,16 +63,12 @@ public class TabularQuery {
         }
     }
 
-
-    
-
-
-    public void instantiateFilters(List<VisualFilter> visualFilters, List<VisualColumn> tableColumns){
+    public void instantiateFilters(List<VisualFilter> visualFilters, List<TabularColumn> tableColumns){
         this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
     }
 
-    private AbstractFilter mapFilter(AbstractFilter filter, List<VisualColumn> columns){
-        VisualColumn column =  columns.stream()
+    private AbstractFilter mapFilter(AbstractFilter filter, List<TabularColumn> columns){
+        TabularColumn column =  columns.stream()
                            .filter(obj -> obj.getName().equals(filter.getColumn()))
                            .findFirst()
                            .orElse(null);
@@ -163,6 +131,35 @@ public class TabularQuery {
         }
     }
 
+    public String getDatasetId() {
+        return datasetId;
+    }
+
+    public List<String> getColumns() {
+        return columns;
+    }
+
+    public List<AbstractFilter> getFilters() {
+        return filters;
+    }
+    public Integer getLimit() {
+        return limit;
+    }
+
+    public Integer getOffset() {
+        return offset;
+    }
+    public List<String> getGroupBy() {
+        return groupBy;
+    }
+
+    public Map<String, Object> getAggregation() {
+        return aggregation;
+    }
+
+    public SOURCE_TYPE getType() {
+        return type;
+    }
     
     @Override
     public String toString() {

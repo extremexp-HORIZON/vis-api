@@ -5,23 +5,16 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.List;
-import java.util.Map;
 
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.DataReduction;
-import gr.imsi.athenarc.xtremexpvisapi.domain.ViewPort;
+import gr.imsi.athenarc.xtremexpvisapi.domain.SOURCE_TYPE;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
-import java.time.temporal.ChronoUnit;
+
 
 public class TimeSeriesQuery {
 
@@ -43,16 +36,11 @@ public class TimeSeriesQuery {
     Integer limit;
     Integer offset;
     DataReduction dataReduction;
+    SOURCE_TYPE type;
 
     List<AbstractFilter> filters; // Added to hold the instantiated filters
-
     
-   
-    
-
-   
-
-    public TimeSeriesQuery(String datasetId,String timestampColumn, List<String> columns,String from, String to, Integer limit, Integer offset,DataReduction dataReduction) {
+    public TimeSeriesQuery(String datasetId,String timestampColumn, List<String> columns,String from, String to, Integer limit, Integer offset,DataReduction dataReduction, SOURCE_TYPE type) {
 
         this.datasetId = datasetId;
         this.timestampColumn = timestampColumn;
@@ -62,60 +50,43 @@ public class TimeSeriesQuery {
         this.limit = limit;
         this.offset = offset;
         this.dataReduction = dataReduction;
+        this.type = type;
       
     }
-
-
    
+    public void setTimestampColumn(String timestampColumn) {
+        this.timestampColumn = timestampColumn;
+    }
+
 
     public String getDatasetId() {
         return datasetId;
     }
 
 
-
-
     public String getTimestampColumn() {
         return timestampColumn;
     }
-
-
-
 
     public List<String> getColumns() {
         return columns;
     }
 
-
-
-
     public String getFrom() {
         return from;
     }
-
-
-
 
     public String getTo() {
         return to;
     }
 
-
-
-
     public Integer getLimit() {
         return limit;
     }
 
-
-
-
     public Integer getOffset() {
         return offset;
     }
-
-
-
 
     public DataReduction getDataReduction() {
         return dataReduction;
@@ -123,6 +94,10 @@ public class TimeSeriesQuery {
 
     public List<AbstractFilter> getFilters() {
         return filters;
+    }
+
+    public SOURCE_TYPE getType() {
+        return type;
     }
 
     /**
@@ -160,32 +135,6 @@ public class TimeSeriesQuery {
         }
     }
 
-
-
-    // public void instantiateFilters() {
-    //     if (timestampColumn != null && from != null && to != null) {
-    //         this.filters = List.of(mapTimestampFilter(timestampColumn, from, to));
-    //     } else {
-    //         LOG.error("Invalid timestamp or range values.");
-    //     }
-    // }
-
-    // // New method to handle the timestamp filter logic
-    // private AbstractFilter mapTimestampFilter(String timestampColumn, String from, String to) {
-    //     try {
-    //         LocalDateTime fromDateTime = LocalDateTime.parse(from, dateTimeFormatter);
-    //         LocalDateTime toDateTime = LocalDateTime.parse(to, dateTimeFormatter);
-            
-    //         RangeFilter rangeFilter = new RangeFilter();
-    //         LOG.info("Creating DateTimeRangeFilter for column: {} from: {} to: {}", timestampColumn, fromDateTime, toDateTime);
-            
-    //         // Return the DateTimeRangeFilter for the timestamp column
-    //         return rangeFilter.new DateTimeRangeFilter(timestampColumn, fromDateTime, toDateTime);
-    //     } catch (Exception e) {
-    //         LOG.error("Error parsing date values for the timestamp column", e);
-    //         return null;
-    //     }
-    // }
     @Override
     public String toString() {
         return "TabularQuery [datasetId=" + datasetId 

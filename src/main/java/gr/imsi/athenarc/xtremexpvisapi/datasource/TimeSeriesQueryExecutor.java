@@ -95,8 +95,6 @@ public class TimeSeriesQueryExecutor {
        
 
         LOG.info("Final table after query has {} rows.", resultTable.rowCount());
-
-      
     
         return resultTable;
 
