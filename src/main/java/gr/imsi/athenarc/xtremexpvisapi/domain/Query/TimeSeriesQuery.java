@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.DataReduction;
 import gr.imsi.athenarc.xtremexpvisapi.domain.SOURCE_TYPE;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 
 
 public class TimeSeriesQuery {
@@ -22,14 +21,13 @@ public class TimeSeriesQuery {
 
     private static DateTimeFormatter dateTimeFormatter =  
         new DateTimeFormatterBuilder().appendPattern("yyyy-MM-dd[ [HH][:mm][:ss][.SSS]]")
-        .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
-        .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
-        .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
-        .parseDefaulting(ChronoField.MILLI_OF_SECOND, 0)
-        .toFormatter(); 
+            .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+            .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+            .parseDefaulting(ChronoField.MILLI_OF_SECOND, 0)
+            .toFormatter(); 
         
     String datasetId;
-    String timestampColumn;
     List<String> columns;
     String from;
     String to;
@@ -40,10 +38,9 @@ public class TimeSeriesQuery {
 
     List<AbstractFilter> filters; // Added to hold the instantiated filters
     
-    public TimeSeriesQuery(String datasetId,String timestampColumn, List<String> columns,String from, String to, Integer limit, Integer offset,DataReduction dataReduction, SOURCE_TYPE type) {
+    public TimeSeriesQuery(String datasetId, List<String> columns,String from, String to, Integer limit, Integer offset,DataReduction dataReduction, SOURCE_TYPE type) {
 
         this.datasetId = datasetId;
-        this.timestampColumn = timestampColumn;
         this.columns = columns;
         this.from = from;
         this.to = to;
@@ -53,19 +50,9 @@ public class TimeSeriesQuery {
         this.type = type;
       
     }
-   
-    public void setTimestampColumn(String timestampColumn) {
-        this.timestampColumn = timestampColumn;
-    }
-
 
     public String getDatasetId() {
         return datasetId;
-    }
-
-
-    public String getTimestampColumn() {
-        return timestampColumn;
     }
 
     public List<String> getColumns() {
@@ -103,37 +90,37 @@ public class TimeSeriesQuery {
     /**
      * Instantiates the filters based on the provided timestampColumn, from, and to values.
      */
-    public void instantiateFilters() {
-        if (timestampColumn != null && from != null && to != null) {
-            this.filters = List.of(mapTimestampFilter(timestampColumn, from, to));
-        } else {
-            LOG.error("Invalid timestamp or range values.");
-        }
-    }
+    // public void instantiateFilters() {
+    //     if (timestampColumn != null && from != null && to != null) {
+    //         this.filters = List.of(mapTimestampFilter(timestampColumn, from, to));
+    //     } else {
+    //         LOG.error("Invalid timestamp or range values.");
+    //     }
+    // }
 
-    /**
-     * Maps the from and to values into a DateTimeRangeFilter for the timestamp column.
-     * 
-     * @param timestampColumn The column representing the timestamp.
-     * @param from The start of the time range.
-     * @param to The end of the time range.
-     * @return A DateTimeRangeFilter that filters the timestamp column.
-     */
-    private AbstractFilter mapTimestampFilter(String timestampColumn, String from, String to) {
-        try {
-            LocalDateTime fromDateTime = LocalDateTime.parse(from, dateTimeFormatter);
-            LocalDateTime toDateTime = LocalDateTime.parse(to, dateTimeFormatter);
+    // /**
+    //  * Maps the from and to values into a DateTimeRangeFilter for the timestamp column.
+    //  * 
+    //  * @param timestampColumn The column representing the timestamp.
+    //  * @param from The start of the time range.
+    //  * @param to The end of the time range.
+    //  * @return A DateTimeRangeFilter that filters the timestamp column.
+    //  */
+    // private AbstractFilter mapTimestampFilter(String timestampColumn, String from, String to) {
+    //     try {
+    //         LocalDateTime fromDateTime = LocalDateTime.parse(from, dateTimeFormatter);
+    //         LocalDateTime toDateTime = LocalDateTime.parse(to, dateTimeFormatter);
             
-            RangeFilter rangeFilter = new RangeFilter();
-            LOG.info("Creating DateTimeRangeFilter for column: {} from: {} to: {}", timestampColumn, fromDateTime, toDateTime);
+    //         RangeFilter rangeFilter = new RangeFilter();
+    //         LOG.info("Creating DateTimeRangeFilter for column: {} from: {} to: {}", timestampColumn, fromDateTime, toDateTime);
             
-            // Return the DateTimeRangeFilter for the timestamp column
-            return rangeFilter.new DateTimeRangeFilter(timestampColumn, fromDateTime, toDateTime);
-        } catch (Exception e) {
-            LOG.error("Error parsing date values for the timestamp column", e);
-            return null;
-        }
-    }
+    //         // Return the DateTimeRangeFilter for the timestamp column
+    //         return rangeFilter.new DateTimeRangeFilter(timestampColumn, fromDateTime, toDateTime);
+    //     } catch (Exception e) {
+    //         LOG.error("Error parsing date values for the timestamp column", e);
+    //         return null;
+    //     }
+    // }
 
     @Override
     public String toString() {
@@ -144,7 +131,7 @@ public class TimeSeriesQuery {
                 + ", limit=" + limit 
                 + ", offset=" + offset
                 + ", dataReduction=" + dataReduction 
-                + ", timestampColumn=" + timestampColumn + "]";
+                +"]";
     }
 }
 

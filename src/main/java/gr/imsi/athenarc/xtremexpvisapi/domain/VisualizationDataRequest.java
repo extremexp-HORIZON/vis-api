@@ -5,7 +5,7 @@ import java.util.List;
 import gr.imsi.athenarc.xtremexpvisapi.domain.DataExplorationAdditionalParams.GeographicalParams;
 import gr.imsi.athenarc.xtremexpvisapi.domain.DataExplorationAdditionalParams.TabularParams;
 import gr.imsi.athenarc.xtremexpvisapi.domain.DataExplorationAdditionalParams.TemporalParams;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.Filter;
 import lombok.Data;
 
 
@@ -15,7 +15,7 @@ public class VisualizationDataRequest {
     private String datasetId;
     private ViewPort viewPort;
     private List<String> columns;
-    private List<VisualFilter> filters;
+    private List<Filter> filters;
     private String aggFunction;
     private Integer limit;
     private String scaler;

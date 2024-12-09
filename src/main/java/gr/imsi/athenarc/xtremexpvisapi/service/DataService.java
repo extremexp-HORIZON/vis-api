@@ -56,7 +56,6 @@ public class DataService {
     public TimeSeriesQuery timeSeriesQueryPreperation(TimeSeriesRequest timeSeriesRequest) {
         TimeSeriesQuery timeSeriesQuery = new TimeSeriesQuery(
             timeSeriesRequest.getDatasetId(),
-            timeSeriesRequest.getTimestampColumn(),
             timeSeriesRequest.getColumns(),
             timeSeriesRequest.getFrom(),
             timeSeriesRequest.getTo(),
@@ -66,13 +65,13 @@ public class DataService {
             timeSeriesRequest.getType()
         );
         if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
-            timeSeriesQuery.instantiateFilters();
+            // timeSeriesQuery.instantiateFilters();
         }
         return timeSeriesQuery;
         
     }
     public TabularResults getTabularData(TabularQuery tabularQuery) {
-        LOG.info("Retrieving tabcolumns for datasetId: {}", tabularQuery.getDatasetId());
+        LOG.info("Retrieving tabular data for datasetId: {}", tabularQuery.getDatasetId());
 
         String datasetId = tabularQuery.getDatasetId();
         SOURCE_TYPE type = tabularQuery.getType();
@@ -84,7 +83,7 @@ public class DataService {
     }
     
     public TimeSeriesResponse getTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
-        LOG.info("Retrieving tabcolumns for datasetId: {}", timeSeriesQuery.getDatasetId());
+        LOG.info("Retrieving time series data for datasetId: {}", timeSeriesQuery.getDatasetId());
 
         String datasetId = timeSeriesQuery.getDatasetId();
         SOURCE_TYPE type = timeSeriesQuery.getType();

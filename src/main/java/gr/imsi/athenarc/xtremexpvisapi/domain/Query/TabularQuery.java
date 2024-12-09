@@ -20,7 +20,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.VisualFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.Filter;
 
 public class TabularQuery {
 
@@ -63,8 +63,8 @@ public class TabularQuery {
         }
     }
 
-    public void instantiateFilters(List<VisualFilter> visualFilters, List<TabularColumn> tableColumns){
-        this.filters = visualFilters != null ?  visualFilters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
+    public void instantiateFilters(List<Filter> filters, List<TabularColumn> tableColumns){
+        this.filters = filters != null ?  filters.stream().map(filter -> mapFilter(filter, tableColumns)).toList() : null;
     }
 
     private AbstractFilter mapFilter(AbstractFilter filter, List<TabularColumn> columns){

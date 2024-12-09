@@ -5,8 +5,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import gr.imsi.athenarc.visual.middleware.cache.MinMaxCache;
 import gr.imsi.athenarc.visual.middleware.datasource.QueryExecutor.CsvQueryExecutor;
+import gr.imsi.athenarc.visual.middleware.domain.QueryResults;
 import gr.imsi.athenarc.visual.middleware.domain.Dataset.CsvDataset;
 import gr.imsi.athenarc.visual.middleware.domain.Query.Query;
 import gr.imsi.athenarc.visual.middleware.util.DateTimeUtil;
@@ -127,7 +132,9 @@ public class CsvDataSource implements DataSource {
             return null;
         for (int i = 0; i < table.columnCount(); i++) {
             ColumnType columnType = table.column(i).type();
-            if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
+            if (columnType == ColumnType.LOCAL_DATE_TIME || 
+            columnType == ColumnType.LOCAL_DATE ||  
+            columnType == ColumnType.INSTANT) {
                 return getTabularColumnFromTableSawColumn(table.column(i));
             }
         }
@@ -152,9 +159,6 @@ public class CsvDataSource implements DataSource {
             Table resultsTable = timeSeriesQueryExecutor.queryTabularData(table, timeSeriesQuery);
             // timeSeriesResponse.setFileNames(Arrays.asList(new String[]{table.name()}));
             timeSeriesResponse.setData(getJsonDataFromTableSawTable(resultsTable));
-            timeSeriesResponse.setColumns(
-                table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList()
-            );
         } else {
             throw new IllegalArgumentException("Invalid path: " + source);
         }
@@ -167,28 +171,29 @@ public class CsvDataSource implements DataSource {
         // Extract details from the query
         DataReduction dataReduction = timeSeriesQuery.getDataReduction();
         double errorBound = dataReduction.getErrorBound();
-        int width = dataReduction.getViewport().getWidth();
-        int height = dataReduction.getViewport().getHeight();
+        int width = dataReduction.getViewPort().getWidth();
+        int height = dataReduction.getViewPort().getHeight();
         String datasetId = timeSeriesQuery.getDatasetId();
-        long from = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getFrom());
-        long to = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getTo());
+       
         
-        // Metadata for CsvDataset
-        String timeFormat = "yyyy-MM-dd'T'HH:mm:ss"; // Example: Adjust as per your dataset
-        String delimiter = ","; // Example: Adjust as per your dataset
-        boolean hasHeader = true; // Assume true; adjust as needed
-        if(timeSeriesQuery.getTimestampColumn() == null){
-            TabularColumn timestampColumn = getTimestampColumn();
-            if(timestampColumn != null){
-                timeSeriesQuery.setTimestampColumn(timestampColumn.getName());
-            }
-            else{
-                LOG.error("No timestamp column found for datasetId: {}", datasetId);
-                throw new IllegalArgumentException("No timestamp column found for datasetId: " + datasetId);
-            }
-        }
-        String timestampColumnName = timeSeriesQuery.getTimestampColumn();
+        // Metadata for CsvDataset, need to be found automatically
+        String timeFormat = "yyyy-MM-dd HH:mm:ss"; 
+        String delimiter = ",";
+        boolean hasHeader = true; 
+        
+        String timeStampColumnName;
+        TabularColumn timestampColumn = getTimestampColumn();
 
+        if(timestampColumn != null){
+            timeStampColumnName = timestampColumn.getName();
+        }
+        else{
+            LOG.error("No timestamp column found for datasetId: {}", datasetId);
+            throw new IllegalArgumentException("No timestamp column found for datasetId: " + datasetId);
+        }
+        
+        long from = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getFrom(), timeFormat);
+        long to = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getTo(), timeFormat);
         // Extract measures as indices
         List<String> measureNames = timeSeriesQuery.getColumns(); // Get measure names from the query
         List<Integer> measureIndices = new ArrayList<>();
@@ -197,7 +202,14 @@ public class CsvDataSource implements DataSource {
         // Read the CSV file
         Table table = readCsvFromFile(path);
     
-        // Map measure names to indices
+        if(measureNames == null){
+            throw new IllegalArgumentException("Measures cannot be null");
+        }
+        if (measureNames.isEmpty()) {
+            measureNames.addAll(
+                table.columns().stream().map(this::getTabularColumnFromTableSawColumn).map(TabularColumn::getName).toList());
+            measureNames.remove(timeStampColumnName); // remove timestamp from full query
+        }
         for (String measureName : measureNames) {
             int index = table.columnIndex(measureName);
             if (index == -1) {
@@ -210,7 +222,7 @@ public class CsvDataSource implements DataSource {
         CsvDataset cacheDataset;
         try {
             cacheDataset = new CsvDataset(
-                source, source, "csv", source, timeFormat, timestampColumnName, delimiter, hasHeader
+                source, source, "csv", source, timeFormat, timeStampColumnName, delimiter, hasHeader
             );
         } catch (IOException e) {
             throw new RuntimeException("Error creating CsvDataset: " + e.getMessage(), e);
@@ -237,13 +249,17 @@ public class CsvDataSource implements DataSource {
         if (minMaxCache == null) {
             throw new IllegalStateException("MinMaxCache is not initialized for dataset: " + datasetId);
         }
-    
-        minMaxCache.executeQuery(cacheQuery);
-    
+        
         // Prepare the response
-        // timeSeriesResponse.setDatasetId(datasetId);
-        // timeSeriesResponse.setCache(minMaxCache);
-    
+        QueryResults cacheQueryResults = minMaxCache.executeQuery(cacheQuery);
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            LOG.info("{}", cacheQueryResults.getData());
+            String cacheQueryData = objectMapper.writeValueAsString(cacheQueryResults.getData());
+            timeSeriesResponse.setData(cacheQueryData);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error converting data to JSON: " + e.getMessage(), e);
+        }
         LOG.info("Time series visual query executed successfully for dataset: {}", datasetId);
     
         return timeSeriesResponse;

@@ -8,7 +8,6 @@ import lombok.Data;
 public class TimeSeriesRequest {
     private SOURCE_TYPE type;
     private String datasetId; 
-    private String timestampColumn; 
     private List<String> columns; 
     private String from; 
     private String to; 
