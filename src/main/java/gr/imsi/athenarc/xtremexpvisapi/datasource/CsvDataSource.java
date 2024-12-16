@@ -9,9 +9,13 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import gr.imsi.athenarc.visual.middleware.cache.IntervalTree;
 import gr.imsi.athenarc.visual.middleware.cache.MinMaxCache;
 import gr.imsi.athenarc.visual.middleware.datasource.QueryExecutor.CsvQueryExecutor;
 import gr.imsi.athenarc.visual.middleware.domain.QueryResults;
+import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
+import gr.imsi.athenarc.visual.middleware.domain.TimeRange;
+import gr.imsi.athenarc.visual.middleware.domain.TimeSeriesCsv;
 import gr.imsi.athenarc.visual.middleware.domain.Dataset.CsvDataset;
 import gr.imsi.athenarc.visual.middleware.domain.Query.Query;
 import gr.imsi.athenarc.visual.middleware.util.DateTimeUtil;
@@ -41,6 +45,9 @@ public class CsvDataSource implements DataSource {
     
     // Map to hold the minmaxcache of each dataset, for time series exploration
     private final ConcurrentHashMap<String, MinMaxCache> cacheMap = new ConcurrentHashMap<>();
+
+    private Map<String, TimeInterval> fileTimeRangeMap = null;
+
     @Autowired
     @Value("${app.working.directory}")
     private String workingDirectory;
@@ -126,16 +133,33 @@ public class CsvDataSource implements DataSource {
     
     public TabularColumn getTimestampColumn() {
         Path path = Paths.get(source);
-        Table table = readCsvFromFile(path);
-        boolean hasHeader = table.columnNames().size() > 0;
-        if (!hasHeader)
-            return null;
-        for (int i = 0; i < table.columnCount(); i++) {
-            ColumnType columnType = table.column(i).type();
-            if (columnType == ColumnType.LOCAL_DATE_TIME || 
-            columnType == ColumnType.LOCAL_DATE ||  
-            columnType == ColumnType.INSTANT) {
-                return getTabularColumnFromTableSawColumn(table.column(i));
+        if (Files.isDirectory(path)) {
+            List<Table> tables = getTablesFromPath(path);
+            Table table = tables.get(0);
+            boolean hasHeader = table.columnNames().size() > 0;
+            if (!hasHeader)
+                return null;
+            for (int i = 0; i < table.columnCount(); i++) {
+                ColumnType columnType = table.column(i).type();
+                if (columnType == ColumnType.LOCAL_DATE_TIME || 
+                columnType == ColumnType.LOCAL_DATE ||  
+                columnType == ColumnType.INSTANT) {
+                    return getTabularColumnFromTableSawColumn(table.column(i));
+                }
+            }
+        }
+        else{
+            Table table = readCsvFromFile(path);
+            boolean hasHeader = table.columnNames().size() > 0;
+            if (!hasHeader)
+                return null;
+            for (int i = 0; i < table.columnCount(); i++) {
+                ColumnType columnType = table.column(i).type();
+                if (columnType == ColumnType.LOCAL_DATE_TIME || 
+                columnType == ColumnType.LOCAL_DATE ||  
+                columnType == ColumnType.INSTANT) {
+                    return getTabularColumnFromTableSawColumn(table.column(i));
+                }
             }
         }
         return null;
@@ -175,8 +199,7 @@ public class CsvDataSource implements DataSource {
         int height = dataReduction.getViewPort().getHeight();
         String datasetId = timeSeriesQuery.getDatasetId();
        
-        
-        // Metadata for CsvDataset, need to be found automatically
+        // TODO: Metadata for CsvDataset, need to be found automatically
         String timeFormat = "yyyy-MM-dd HH:mm:ss"; 
         String delimiter = ",";
         boolean hasHeader = true; 
@@ -200,8 +223,7 @@ public class CsvDataSource implements DataSource {
         Path path = Paths.get(source);
     
         // Read the CSV file
-        Table table = readCsvFromFile(path);
-    
+        Table table = getTablesFromPath(path).get(0);
         if(measureNames == null){
             throw new IllegalArgumentException("Measures cannot be null");
         }
@@ -224,6 +246,7 @@ public class CsvDataSource implements DataSource {
             cacheDataset = new CsvDataset(
                 source, source, "csv", source, timeFormat, timeStampColumnName, delimiter, hasHeader
             );
+            fileTimeRangeMap = cacheDataset.getFileTimeRangeTreeMap();
         } catch (IOException e) {
             throw new RuntimeException("Error creating CsvDataset: " + e.getMessage(), e);
         }
@@ -257,6 +280,7 @@ public class CsvDataSource implements DataSource {
             LOG.info("{}", cacheQueryResults.getData());
             String cacheQueryData = objectMapper.writeValueAsString(cacheQueryResults.getData());
             timeSeriesResponse.setData(cacheQueryData);
+            timeSeriesResponse.setFileTimeRange(fileTimeRangeMap);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error converting data to JSON: " + e.getMessage(), e);
         }
@@ -361,6 +385,10 @@ public class CsvDataSource implements DataSource {
         }
         
         return uniqueValues;
+    }
+
+    public Map<String, TimeInterval> getFileTimeRange(){
+       return fileTimeRangeMap;
     }
 
 }
