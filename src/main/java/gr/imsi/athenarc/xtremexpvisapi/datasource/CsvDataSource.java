@@ -215,8 +215,6 @@ public class CsvDataSource implements DataSource {
             throw new IllegalArgumentException("No timestamp column found for datasetId: " + datasetId);
         }
         
-        long from = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getFrom(), timeFormat);
-        long to = DateTimeUtil.parseDateTimeString(timeSeriesQuery.getTo(), timeFormat);
         // Extract measures as indices
         List<String> measureNames = timeSeriesQuery.getColumns(); // Get measure names from the query
         List<Integer> measureIndices = new ArrayList<>();
@@ -252,6 +250,10 @@ public class CsvDataSource implements DataSource {
         }
     
         // Construct the Query
+
+        long from = timeSeriesQuery.getFrom() == null ? cacheDataset.getTimeRange().getFrom() : DateTimeUtil.parseDateTimeString(timeSeriesQuery.getFrom(), timeFormat);
+        long to = timeSeriesQuery.getTo() == null ? cacheDataset.getTimeRange().getTo() : DateTimeUtil.parseDateTimeString(timeSeriesQuery.getTo(), timeFormat);
+
         Query cacheQuery = new Query(
             from, to, measureIndices, (float) (1 - errorBound), width, height, null
         );
