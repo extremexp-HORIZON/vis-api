@@ -16,19 +16,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.TestReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsReq;
 import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsRes;
-import gr.imsi.athenarc.xtremexpvisapi.domain.InitializeProcedure.FeatureExplanation;
-import gr.imsi.athenarc.xtremexpvisapi.domain.ModelAnalysisTask.ModelAnalysisTaskReq;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExplainabilityService;
-
+import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
 import jakarta.validation.Valid;
 
 @RestController
@@ -40,16 +37,12 @@ public class VisualizationController {
     
     private final DataService dataService;
     private final ExplainabilityService explainabilityService;
+    private final FileService fileService;
 
-    public VisualizationController(DataService dataService, ExplainabilityService explainabilityService) {
+    public VisualizationController(DataService dataService, ExplainabilityService explainabilityService, FileService fileService) {
         this.dataService = dataService;
         this.explainabilityService = explainabilityService;
-    }
-    
-    @PostMapping("/task/modelAnalysis")
-    public ResponseEntity<FeatureExplanation> getModelAnalysisTask(@RequestBody ModelAnalysisTaskReq request) throws JsonProcessingException, InvalidProtocolBufferException {
-        LOG.info("Request for model Analysis model_name: {} model_id {}", request.getModelName(),request.getModelId());
-        return ResponseEntity.ok(explainabilityService.GetModelAnalysisTask(request));
+        this.fileService = fileService;
     }
 
     @PostMapping("/explainability")
@@ -69,11 +62,11 @@ public class VisualizationController {
         }
         TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
         
-        TimeSeriesQuery timeSeriesQuery = dataService.timeSeriesQueryPreperation(timeSeriesRequest);
+        // TimeSeriesQuery timeSeriesQuery = dataService.timeSeriesQueryPreperation(timeSeriesRequest);
 
-        LOG.info("Tabular query before getdata: {}", timeSeriesQuery);
+        LOG.info("Tabular query before getdata: {}", timeSeriesRequest);
         try {
-            timeSeriesResponse = dataService.getTimeSeriesData(timeSeriesQuery);
+            timeSeriesResponse = dataService.getTimeSeriesData(timeSeriesRequest);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
@@ -96,11 +89,11 @@ public class VisualizationController {
         }
         TabularResults tabularResults = new TabularResults();
         
-        TabularQuery tabularQuery = dataService.tabularQueryPreperation(tabularRequest);
+        // TabularQuery tabularQuery = dataService.tabularQueryPreperation(tabularRequest);
 
-        LOG.info("Tabular query before getdata: {}", tabularQuery);
+        LOG.info("Tabular query before getdata: {}", tabularRequest);
         try {
-            tabularResults = dataService.getTabularData(tabularQuery);
+            tabularResults = dataService.getTabularData(tabularRequest);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
@@ -129,6 +122,16 @@ public class VisualizationController {
             // Log the error and return an internal server error response
             LOG.error("Error retrieving columns for datasetId {}", datasetId, e);
             return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/files/single")
+    public void getSingleFile(@RequestBody TestReq path) {
+        LOG.info("download file with uri: " + path.getUri());
+        try {
+            fileService.downloadFileFromZenoh(path.getUri());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
     

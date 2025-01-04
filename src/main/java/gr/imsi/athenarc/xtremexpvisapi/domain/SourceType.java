@@ -1,6 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain;
 
-public enum SOURCE_TYPE {
+public enum SourceType {
     CSV,
     ZENOH
 }

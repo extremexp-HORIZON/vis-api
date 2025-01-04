@@ -8,13 +8,14 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DoubleRangeFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.IntegerRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import tech.tablesaw.aggregate.AggregateFunctions;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
@@ -25,12 +26,12 @@ public class TabularQueryExecutor {
 
     private static final Logger LOG = LoggerFactory.getLogger(TabularQueryExecutor.class);
 
-    public QueryResult queryTabularData(Table table, TabularQuery query) {
+    public QueryResult queryTabularData(Table table, TabularRequest tabularRequest) {
         // Table resultTable = null;
  
         Selection selection = null;
-        if(query.getFilters() != null){
-            for (AbstractFilter filter : query.getFilters()) {
+        if(tabularRequest.getFilters() != null){
+            for (AbstractFilter filter : tabularRequest.getFilters()) {
                 Selection filterSelection = null;
                 if (filter instanceof RangeFilter) {
                     RangeFilter<?> rangeFilter = (RangeFilter<?>) filter;
@@ -99,12 +100,12 @@ public class TabularQueryExecutor {
         int rowCount = resultTable.rowCount();
         LOG.info("Row count after filtering: {}", rowCount);
 
-        resultTable = applyColumnSelection(resultTable, query.getColumns());
-        if (query.getAggregation() != null && !query.getAggregation().isEmpty()) {
-            resultTable = applyAggregation(resultTable, query.getGroupBy(), query.getAggregation());
+        resultTable = applyColumnSelection(resultTable, tabularRequest.getColumns());
+        if (tabularRequest.getAggregation() != null && !tabularRequest.getAggregation().isEmpty()) {
+            resultTable = applyAggregation(resultTable, tabularRequest.getGroupBy(), tabularRequest.getAggregation());
         }
 
-        resultTable = applyPagination(resultTable, query.getLimit(), query.getOffset());
+        resultTable = applyPagination(resultTable, tabularRequest.getLimit(), tabularRequest.getOffset());
 
 
         LOG.info("Final table after query has {} rows.", resultTable.rowCount());

@@ -145,6 +145,7 @@
 					<source>17</source>
 					<generatedSourcesDirectory>target/generated-sources/protobuf/java</generatedSourcesDirectory>
 					<target>17</target>
+					<generatedSources>target/generated-sources/protobuf/java</generatedSources>
 				</configuration>
 			</plugin>
 			<plugin>

@@ -9,19 +9,16 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.visual.middleware.cache.IntervalTree;
 import gr.imsi.athenarc.visual.middleware.cache.MinMaxCache;
 import gr.imsi.athenarc.visual.middleware.datasource.QueryExecutor.CsvQueryExecutor;
 import gr.imsi.athenarc.visual.middleware.domain.QueryResults;
 import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
-import gr.imsi.athenarc.visual.middleware.domain.TimeRange;
-import gr.imsi.athenarc.visual.middleware.domain.TimeSeriesCsv;
 import gr.imsi.athenarc.visual.middleware.domain.Dataset.CsvDataset;
 import gr.imsi.athenarc.visual.middleware.domain.Query.Query;
 import gr.imsi.athenarc.visual.middleware.util.DateTimeUtil;
 import gr.imsi.athenarc.xtremexpvisapi.domain.*;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import jakarta.annotation.PostConstruct;
 import tech.tablesaw.api.*;
 import tech.tablesaw.columns.*;
@@ -71,16 +68,16 @@ public class CsvDataSource implements DataSource {
     }
 
     @Override
-    public TimeSeriesResponse fetchTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
+    public TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
         TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
-        switch(timeSeriesQuery.getDataReduction().getType()){
+        switch(timeSeriesRequest.getDataReduction().getType()){
             case "raw":
-                timeSeriesResponse = timeSeriesRawQuery(timeSeriesQuery);
+                timeSeriesResponse = timeSeriesRawQuery(timeSeriesRequest);
                 break;
             case "aggregation":
                 break;
             case "visualization-aware":
-                timeSeriesResponse = timeSeriesVisualQuery(timeSeriesQuery);
+                timeSeriesResponse = timeSeriesVisualQuery(timeSeriesRequest);
                 break;
         }
         return timeSeriesResponse;
@@ -89,7 +86,7 @@ public class CsvDataSource implements DataSource {
    
    
     @Override
-    public TabularResults fetchTabularData(TabularQuery tabularQuery) {
+    public TabularResults fetchTabularData(TabularRequest tabularRequest) {
         TabularResults tabularResults = new TabularResults();
         Path path = Paths.get(source);
         if (Files.isDirectory(path)) {
@@ -97,7 +94,7 @@ public class CsvDataSource implements DataSource {
             List<String> jsonDataList = new ArrayList<>();
             List<TabularColumn> columns = new ArrayList<>();
             for (Table table : tables) {
-                QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularQuery);
+                QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
                 Table resultsTable = queryResult.getResultTable();
                 jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
                 if (columns.isEmpty()) {
@@ -110,12 +107,12 @@ public class CsvDataSource implements DataSource {
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
             tabularResults.setColumns(columns);
         } else if (Files.isRegularFile(path)) {
-            if (tabularQuery.getDatasetId().endsWith(".json")) {
+            if (tabularRequest.getDatasetId().endsWith(".json")) {
                 String json = readJsonFromFile(path);
                 tabularResults.setData(json);
             } else {
                     Table table = readCsvFromFile(path);
-                    QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularQuery);
+                    QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
                     Table resultsTable = queryResult.getResultTable();
                     Map<String, List<Object>>uniqueColumnValues = getUniqueValuesForColumns(table, table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
@@ -172,7 +169,7 @@ public class CsvDataSource implements DataSource {
         return table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList();
     }
 
-    private TimeSeriesResponse timeSeriesRawQuery(TimeSeriesQuery timeSeriesQuery){
+    private TimeSeriesResponse timeSeriesRawQuery(TimeSeriesRequest timeSeriesRequest){
         TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
         Path path = Paths.get(source); 
         // Directory logic
@@ -180,7 +177,7 @@ public class CsvDataSource implements DataSource {
             // TODO: Implement directory logic
         } else if (Files.isRegularFile(path)) {
             Table table = readCsvFromFile(path);
-            Table resultsTable = timeSeriesQueryExecutor.queryTabularData(table, timeSeriesQuery);
+            Table resultsTable = timeSeriesQueryExecutor.queryTabularData(table, timeSeriesRequest);
             // timeSeriesResponse.setFileNames(Arrays.asList(new String[]{table.name()}));
             timeSeriesResponse.setData(getJsonDataFromTableSawTable(resultsTable));
         } else {
@@ -189,15 +186,15 @@ public class CsvDataSource implements DataSource {
         return timeSeriesResponse;
     }
 
-    private TimeSeriesResponse timeSeriesVisualQuery(TimeSeriesQuery timeSeriesQuery) {
+    private TimeSeriesResponse timeSeriesVisualQuery(TimeSeriesRequest timeSeriesRequest) {
         TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
         
         // Extract details from the query
-        DataReduction dataReduction = timeSeriesQuery.getDataReduction();
+        DataReduction dataReduction = timeSeriesRequest.getDataReduction();
         double errorBound = dataReduction.getErrorBound();
         int width = dataReduction.getViewPort().getWidth();
         int height = dataReduction.getViewPort().getHeight();
-        String datasetId = timeSeriesQuery.getDatasetId();
+        String datasetId = timeSeriesRequest.getDatasetId();
        
         // TODO: Metadata for CsvDataset, need to be found automatically
         String timeFormat = "yyyy-MM-dd HH:mm:ss"; 
@@ -216,7 +213,7 @@ public class CsvDataSource implements DataSource {
         }
         
         // Extract measures as indices
-        List<String> measureNames = timeSeriesQuery.getColumns(); // Get measure names from the query
+        List<String> measureNames = timeSeriesRequest.getColumns(); // Get measure names from the query
         List<Integer> measureIndices = new ArrayList<>();
         Path path = Paths.get(source);
     
@@ -251,8 +248,8 @@ public class CsvDataSource implements DataSource {
     
         // Construct the Query
 
-        long from = timeSeriesQuery.getFrom() == null ? cacheDataset.getTimeRange().getFrom() : DateTimeUtil.parseDateTimeString(timeSeriesQuery.getFrom(), timeFormat);
-        long to = timeSeriesQuery.getTo() == null ? cacheDataset.getTimeRange().getTo() : DateTimeUtil.parseDateTimeString(timeSeriesQuery.getTo(), timeFormat);
+        long from = timeSeriesRequest.getFrom() == null ? cacheDataset.getTimeRange().getFrom() : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getFrom(), timeFormat);
+        long to = timeSeriesRequest.getTo() == null ? cacheDataset.getTimeRange().getTo() : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getTo(), timeFormat);
 
         Query cacheQuery = new Query(
             from, to, measureIndices, (float) (1 - errorBound), width, height, null

@@ -7,12 +7,12 @@ import java.util.List;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 
 public interface DataSource {
     String getSource();
     List<TabularColumn> getColumns();
-    TabularResults fetchTabularData(TabularQuery tabularQuery);
-    TimeSeriesResponse fetchTimeSeriesData(TimeSeriesQuery timeSeriesQuery);
+    TabularResults fetchTabularData(TabularRequest tabularRequest);
+    TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
 }

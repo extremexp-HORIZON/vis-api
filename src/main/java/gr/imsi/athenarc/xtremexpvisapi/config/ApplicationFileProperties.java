@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Component
 @Data
-@ConfigurationProperties(prefix = "xfile.cache")
+@ConfigurationProperties(prefix = "app.file.cache")
 public class ApplicationFileProperties {
     private String directory;
     private int duration;

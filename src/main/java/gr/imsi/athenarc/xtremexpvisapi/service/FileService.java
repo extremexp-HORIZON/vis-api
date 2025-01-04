@@ -8,9 +8,7 @@ import lombok.extern.java.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
+import java.net.http.HttpResponse;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -32,72 +30,51 @@ public class FileService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
     private final ApplicationFileProperties applicationFileProperties;
+    private final ZenohService zenohService;
 
     @Autowired
-    public FileService(ApplicationFileProperties applicationFileProperties) {
+    public FileService(ApplicationFileProperties applicationFileProperties, ZenohService zenohService) {
         this.applicationFileProperties = applicationFileProperties;
+        this.zenohService = zenohService;
     }
 
     /**
-     * Downloads a file from the given URI and schedules it for deletion after a
+     * Downloads a file from zenoh given a URI and schedules it for deletion after a
      * certain period.
-     * If the file already exists in the cache, deletion timer gets reseted.
+     * If the file already exists in the cache, resets the deletion timer.
      *
      * @param uri the URI of the file to download
-     * @throws IOException if an I/O error occurs
+     * @throws Exception if an error occurs
      */
-    public void downloadFile(URI uri) throws IOException {
-        downloadFile(uri.toURL());
-    }
-
-    /**
-     * Downloads a file from the given URL and schedules it for deletion after a
-     * certain period.
-     * If the file already exists in the cache, the deletion is reset.
-     *
-     * @param url the URL of the file to download
-     * @throws IOException if an I/O error occurs
-     */
-    public void downloadFile(URL url) throws IOException {
-        String fileName = getFileNameFromURL(url);
+    public void downloadFileFromZenoh(String uri) throws Exception {
+        // Extract UseCase, Folder, Subfolder, Filename from uri
+        String[] uriParts = uri.split("/");
+        String useCase = uriParts[0];
+        String folder = uriParts[1];
+        String subFolder = uriParts[2];
+        String fileName = uriParts[uriParts.length - 1];
         if (fileCache.containsKey(fileName)) {
             log.info(fileName + " already exists in the cache");
             resetFileDeletion(fileName);
         } else {
-            log.fine("Downloading " + fileName + " from " + url);
+            log.fine("Downloading " + fileName + " from " + uri);
             Path targetPath = Paths.get(applicationFileProperties.getDirectory(), fileName);
-            try (InputStream incomingFile = url.openStream()) {
-                fileInsertionHandler(incomingFile, targetPath);
-            }
+            HttpResponse<InputStream> zenohResponse = zenohService.getSingleFile(useCase, folder, subFolder, fileName);
+            log.fine("Download successful");
+            
+            // Get file from response body
+            InputStream fileStream = zenohResponse.body();
+            // Get file size from response headers
+            long fileSize = zenohResponse.headers().firstValue("Content-Length").map(Long::parseLong).orElse(-1L);
+
+            fileInsertionHandler(fileStream, fileSize, targetPath);
             fileCache.put(fileName, targetPath.toString());
             scheduleFileDeletion(targetPath);
         }
     }
 
     /**
-     * Extracts the name of the file from the URL.
-     * If there is no filename in the URL, a default name is used
-     * ("downloaded_file").
-     *
-     * @param url the URL of the file to download
-     * @throws IOException if an I/O error occurs
-     */
-    private String getFileNameFromURL(URL url) throws IOException {
-        String fileName;
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setInstanceFollowRedirects(false);
-        String disposition = connection.getHeaderField("Content-Disposition");
-        if (disposition != null && disposition.contains("filename=")) {
-            fileName = disposition.split("filename=")[1].replace("\"", "").trim();
-        } else {
-            fileName = "downloaded_file.exe";
-        }
-        connection.disconnect();
-        return fileName;
-    }
-
-    /**
-     * Schedules the deletion of the file at the given path after 20 seconds.
+     * Schedules the deletion of the file at the given path after X seconds.
      *
      * @param path the path of the file to delete
      */
@@ -136,14 +113,13 @@ public class FileService {
      * @param fileToBeInserted the file to be inserted.
      * @param targetPath       path variable that defines the target directory.
      */
-    private void fileInsertionHandler(InputStream fileToBeInserted, Path targetPath) {
+    private void fileInsertionHandler(InputStream fileToBeInserted, long insertedFileSizeBytes, Path targetPath) {
         try {
             // Extract numbers and units from the folder size limit
             long limitNumber = Long.parseLong(applicationFileProperties.getSize().replaceAll("[^0-9]", ""));
             String limitUnit = applicationFileProperties.getSize().replaceAll("[^a-zA-Z]", "").toUpperCase();
             long directoryCurrentSizeBytes = getDirectorySize(targetPath.getParent());
             long folderSizeLimitBytes = convertToBytes(limitNumber, limitUnit);
-            long insertedFileSizeBytes = fileToBeInserted.available();
 
             log.info("Directory size: " + directoryCurrentSizeBytes + " bytes");
             log.info("File size: " + insertedFileSizeBytes + " bytes");

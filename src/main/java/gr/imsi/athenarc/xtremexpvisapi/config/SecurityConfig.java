@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.security;
+package gr.imsi.athenarc.xtremexpvisapi.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

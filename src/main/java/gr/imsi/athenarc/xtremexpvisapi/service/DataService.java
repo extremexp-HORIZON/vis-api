@@ -11,14 +11,12 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
-import gr.imsi.athenarc.xtremexpvisapi.domain.SOURCE_TYPE;
+import gr.imsi.athenarc.xtremexpvisapi.domain.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 
 @Service
 public class DataService {
@@ -31,68 +29,29 @@ public class DataService {
     }
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
-    public TabularQuery tabularQueryPreperation (TabularRequest tabularRequest) {
+    public TabularResults getTabularData(TabularRequest tabularRequest) {
+        LOG.info("Retrieving tabular data for datasetId: {}", tabularRequest.getDatasetId());
 
-        TabularQuery tabularQuery = new TabularQuery(
-            tabularRequest.getDatasetId(),
-            tabularRequest.getLimit(),
-            tabularRequest.getColumns(),
-            tabularRequest.getOffset(),
-            tabularRequest.getGroupBy(),
-            tabularRequest.getAggregation(),
-            tabularRequest.getType()
-        );
-        
-        if(!tabularQuery.getDatasetId().endsWith(".json")){
-            tabularQuery.instantiateFilters(
-            tabularRequest.getFilters(),
-            getColumns(tabularRequest.getDatasetId())
-        );
-        }
-        return tabularQuery;
-    }
-    
-
-    public TimeSeriesQuery timeSeriesQueryPreperation(TimeSeriesRequest timeSeriesRequest) {
-        TimeSeriesQuery timeSeriesQuery = new TimeSeriesQuery(
-            timeSeriesRequest.getDatasetId(),
-            timeSeriesRequest.getColumns(),
-            timeSeriesRequest.getFrom(),
-            timeSeriesRequest.getTo(),
-            timeSeriesRequest.getLimit(),
-            timeSeriesRequest.getOffset(),
-            timeSeriesRequest.getDataReduction(),
-            timeSeriesRequest.getType()
-        );
-        if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
-            // timeSeriesQuery.instantiateFilters();
-        }
-        return timeSeriesQuery;
-        
-    }
-    public TabularResults getTabularData(TabularQuery tabularQuery) {
-        LOG.info("Retrieving tabular data for datasetId: {}", tabularQuery.getDatasetId());
-
-        String datasetId = tabularQuery.getDatasetId();
-        SOURCE_TYPE type = tabularQuery.getType();
+        String datasetId = tabularRequest.getDatasetId();
+        SourceType type = tabularRequest.getType();
         DataSource dataSource = dataSourceCache.computeIfAbsent(datasetId, id -> dataSourceFactory.createDataSource(type, id));
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
-        TabularResults results = dataSource.fetchTabularData(tabularQuery);
+        TabularResults results = dataSource.fetchTabularData(tabularRequest);
         return results;
     }
     
-    public TimeSeriesResponse getTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
-        LOG.info("Retrieving time series data for datasetId: {}", timeSeriesQuery.getDatasetId());
+    public TimeSeriesResponse getTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
+        LOG.info("Retrieving time series data for datasetId: {}", timeSeriesRequest.getDatasetId());
 
-        String datasetId = timeSeriesQuery.getDatasetId();
-        SOURCE_TYPE type = timeSeriesQuery.getType();
+        String datasetId = timeSeriesRequest.getDatasetId();
+        SourceType type = timeSeriesRequest.getType();
 
         DataSource dataSource = dataSourceCache.computeIfAbsent(datasetId, id -> dataSourceFactory.createDataSource(type, id));
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
 
-        TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesQuery);
+        TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesRequest);
         return results;
         
     }

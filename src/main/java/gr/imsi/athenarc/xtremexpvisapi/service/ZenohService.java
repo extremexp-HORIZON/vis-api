@@ -1,39 +1,51 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
- 
+
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
- 
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.extern.java.Log;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
- 
+
 @Service
+@Log
 public class ZenohService {
     private HttpClient httpClient;
-    private final String baseUrl = "http://127.0.0.1:5000";
+    @Value("${app.zenoh.baseurl}")
+    private String baseUrl;
+    @Value("${app.zenoh.username}")
+    private String username;
+    @Value("${app.zenoh.password}")
+    private String password;
     private String accessToken; // Store the token here
-    private String refreshToken; // Store the refresh token
- 
+    private String refreshToken;
+
     private ObjectMapper objectMapper = new ObjectMapper(); // Jackson object mapper
- 
+
     public ZenohService() {
         this.httpClient = HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_2)
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+                .version(HttpClient.Version.HTTP_2)
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
     }
- 
-    public String authenticate(String username, String password) throws Exception {
+
+    public String authenticate() throws Exception {
         String form = "username=" + username + "&password=" + password;
+        log.info("username: " + username);
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + "/auth/login"))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(HttpRequest.BodyPublishers.ofString(form))
-            .build();
- 
+                .uri(URI.create(baseUrl + "/auth/login"))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(form))
+                .build();
+
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         System.out.println("resbody: " + response.body());
         if (response.statusCode() != 200) {
@@ -42,45 +54,49 @@ public class ZenohService {
         parseAndStoreTokens(response.body()); // Parse and store tokens
         return this.accessToken;
     }
- 
+
     public String refresh() throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + "/auth/refresh"))
-            .headers("Authorization", "Bearer " + refreshToken, "Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.noBody())
-            .build();
- 
+                .uri(URI.create(baseUrl + "/auth/refresh"))
+                .headers("Authorization", "Bearer " + refreshToken, "Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         JsonNode rootNode = objectMapper.readTree(response.body());
         rootNode.path("access_token").asText();
-        // parseAndStoreTokens(response.body()); // Parse and store tokens
         return this.accessToken;
     }
- 
-    public String CasesFiles(String useCase, String folder, String subfolder, String filename) throws Exception {
+
+    public HttpResponse<InputStream> getSingleFile(String useCase, String folder, String subfolder, String filename) throws Exception {
         if (accessToken == null) {
-            authenticate("admin", "adminxp");
+            authenticate(); // Authenticate if token is not available
         }
- 
+
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/" + subfolder + "/" + filename))
-            .headers("Authorization", "Bearer " + accessToken, "Accept", "application/json")
-            .GET()
-            .build();
- 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() == 401) {
-            refresh(); // Refresh the token
-            request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/" + subfolder + "/" + filename))
-                .headers("Authorization", "Bearer " + accessToken, "Accept", "application/json")
+                .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/" + subfolder
+                        + "/" + filename))
+                .headers("Authorization", "Bearer " + accessToken, "Accept", "application/octet-stream")
                 .GET()
                 .build();
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        if (response.statusCode() == 401) {
+            refresh(); // If token has expired, refresh it
+            request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/"
+                            + subfolder + "/" + filename))
+                    .headers("Authorization", "Bearer " + accessToken, "Accept", "application/octet-stream")
+                    .GET()
+                    .build();
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
         }
-        return response.body();
+        if (response.statusCode() != 200) {
+            throw new IllegalStateException("Failed to retrieve file: HTTP status " + response.statusCode());
+        }
+        return response;
     }
- 
+
     private void parseAndStoreTokens(String responseBody) throws Exception {
         JsonNode rootNode = objectMapper.readTree(responseBody);
         JsonNode tokensNode = rootNode.path("tokens");
