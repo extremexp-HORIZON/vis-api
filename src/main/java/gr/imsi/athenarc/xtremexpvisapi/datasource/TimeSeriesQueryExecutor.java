@@ -57,7 +57,7 @@ public class TimeSeriesQueryExecutor {
                     }
                     // Add other types of RangeFilters here if needed
                 }else if (filter instanceof EqualsFilter) {
-                    EqualsFilter equalsFilter = (EqualsFilter) filter;
+                    EqualsFilter<?> equalsFilter = (EqualsFilter<?>) filter;
                     Column<?> column = table.column(equalsFilter.getColumn());
                     String columnTypeName = column.type().name();
                     switch (columnTypeName) {

@@ -8,6 +8,7 @@ public class RangeFilter<T> extends AbstractFilter {
     protected T maxValue;
 
     public RangeFilter() {}
+    
     public RangeFilter(String column, T minValue, T maxValue) {
         super(column);
         this.minValue = minValue;

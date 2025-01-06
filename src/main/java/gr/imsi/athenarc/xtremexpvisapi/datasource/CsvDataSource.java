@@ -114,7 +114,7 @@ public class CsvDataSource implements DataSource {
                     Table table = readCsvFromFile(path);
                     QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
                     Table resultsTable = queryResult.getResultTable();
-                    Map<String, List<Object>>uniqueColumnValues = getUniqueValuesForColumns(table, table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                    Map<String, List<?>>uniqueColumnValues = getUniqueValuesForColumns(table, table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
                     tabularResults.setFileNames(Arrays.asList(new String[]{table.name()}));
                     tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
@@ -370,8 +370,8 @@ public class CsvDataSource implements DataSource {
         return "[" + rowsJsonArray + "]";
     }
     
-    private Map<String, List<Object>> getUniqueValuesForColumns(Table table, List<TabularColumn> tabularColumns) {
-        Map<String, List<Object>> uniqueValues = new HashMap<>();
+    private Map<String, List<?>> getUniqueValuesForColumns(Table table, List<TabularColumn> tabularColumns) {
+        Map<String, List<?>> uniqueValues = new HashMap<>();
 
         // Iterate through all the visual columns passed
         for (TabularColumn tabularColumn : tabularColumns) {
@@ -379,7 +379,7 @@ public class CsvDataSource implements DataSource {
             Column<?> column = table.column(columnName);
 
             // Fetch the unique values for each column and store them in the map
-            List<Object> uniqueColumnValues = (List<Object>) column.unique().asList();
+            List<?> uniqueColumnValues = column.unique().asList();
                 uniqueValues.put(columnName, uniqueColumnValues);
         }
         

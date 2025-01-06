@@ -15,6 +15,6 @@ public class TabularResults {
     
     private int totalItems; // New field for total item count
     private int querySize;
-    private Map<String, List<Object>> uniqueColumnValues;  // Add this field to store unique values
+    private Map<String, List<?>> uniqueColumnValues;  // Add this field to store unique values
 
 }
