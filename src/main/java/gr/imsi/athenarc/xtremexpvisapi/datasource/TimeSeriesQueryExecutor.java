@@ -6,13 +6,13 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.EqualsFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DateTimeRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.DoubleRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.RangeFilter.IntegerRangeFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.EqualsFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter.DateTimeRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter.DoubleRangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter.IntegerRangeFilter;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 import tech.tablesaw.selection.Selection;
@@ -20,12 +20,12 @@ import tech.tablesaw.selection.Selection;
 public class TimeSeriesQueryExecutor {
      private static final Logger LOG = LoggerFactory.getLogger(TimeSeriesQueryExecutor.class);
 
-    public Table queryTabularData(Table table, TimeSeriesQuery query) {
+    public Table queryTabularData(Table table, TimeSeriesRequest timeSeriesRequest) {
         // Table resultTable = null;
  
         Selection selection = null;
-        if(query.getFrom() != null && query.getTo()!=null){
-            for (AbstractFilter filter : query.getFilters()) {
+        if(timeSeriesRequest.getFrom() != null && timeSeriesRequest.getTo()!=null){
+            for (AbstractFilter filter : timeSeriesRequest.getFilters()) {
                 Selection filterSelection = null;
                 if (filter instanceof RangeFilter) {
                     RangeFilter<?> rangeFilter = (RangeFilter<?>) filter;
@@ -57,7 +57,7 @@ public class TimeSeriesQueryExecutor {
                     }
                     // Add other types of RangeFilters here if needed
                 }else if (filter instanceof EqualsFilter) {
-                    EqualsFilter equalsFilter = (EqualsFilter) filter;
+                    EqualsFilter<?> equalsFilter = (EqualsFilter<?>) filter;
                     Column<?> column = table.column(equalsFilter.getColumn());
                     String columnTypeName = column.type().name();
                     switch (columnTypeName) {
@@ -90,13 +90,11 @@ public class TimeSeriesQueryExecutor {
         LOG.debug("Selection is: {}", selection);
      
         Table resultTable = (selection != null) ? table.where(selection) : table;
-        resultTable = applyPagination(resultTable, query.getLimit(), query.getOffset());
-        resultTable = applyColumnSelection(resultTable, query.getColumns());
+        resultTable = applyPagination(resultTable, timeSeriesRequest.getLimit(), timeSeriesRequest.getOffset());
+        resultTable = applyColumnSelection(resultTable, timeSeriesRequest.getColumns());
        
 
         LOG.info("Final table after query has {} rows.", resultTable.rowCount());
-
-      
     
         return resultTable;
 

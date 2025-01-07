@@ -1,8 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
-import java.util.List;
-
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,179 +7,59 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.VisualizationResults;
-
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
 
 @Service
 public class DataService {
-    private final ZenohService zenohService;
-    private final DataSourceFactory dataSourceFactory;    // private final DataSourceFactory dataSourceFactory;
-
+    private final DataSourceFactory dataSourceFactory;
+     
     @Autowired
-    public DataService(ZenohService zenohService, DataSourceFactory dataSourceFactory) {
-        this.zenohService = zenohService;
+    public DataService(DataSourceFactory dataSourceFactory) {
         this.dataSourceFactory = dataSourceFactory;
     }
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
-    public VisualQuery queryPreperation (VisualizationDataRequest visualizationDataRequest) {
+    public TabularResponse getTabularData(TabularRequest tabularRequest) {
+        LOG.info("Retrieving tabular data for datasetId: {}", tabularRequest.getDatasetId());
 
-        VisualQuery visualQuery = new VisualQuery(
-            visualizationDataRequest.getDatasetId(),
-            visualizationDataRequest.getViewPort(), 
-            visualizationDataRequest.getColumns(),
-            visualizationDataRequest.getLimit(),
-            visualizationDataRequest.getScaler(),
-            visualizationDataRequest.getAggFunction(),
-            visualizationDataRequest.getOffset()
-        );
-        switch (visualizationDataRequest.getVisualizationType()) {
-            case "tabular":
-                // Specific handling for tabular data
-                break;
-            case "temporal":
-                visualQuery.setTemporalParams(
-                    visualizationDataRequest.getTemporalParams().getGroupColumn(),
-                    visualizationDataRequest.getTemporalParams().getGranularity()
-                );
-                break;
-            case "geographical":
-                visualQuery.setGeographicalParams(
-                    visualizationDataRequest.getGeographicalParams().getLat(),
-                    visualizationDataRequest.getGeographicalParams().getLon()
-                );
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported visualization type: " + visualizationDataRequest.getVisualizationType());
-        }
-
-
-        if(!visualizationDataRequest.getDatasetId().endsWith(".json")){
-            visualQuery.instantiateFilters(
-            visualizationDataRequest.getFilters(),
-            getColumns(visualizationDataRequest.getDatasetId())
-        );
-        }
-        return visualQuery;
-    }
-
-    public TabularQuery tabularQueryPreperation (TabularRequest tabularRequest) {
-
-        TabularQuery tabularQuery = new TabularQuery(
-            tabularRequest.getDatasetId(),
-            tabularRequest.getLimit(),
-            tabularRequest.getColumns(),
-            tabularRequest.getOffset(),
-            tabularRequest.getGroupBy(),
-            tabularRequest.getAggregation()
-        );
-        
-
-
-        if(!tabularQuery.getDatasetId().endsWith(".json")){
-            tabularQuery.instantiateFilters(
-            tabularRequest.getFilters(),
-            getColumns(tabularRequest.getDatasetId())
-        );
-        }
-        return tabularQuery;
-    }
-    
-
-    public TimeSeriesQuery timeSeriesQueryPreperation(TimeSeriesRequest timeSeriesRequest) {
-        TimeSeriesQuery timeSeriesQuery = new TimeSeriesQuery(
-            timeSeriesRequest.getDatasetId(),
-            timeSeriesRequest.getTimestampColumn(),
-            timeSeriesRequest.getColumns(),
-            timeSeriesRequest.getFrom(),
-            timeSeriesRequest.getTo(),
-            timeSeriesRequest.getLimit(),
-            timeSeriesRequest.getOffset(),
-            timeSeriesRequest.getDataReduction()
-        
-        );
-        
-      
-        
-
-
-        if(!timeSeriesQuery.getDatasetId().endsWith(".json")){
-            timeSeriesQuery.instantiateFilters();
-        }
-        return timeSeriesQuery;
-        
-    }
-    public TabularResults getTabularData(TabularQuery tabularQuery) {
-        LOG.info("Retrieving tabcolumns for datasetId: {}", tabularQuery.getDatasetId());
-
-        String datasetId = tabularQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-
+        String datasetId = tabularRequest.getDatasetId();
+        SourceType type = tabularRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
-        TabularResults results = dataSource.fetchTabularData(tabularQuery);
+        TabularResponse results = dataSource.fetchTabularData(tabularRequest);
         return results;
     }
     
-    public TimeSeriesResponse getTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
-        LOG.info("Retrieving tabcolumns for datasetId: {}", timeSeriesQuery.getDatasetId());
+    public TimeSeriesResponse getTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
+        LOG.info("Retrieving time series data for datasetId: {}", timeSeriesRequest.getDatasetId());
 
-        String datasetId = timeSeriesQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-
+        String datasetId = timeSeriesRequest.getDatasetId();
+        SourceType type = timeSeriesRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
         // Print datasetId being processed
         LOG.info("Processing data for datasetId: {}", datasetId);
-        TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesQuery);
+
+        TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesRequest);
         return results;
         
     }
     
+    public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
+        LOG.info("Retrieving metadata for datasetId: {}", metadataRequest.getDatasetId());
 
-    public VisualizationResults getData(VisualQuery visualQuery) {
-        LOG.info("Retrieving columns for datasetId: {}", visualQuery.getDatasetId());
-
-        String datasetId = visualQuery.getDatasetId();
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
+        String datasetId = metadataRequest.getDatasetId();
+        SourceType type = metadataRequest.getType();
 
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        // Print datasetId being processed
-        LOG.info("Processing data for datasetId: {}", datasetId);
-        VisualizationResults results = dataSource.fetchData(visualQuery);
-        return results;
+
+        return dataSource.getFileMetadata(metadataRequest);
     }
-
-
-
-    public List<VisualColumn> getColumns(String datasetId) {
-        LOG.info("Retrieving columns for datasetId: {}", datasetId);
-        String type = datasetId.startsWith("file://") ? "csv" : "zenoh";
-
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        return dataSource.getColumns(datasetId);
-    }
-
-    public String getColumn(String datasetId, String columnName) {
-        LOG.info("Retrieving column {} for datasetId: {}", columnName, datasetId);
-        DataSource dataSource = dataSourceFactory.createDataSource("csv", datasetId);
-        return dataSource.getColumn(datasetId, columnName);
-    } 
-
-    public String fetchZenohData(String useCase, String folder, String subfolder, String filename) throws Exception {
-        return zenohService.CasesFiles(useCase, folder, subfolder, filename);
-    }
-
+    
 }

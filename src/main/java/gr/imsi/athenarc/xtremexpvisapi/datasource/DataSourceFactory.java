@@ -1,30 +1,39 @@
 
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
+import lombok.extern.java.Log;
 
 @Component
+@Log
 public class DataSourceFactory {
 
     private final ApplicationContext applicationContext;
+    private final FileService fileService;
 
-    @Autowired
-    public DataSourceFactory(ApplicationContext applicationContext) {
+    public DataSourceFactory(ApplicationContext applicationContext, FileService fileService) {
         this.applicationContext = applicationContext;
+        this.fileService = fileService;
     }
 
-    public DataSource createDataSource(String type, String source) {
-        switch (type.toLowerCase()) {
-            case "csv":
-            case "json":
-            case "zenoh":
-                CsvDataSource csvDataSource = applicationContext.getBean(CsvDataSource.class);
-                return csvDataSource;
-            default:
-                throw new IllegalArgumentException("Unknown data source type: " + type);
+    public DataSource createDataSource(SourceType type, String source) {
+        CsvDataSource csvDataSource = applicationContext.getBean(CsvDataSource.class);
+
+        String fileName = source.substring(source.lastIndexOf("/") + 1).trim();
+        boolean isFileInCache = csvDataSource.getTableCache().containsKey(fileName);
+        
+        if (type == SourceType.zenoh && !isFileInCache) {
+            try {
+                fileService.downloadFileFromZenoh(source);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
+        csvDataSource.setSource(fileName);
+        return csvDataSource;
     }
 }

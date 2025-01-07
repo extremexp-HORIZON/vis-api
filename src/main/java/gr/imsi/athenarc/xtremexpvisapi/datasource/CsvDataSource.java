@@ -6,22 +6,38 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.domain.*;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.VisualQuery;
+import gr.imsi.athenarc.visual.middleware.cache.MinMaxCache;
+import gr.imsi.athenarc.visual.middleware.datasource.QueryExecutor.CsvQueryExecutor;
+import gr.imsi.athenarc.visual.middleware.domain.QueryResults;
+import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
+import gr.imsi.athenarc.visual.middleware.domain.Dataset.CsvDataset;
+import gr.imsi.athenarc.visual.middleware.domain.Query.Query;
+import gr.imsi.athenarc.visual.middleware.util.DateTimeUtil;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.QueryResult;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.DataReduction;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.TabularColumn;
+import jakarta.annotation.PostConstruct;
 import tech.tablesaw.api.*;
 import tech.tablesaw.columns.*;
 import tech.tablesaw.io.csv.CsvReadOptions;
+
 import java.util.concurrent.ConcurrentHashMap;
 
 import java.io.*;
 import java.nio.file.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.*;
 
@@ -29,232 +45,313 @@ import java.util.stream.*;
 public class CsvDataSource implements DataSource {
     private static final Logger LOG = LoggerFactory.getLogger(CsvDataSource.class);
 
-    private final CsvQueryExecutor csvQueryExecutor;
-    private final DataService dataService;
     private final TabularQueryExecutor tabularQueryExecutor;
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
-    private final ConcurrentHashMap<Path, Table> tableCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
+    private String source;
 
+    // Map to hold the minmaxcache of each dataset, for time series exploration
+    private final ConcurrentHashMap<String, MinMaxCache> cacheMap = new ConcurrentHashMap<>();
+
+    private Map<String, TimeInterval> fileTimeRangeMap = null;
+
+    @Autowired
     @Value("${app.working.directory}")
     private String workingDirectory;
 
-    @Autowired
-    public CsvDataSource(DataService dataService) {
-        this.csvQueryExecutor = new CsvQueryExecutor();
-        this.dataService = dataService;
+    public CsvDataSource() {
         this.tabularQueryExecutor = new TabularQueryExecutor();
         this.timeSeriesQueryExecutor = new TimeSeriesQueryExecutor();
     }
 
+    @PostConstruct
+    private void init() {
+        if (workingDirectory == null || workingDirectory.isBlank()) {
+            throw new IllegalStateException("Working directory is not configured properly.");
+        }
+        LOG.info("Working directory initialized: {}", workingDirectory);
+    }
+
+    public ConcurrentHashMap<String, Table> getTableCache() {
+        return tableCache;
+    }
+
     @Override
     public String getSource() {
-        throw new UnsupportedOperationException("getSource() is not used.");
+        return source;
     }
 
     @Override
-    public VisualizationResults fetchData(VisualQuery visualQuery) {
-
-        VisualizationResults visualizationResults = new VisualizationResults();
-        int totalItemCount = 0; 
-
-        if (visualQuery.getDatasetId().startsWith("folder://")) {
-            String source = normalizeSource(visualQuery.getDatasetId());
-            Path path = Paths.get(source);
-            List<Table> tables = getTablesFromPath(path);
-            List<String> jsonDataList = new ArrayList<>();
-            List<VisualColumn> columns = new ArrayList<>();
-            String timestampColumn = "";
-
-            for (Table table : tables) {
-                
-                Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-                jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
-                if (columns.isEmpty()) {
-                    columns.addAll(
-                        resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-                }
-                if (timestampColumn.isEmpty()) {
-                    timestampColumn = getTimestampColumn(resultsTable);
-                }
-            }
-            LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
-            visualizationResults.setFileNames(tables.stream().map(table -> table.name()).toList());
-            visualizationResults.setData("[" + String.join(",", jsonDataList) + "]");
-            visualizationResults.setColumns(columns);
-            visualizationResults.setTimestampColumn(timestampColumn);
-        } else if (visualQuery.getDatasetId().startsWith("file://")) {
-            if (visualQuery.getDatasetId().endsWith(".json")) {
-                String source = normalizeSource(visualQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Map<String, List<Object>> jsonData = readJsonData(path);
-                LOG.info("jsonData {}", jsonData);
-                List<JsonNode> jsonDataList = convertMapToJsonNodeList(jsonData);  // You will implement this method
-                JsonQueryExecutor jsonQueryExecutor = new JsonQueryExecutor();
-                List<JsonNode> filteredData = jsonQueryExecutor.queryJson(jsonDataList, visualQuery);
-                String jsonString = filteredData.stream()
-                .map(JsonNode::toString)  // Convert each JsonNode to its string representation
-                .collect(Collectors.joining(",", "[", "]")); 
-                List<String> columnNames = new ArrayList<>(jsonData.keySet());
-                visualizationResults.setFileNames(Collections.singletonList(path.getFileName().toString()));
-                visualizationResults.setData(jsonString);
-                visualizationResults.setColumns(columnNames.stream()
-                .map(col -> new VisualColumn(col, "string"))  // Set appropriate data types
-                .toList());
-                visualizationResults.setTimestampColumn(""); 
-            } else {
-                String source = normalizeSource(visualQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Table table = readCsvFromFile(path);
-                Table resultsTable = csvQueryExecutor.queryTable(table, visualQuery);
-                totalItemCount = resultsTable.rowCount();
-                visualizationResults.setFileNames(Arrays.asList(new String[]{table.name()}));
-                visualizationResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                visualizationResults.setColumns(
-                    resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList()
-                    );
-                visualizationResults.setTimestampColumn(getTimestampColumn(resultsTable));
-                visualizationResults.setTotalItems(totalItemCount); // Add this line to return total items
-
-            }
-        }
-        return visualizationResults;
-    }
-
-
-    @Override
-    public TimeSeriesResponse fetchTimeSeriesData(TimeSeriesQuery timeSeriesQuery) {
+    public TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
         TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
-
-        if (timeSeriesQuery.getDatasetId().startsWith("folder://")) {
-            LOG.info("prepei na ftiaksw to FOLDER ");
-           
-        } else if (timeSeriesQuery.getDatasetId().startsWith("file://")) {
-            if (timeSeriesQuery.getDatasetId().endsWith(".json")) {
-                LOG.info("Prepei  na ftiaksw to JSON");
-
-            } else {
-                String source = normalizeSource(timeSeriesQuery.getDatasetId());
-                Path path = Paths.get(source);
-                Table table = readCsvFromFile(path);
-                LOG.info("table {}",table);
-                Table resultsTable = timeSeriesQueryExecutor.queryTabularData(table, timeSeriesQuery);
-                // timeSeriesResponse.setFileNames(Arrays.asList(new String[]{table.name()}));
-                timeSeriesResponse.setData(getJsonDataFromTableSawTable(resultsTable));
-                timeSeriesResponse.setColumns(
-                    table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList()
-                    );
-                // // tabularResults.setTimestampColumn(getTimestampColumn(resultsTable));
-                // timeSeriesResponse.setTotalItems(resultsTable.rowCount()); // Add this line to return total items
-
-            }
+        switch (timeSeriesRequest.getDataReduction().getType()) {
+            case "raw":
+                timeSeriesResponse = timeSeriesRawQuery(timeSeriesRequest);
+                break;
+            case "aggregation":
+                break;
+            case "visualization-aware":
+                timeSeriesResponse = timeSeriesVisualQuery(timeSeriesRequest);
+                break;
         }
         return timeSeriesResponse;
-        
-    }
-   
-   
-    @Override
-    public TabularResults fetchTabularData(TabularQuery tabularQuery) {
-        TabularResults tabularResults = new TabularResults();
 
-        if (tabularQuery.getDatasetId().startsWith("folder://")) {
-            String source = normalizeSource(tabularQuery.getDatasetId());
-            Path path = Paths.get(source);
+    }
+
+    @Override
+    public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
+        TabularResponse tabularResults = new TabularResponse();
+        Path path = Paths.get(workingDirectory, source);
+        LOG.info("Path: {}", path);
+        if (Files.isDirectory(path)) {
             List<Table> tables = getTablesFromPath(path);
             List<String> jsonDataList = new ArrayList<>();
-            List<VisualColumn> columns = new ArrayList<>();
-            String timestampColumn = "";
-
-            //tranform tabularQuery to VisualQuery
-            VisualQuery tranformedQuery = new VisualQuery(tabularQuery.getDatasetId(), 
-            null, tabularQuery.getColumns(), tabularQuery.getLimit(), 
-            null, null, tabularQuery.getOffset());
-
+            List<TabularColumn> columns = new ArrayList<>();
             for (Table table : tables) {
-                
-                Table resultsTable = csvQueryExecutor.queryTable(table, tranformedQuery);
+                QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
+                Table resultsTable = queryResult.getResultTable();
                 jsonDataList.add(getJsonDataFromTableSawTable(resultsTable));
                 if (columns.isEmpty()) {
                     columns.addAll(
-                        resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-                }
-                if (timestampColumn.isEmpty()) {
-                    timestampColumn = getTimestampColumn(resultsTable);
+                            resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 }
             }
             LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
             tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
             tabularResults.setColumns(columns);
-            tabularResults.setTimestampColumn(timestampColumn);
-            } else if (tabularQuery.getDatasetId().startsWith("file://")) {
-                if (tabularQuery.getDatasetId().endsWith(".json")) {
-                    String source = normalizeSource(tabularQuery.getDatasetId());
-                Path path = Paths.get(source);
+        } else {
+            if (tabularRequest.getDatasetId().endsWith(".json")) {
                 String json = readJsonFromFile(path);
                 tabularResults.setData(json);
-
-                   
-                    } else {
-                        String source = normalizeSource(tabularQuery.getDatasetId());
-                        Path path = Paths.get(source);
-                        Table table = readCsvFromFile(path);
-                        // Table resultsTable = tabularQueryExecutor.queryTabularData(table, tabularQuery);
-                        QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularQuery);
-                        Table resultsTable = queryResult.getResultTable();
-                        Map<String, List<Object>>uniqueColumnValues = getUniqueValuesForColumns(table, table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-
-                        tabularResults.setFileNames(Arrays.asList(new String[]{table.name()}));
-                        tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                        tabularResults.setColumns(resultsTable.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-                        tabularResults.setOriginalColumns(table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList());
-                        tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
-                        tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
-                        tabularResults.setUniqueColumnValues(uniqueColumnValues);
-                    }
-                }
-            return tabularResults;
+            } else {
+                Table table = readCsvFromFile(path);
+                QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
+                Table resultsTable = queryResult.getResultTable();
+                Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
+                tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
+                tabularResults.setColumns(
+                        resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                tabularResults.setOriginalColumns(
+                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
+                tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
+                tabularResults.setUniqueColumnValues(uniqueColumnValues);
             }
+        }
+        return tabularResults;
+    }
 
-
-    @Override
-    public String getTimestampColumn(Table table) {
-        boolean hasHeader = table.columnNames().size() > 0;
-        if (!hasHeader)
-            return "";
-        for (int i = 0; i < table.columnCount(); i++) {
-            ColumnType columnType = table.column(i).type();
-            if (columnType == ColumnType.LOCAL_DATE_TIME || columnType == ColumnType.INSTANT) {
-                return table.column(i).name();
+    public TabularColumn getTimestampColumn() {
+        Path path = Paths.get(workingDirectory, source);
+        if (Files.isDirectory(path)) {
+            List<Table> tables = getTablesFromPath(path);
+            Table table = tables.get(0);
+            boolean hasHeader = table.columnNames().size() > 0;
+            if (!hasHeader)
+                return null;
+            for (int i = 0; i < table.columnCount(); i++) {
+                ColumnType columnType = table.column(i).type();
+                if (columnType == ColumnType.LOCAL_DATE_TIME ||
+                        columnType == ColumnType.LOCAL_DATE ||
+                        columnType == ColumnType.INSTANT) {
+                    return getTabularColumnFromTableSawColumn(table.column(i));
+                }
+            }
+        } else {
+            Table table = readCsvFromFile(path);
+            boolean hasHeader = table.columnNames().size() > 0;
+            if (!hasHeader)
+                return null;
+            for (int i = 0; i < table.columnCount(); i++) {
+                ColumnType columnType = table.column(i).type();
+                if (columnType == ColumnType.LOCAL_DATE_TIME ||
+                        columnType == ColumnType.LOCAL_DATE ||
+                        columnType == ColumnType.INSTANT) {
+                    return getTabularColumnFromTableSawColumn(table.column(i));
+                }
             }
         }
         return null;
     }
 
-    @Override
-    public String getColumn(String source, String columnName) {
-        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for
-                                                                                    // simplicity
-        return getJsonDataFromTableSawTable(table.selectColumns(new String[] { columnName }));
+    public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
+        Path path = Paths.get(workingDirectory, source);
+        Table table = readCsvFromFile(path);
+        Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+                table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+
+        MetadataResponse metadataResponse = new MetadataResponse();
+        metadataResponse.setFileNames(Arrays.asList(new String[] { table.name() }));
+        metadataResponse
+                .setOriginalColumns(table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+        metadataResponse.setTotalItems(table.rowCount());
+        metadataResponse.setUniqueColumnValues(uniqueColumnValues);
+        metadataResponse.setDatasetType(datasetTypeDetection(table));
+        return metadataResponse;
     }
 
-    @Override
-    public List<VisualColumn> getColumns(String source) {
-        Table table = getTablesFromPath(Paths.get(normalizeSource(source))).get(0); // Assuming the first table for
-                                                                                    // simplicity
-        return table.columns().stream().map(this::getVisualColumnFromTableSawColumn).toList();
-    }
-
-
-    private String normalizeSource(String source) {
-        if (source.startsWith("file://")) {
-            return Path.of(workingDirectory, source.replace("file://", "")).toString();
-        } else if (source.startsWith("folder://")) {
-            return Path.of(workingDirectory, source.replace("folder://", "")).toString();
-        } else if (source.startsWith("zenoh://")) {
-            return source.replace("zenoh://", "");
+    private DatasetType datasetTypeDetection(Table table) {
+        boolean hasDateTimeColumn = false;
+        for (int i = 0; i < table.columnCount(); i++) {
+            ColumnType columnType = table.column(i).type();
+            Column<?> dateColumn = table.column(i);
+            int rowCount = Math.min(dateColumn.size(), 10);
+            switch (columnType.toString()) {
+                case "LOCAL_DATE_TIME":
+                    for (int j = 1; j < rowCount; j++) {
+                        LocalDateTime previousValue = (LocalDateTime) dateColumn.get(j - 1);
+                        LocalDateTime currentValue = (LocalDateTime) dateColumn.get(j);
+                        if (previousValue.compareTo(currentValue) > 0) {
+                            return DatasetType.tabular;
+                        }
+                    }
+                    hasDateTimeColumn = true;
+                    break;
+                case "LOCAL_DATE":
+                    for (int j = 1; j < rowCount; j++) {
+                        LocalDate previousValue = (LocalDate) dateColumn.get(j - 1);
+                        LocalDate currentValue = (LocalDate) dateColumn.get(j);
+                        if (previousValue.compareTo(currentValue) > 0) {
+                            return DatasetType.tabular;
+                        }
+                    }
+                    hasDateTimeColumn = true;
+                    break;
+                case "INSTANT":
+                    for (int j = 1; j < rowCount; j++) {
+                        Instant previousValue = (Instant) dateColumn.get(j - 1);
+                        Instant currentValue = (Instant) dateColumn.get(j);
+                        if (previousValue.compareTo(currentValue) > 0) {
+                            return DatasetType.tabular;
+                        }
+                    }
+                    hasDateTimeColumn = true;
+                    break;
+                default:
+                    break;
+            }
         }
-        return source;
+        return hasDateTimeColumn ? DatasetType.timeseries : DatasetType.tabular;
+    }
+
+    private TimeSeriesResponse timeSeriesRawQuery(TimeSeriesRequest timeSeriesRequest) {
+        TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
+        Path path = Paths.get(workingDirectory, source);
+        // Directory logic
+        if (Files.isDirectory(path)) {
+            // TODO: Implement directory logic
+        } else {
+            Table table = readCsvFromFile(path);
+            Table resultsTable = timeSeriesQueryExecutor.queryTabularData(table, timeSeriesRequest);
+            // timeSeriesResponse.setFileNames(Arrays.asList(new String[]{table.name()}));
+            timeSeriesResponse.setData(getJsonDataFromTableSawTable(resultsTable));
+        }
+        return timeSeriesResponse;
+    }
+
+    private TimeSeriesResponse timeSeriesVisualQuery(TimeSeriesRequest timeSeriesRequest) {
+        TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
+
+        // Extract details from the query
+        DataReduction dataReduction = timeSeriesRequest.getDataReduction();
+        double errorBound = dataReduction.getErrorBound();
+        int width = dataReduction.getViewPort().getWidth();
+        int height = dataReduction.getViewPort().getHeight();
+        String datasetId = timeSeriesRequest.getDatasetId();
+
+        // TODO: Metadata for CsvDataset, need to be found automatically
+        String timeFormat = "yyyy-MM-dd HH:mm:ss";
+        String delimiter = ",";
+        boolean hasHeader = true;
+
+        String timeStampColumnName;
+        TabularColumn timestampColumn = getTimestampColumn();
+
+        if (timestampColumn != null) {
+            timeStampColumnName = timestampColumn.getName();
+        } else {
+            LOG.error("No timestamp column found for datasetId: {}", datasetId);
+            throw new IllegalArgumentException("No timestamp column found for datasetId: " + datasetId);
+        }
+
+        // Extract measures as indices
+        List<String> measureNames = timeSeriesRequest.getColumns(); // Get measure names from the query
+        List<Integer> measureIndices = new ArrayList<>();
+        Path path = Paths.get(workingDirectory, source);
+
+        // Read the CSV file
+        Table table = getTablesFromPath(path).get(0);
+        if (measureNames == null) {
+            throw new IllegalArgumentException("Measures cannot be null");
+        }
+        if (measureNames.isEmpty()) {
+            measureNames.addAll(
+                    table.columns().stream().map(this::getTabularColumnFromTableSawColumn).map(TabularColumn::getName)
+                            .toList());
+            measureNames.remove(timeStampColumnName); // remove timestamp from full query
+        }
+        for (String measureName : measureNames) {
+            int index = table.columnIndex(measureName);
+            if (index == -1) {
+                throw new IllegalArgumentException("Measure name not found: " + measureName);
+            }
+            measureIndices.add(index);
+        }
+
+        // Construct the CsvDataset
+        CsvDataset cacheDataset;
+        try {
+            cacheDataset = new CsvDataset(
+                    path.toString(), path.toString(), "csv", path.toString(), timeFormat, timeStampColumnName,
+                    delimiter, hasHeader);
+            fileTimeRangeMap = cacheDataset.getFileTimeRangeTreeMap();
+        } catch (IOException e) {
+            throw new RuntimeException("Error creating CsvDataset: " + e.getMessage(), e);
+        }
+
+        // Construct the Query
+
+        long from = timeSeriesRequest.getFrom() == null ? cacheDataset.getTimeRange().getFrom()
+                : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getFrom(), timeFormat);
+        long to = timeSeriesRequest.getTo() == null ? cacheDataset.getTimeRange().getTo()
+                : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getTo(), timeFormat);
+
+        Query cacheQuery = new Query(
+                from, to, measureIndices, (float) (1 - errorBound), width, height, null);
+
+        // Fetch or create the MinMaxCache
+        MinMaxCache minMaxCache = cacheMap.computeIfAbsent(datasetId, key -> {
+            try {
+                CsvQueryExecutor minMaxCacheQueryExecutor = new CsvQueryExecutor(cacheDataset);
+                return new MinMaxCache(minMaxCacheQueryExecutor, cacheDataset, 0.5, 4, 6);
+            } catch (IOException e) {
+                LOG.error("Failed to initialize MinMaxCache for dataset: {}", datasetId, e);
+                throw new RuntimeException("Error initializing MinMaxCache: " + e.getMessage(), e);
+            }
+        });
+
+        // Execute the query
+        if (minMaxCache == null) {
+            throw new IllegalStateException("MinMaxCache is not initialized for dataset: " + datasetId);
+        }
+
+        // Prepare the response
+        QueryResults cacheQueryResults = minMaxCache.executeQuery(cacheQuery);
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            LOG.info("{}", cacheQueryResults.getData());
+            String cacheQueryData = objectMapper.writeValueAsString(cacheQueryResults.getData());
+            timeSeriesResponse.setData(cacheQueryData);
+            timeSeriesResponse.setFileTimeRange(fileTimeRangeMap);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error converting data to JSON: " + e.getMessage(), e);
+        }
+        LOG.info("Time series visual query executed successfully for dataset: {}", datasetId);
+
+        return timeSeriesResponse;
     }
 
     private List<Table> getTablesFromPath(Path path) {
@@ -264,17 +361,7 @@ public class CsvDataSource implements DataSource {
             return List.of(readCsvFromFile(path));
         }
     }
-    
-    private String jsonDataToString(Map<String, List<Object>> jsonData) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            // Convert the Map<String, List<Object>> to a JSON String
-            return objectMapper.writeValueAsString(jsonData);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to convert Map to JSON string", e);
-        }
-    }
-    
+
     private List<Table> readCsvFromDirectory(Path directoryPath) {
         try (Stream<Path> paths = Files.walk(directoryPath)) {
             return paths.filter(Files::isRegularFile)
@@ -291,51 +378,39 @@ public class CsvDataSource implements DataSource {
         try {
             jsonData = Files.readAllBytes(filePath);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read JSON from file", e);
+            throw new RuntimeException("Failed to read JSON file", e);
         }
         return new String(jsonData);
     }
 
     private Table readCsvFromFile(Path filePath) {
+        String fileName = filePath.getFileName().toString();
         // Check if the table is already cached
-        if (tableCache.containsKey(filePath)) {
-            return tableCache.get(filePath);
+        if (tableCache.containsKey(fileName)) {
+            return tableCache.get(fileName);
         }
         try (InputStream inputStream = Files.newInputStream(filePath)) {
             CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
             Table table = Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
-            tableCache.put(filePath, table);
+            tableCache.put(fileName, table);
             return table;
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read CSV from file", e);
+            throw new RuntimeException("Failed to read CSV file", e);
         }
     }
 
-    private Table readCsvFromZenoh(String apiUrl) {
-        try {
-            String[] parts = apiUrl.split("/");
-            String useCase = parts[0];
-            String folder = parts[1];
-            String subfolder = parts[2];
-            String filename = parts[3];
-            String csvData = dataService.fetchZenohData(useCase, folder, subfolder, filename);
-            try (InputStream inputStream = new ByteArrayInputStream(csvData.getBytes())) {
-                CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
-                return Table.read().usingOptions(csvReadOptions);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to read CSV from Zenoh", e);
-        }
+    public void setSource(String source) {
+        this.source = source;
     }
 
     private CsvReadOptions createCsvReadOptions(InputStream inputStream) {
         return CsvReadOptions.builder(inputStream).build();
     }
 
-    private VisualColumn getVisualColumnFromTableSawColumn(Column<?> tableSawColumn) {
+    private TabularColumn getTabularColumnFromTableSawColumn(Column<?> tableSawColumn) {
         String name = tableSawColumn.name();
         ColumnType type = tableSawColumn.type();
-        return new VisualColumn(name, type.name());
+        return new TabularColumn(name, type.name());
     }
 
     private String getJsonDataFromTableSawTable(Table table) {
@@ -358,138 +433,24 @@ public class CsvDataSource implements DataSource {
         return "[" + rowsJsonArray + "]";
     }
 
-    private Map<String, List<Object>> readJsonData(Path jsonFilePath) {
-        Map<String, List<Object>> jsonDataMap = new HashMap<>();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode root = objectMapper.readTree(jsonFilePath.toFile());
-    
-            if (root.isArray()) {
-                for (JsonNode row : root) {
-                    flattenJson("", row, jsonDataMap);  // Flatten the entire row
-                }
-            } else {
-                throw new RuntimeException("Expected JSON array format.");
-            }
-    
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read JSON from file", e);
-        }
-    
-        return jsonDataMap;
-    }
-    
-    private void flattenJson(String parentKey, JsonNode node, Map<String, List<Object>> jsonDataMap) {
-        if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> field = fields.next();
-                String fieldName = parentKey.isEmpty() ? field.getKey() : parentKey + "." + field.getKey();
-                flattenJson(fieldName, field.getValue(), jsonDataMap);  // Recurse on nested objects
-            }
-        } else if (node.isArray()) {
-            // If you want to handle arrays in a special way, you can modify this part
-            // For now, we convert arrays to a string representation.
-            jsonDataMap.computeIfAbsent(parentKey, k -> new ArrayList<>()).add(node.toString());
-        } else {
-            // Handle simple fields
-            jsonDataMap.computeIfAbsent(parentKey, k -> new ArrayList<>()).add(node.asText());
-        }
-    }
+    private Map<String, List<?>> getUniqueValuesForColumns(Table table, List<TabularColumn> tabularColumns) {
+        Map<String, List<?>> uniqueValues = new HashMap<>();
 
-    // private Map<String, List<Object>> readJsonData(Path jsonFilePath) {
-    //     Map<String, List<Object>> jsonDataMap = new HashMap<>();
-    //     try {
-    //         ObjectMapper objectMapper = new ObjectMapper();
-    //         JsonNode root = objectMapper.readTree(jsonFilePath.toFile());
+        // Iterate through all the visual columns passed
+        for (TabularColumn tabularColumn : tabularColumns) {
+            String columnName = tabularColumn.getName();
+            Column<?> column = table.column(columnName);
 
-    //         if (root.isArray()) {
-    //             for (JsonNode row : root) {
-    //                 Iterator<Map.Entry<String, JsonNode>> fields = row.fields();
-    //                 while (fields.hasNext()) {
-    //                     Map.Entry<String, JsonNode> field = fields.next();
-    //                     String fieldName = field.getKey();
-    //                     JsonNode fieldValue = field.getValue();
-                        
-    //                     jsonDataMap.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(fieldValue.asText());
-    //                 }
-    //             }
-    //         } else {
-    //             throw new RuntimeException("Expected JSON array format.");
-    //         }
-
-    //     } catch (IOException e) {
-    //         throw new RuntimeException("Failed to read JSON from file", e);
-    //     }
-
-    //     return jsonDataMap;
-    // }
-
-    // Convert JSON data map into a list of rows in JSON format (for each row in the dataset)
-    private List<String> convertJsonDataToTable(Map<String, List<Object>> jsonDataMap, List<String> columnNames) {
-        List<String> rows = new ArrayList<>();
-        int rowCount = jsonDataMap.values().iterator().next().size(); // Assuming all columns have same row count
-
-        for (int i = 0; i < rowCount; i++) {
-            StringBuilder rowBuilder = new StringBuilder("{");
-            for (int j = 0; j < columnNames.size(); j++) {
-                String columnName = columnNames.get(j);
-                List<Object> columnData = jsonDataMap.get(columnName);
-                rowBuilder.append("\"").append(columnName).append("\": \"").append(columnData.get(i)).append("\"");
-                if (j < columnNames.size() - 1) {
-                    rowBuilder.append(", ");
-                }
-            }
-            rowBuilder.append("}");
-            rows.add(rowBuilder.toString());
-        }
-
-        return rows;
-    }
-
-
-    private List<JsonNode> convertMapToJsonNodeList(Map<String, List<Object>> jsonData) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        List<JsonNode> jsonNodeList = new ArrayList<>();
-        
-        // Assuming that each entry in the map corresponds to a "column" of data,
-        // you can loop through and construct JSON objects for each "row".
-        int numRows = jsonData.values().stream().findFirst().get().size();  // Assuming all lists are of equal size.
-        
-        for (int i = 0; i < numRows; i++) {
-            ObjectNode rowNode = objectMapper.createObjectNode();
-            
-            for (Map.Entry<String, List<Object>> entry : jsonData.entrySet()) {
-                String key = entry.getKey();
-                Object value = entry.getValue().get(i);
-                rowNode.set(key, objectMapper.valueToTree(value));  // Convert each value to JsonNode.
-            }
-            
-            jsonNodeList.add(rowNode);
-        }
-        
-        return jsonNodeList;
-    }
-    
-private Map<String, List<Object>> getUniqueValuesForColumns(Table table, List<VisualColumn> visualColumns) {
-    Map<String, List<Object>> uniqueValues = new HashMap<>();
-
-    // Iterate through all the visual columns passed
-    for (VisualColumn visualColumn : visualColumns) {
-        String columnName = visualColumn.getName();
-        Column<?> column = table.column(columnName);
-
-        // Fetch the unique values for each column and store them in the map
-        List<Object> uniqueColumnValues = (List<Object>) column.unique().asList();
+            // Fetch the unique values for each column and store them in the map
+            List<?> uniqueColumnValues = column.unique().asList();
             uniqueValues.put(columnName, uniqueColumnValues);
+        }
+
+        return uniqueValues;
     }
-    
-    return uniqueValues;
+
+    public Map<String, TimeInterval> getFileTimeRange() {
+        return fileTimeRangeMap;
+    }
+
 }
-
-    
-
-}
-
-
-

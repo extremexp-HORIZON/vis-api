@@ -34,7 +34,7 @@ build/
 
 data/
 logs.log
-
+.env
 
 ./src/frontend/node_modules/
 node_modules
