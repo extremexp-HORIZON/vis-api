@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain;
+package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
 import java.util.Map;
 
 import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;

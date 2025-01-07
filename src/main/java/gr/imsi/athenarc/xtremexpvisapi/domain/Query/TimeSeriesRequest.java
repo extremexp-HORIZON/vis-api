@@ -2,9 +2,9 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
 
 import java.util.List;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.DataReduction;
-import gr.imsi.athenarc.xtremexpvisapi.domain.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.DataReduction;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -12,13 +12,13 @@ import lombok.Data;
 @AllArgsConstructor
 public class TimeSeriesRequest {
     String datasetId;
+    SourceType type;
     List<String> columns;
-    String from;
-    String to;
     Integer limit;
     Integer offset;
-    DataReduction dataReduction;
-    SourceType type;
     List<AbstractFilter> filters; // Added to hold the instantiated filters
+    String from;
+    String to;
+    DataReduction dataReduction;
 }
 

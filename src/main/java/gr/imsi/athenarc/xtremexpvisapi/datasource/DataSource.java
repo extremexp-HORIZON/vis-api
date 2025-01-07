@@ -1,18 +1,15 @@
-
-
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
-import java.util.List;
-
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularColumn;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TabularResults;
-import gr.imsi.athenarc.xtremexpvisapi.domain.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 
 public interface DataSource {
     String getSource();
-    List<TabularColumn> getColumns();
-    TabularResults fetchTabularData(TabularRequest tabularRequest);
+    MetadataResponse getFileMetadata(MetadataRequest metadataRequest);
+    TabularResponse fetchTabularData(TabularRequest tabularRequest);
     TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
 }

@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain;
+package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams;
 
 import java.util.Map;
 

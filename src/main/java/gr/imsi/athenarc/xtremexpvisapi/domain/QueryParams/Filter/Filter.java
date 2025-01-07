@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.Filter;
+package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter;
 
 /**
  * An implementation of the AbstractFilter class

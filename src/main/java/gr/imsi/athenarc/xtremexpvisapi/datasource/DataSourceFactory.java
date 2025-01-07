@@ -4,10 +4,12 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
+import lombok.extern.java.Log;
 
 @Component
+@Log
 public class DataSourceFactory {
 
     private final ApplicationContext applicationContext;
@@ -20,15 +22,18 @@ public class DataSourceFactory {
 
     public DataSource createDataSource(SourceType type, String source) {
         CsvDataSource csvDataSource = applicationContext.getBean(CsvDataSource.class);
-        csvDataSource.setSource(source);
-        // Handle the case that the file does not exist in the cache / filesystem
-        if (type == SourceType.ZENOH) {
+
+        String fileName = source.substring(source.lastIndexOf("/") + 1).trim();
+        boolean isFileInCache = csvDataSource.getTableCache().containsKey(fileName);
+        
+        if (type == SourceType.zenoh && !isFileInCache) {
             try {
                 fileService.downloadFileFromZenoh(source);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        csvDataSource.setSource(fileName);
         return csvDataSource;
     }
 }

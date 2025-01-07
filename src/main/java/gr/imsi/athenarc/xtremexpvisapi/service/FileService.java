@@ -47,6 +47,10 @@ public class FileService {
      * @throws Exception if an error occurs
      */
     public void downloadFileFromZenoh(String uri) throws Exception {
+        // Check if uri has the correct form
+        if (uri.chars().filter(ch -> ch == '/').count() < 3) {
+            throw new IllegalArgumentException("Error: uri should have this form: \"UseCase/Folder/Subfolder/Filename\"");
+        }
         // Extract UseCase, Folder, Subfolder, Filename from uri
         String[] uriParts = uri.split("/");
         String useCase = uriParts[0];
