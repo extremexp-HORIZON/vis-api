@@ -32,8 +32,10 @@ public class DataSourceFactory {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            csvDataSource.setSource(fileName);
+        }else{
+            csvDataSource.setSource(source);
         }
-        csvDataSource.setSource(fileName);
         return csvDataSource;
     }
 }
