@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure;
+package gr.imsi.athenarc.xtremexpvisapi.domain.Explainability;
 
 import java.util.List;
 

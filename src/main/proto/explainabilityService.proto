@@ -3,83 +3,37 @@ syntax = "proto3";
 option java_multiple_files=true;
 option java_package="explainabilityService";
 // option java_outer_classname="GrpcProto";
- 
- 
+
 service Explanations {
     rpc GetExplanation (ExplanationsRequest) returns (ExplanationsResponse);
-    rpc Initialization (InitializationRequest) returns (InitializationResponse);
-    rpc ModelAnalysisTask (ModelAnalysisTaskRequest) returns (ModelAnalysisTaskResponse);
+    rpc ApplyAffectedActions () returns (ApplyAffectedActionsResponse);
+
 }
 
-message InitializationRequest {
-    string model_name = 1;
+message ApplyAffectedActionsRequest {
 }
 
-message ModelAnalysisTaskRequest {
-    string model_name = 1;
-    int32 model_id = 2;
-}
-
-
-message Feature_Explanation {
-    repeated string feature_names = 1;
-    map <string,ExplanationsResponse> plots = 2;
-    map <string,ExplanationsResponse> tables = 3;
-}
-
-message InitializationResponse {
-    Feature_Explanation feature_explanation = 1;
-    Hyperparameter_Explanation hyperparameter_explanation = 2;
-}
-
-message ModelAnalysisTaskResponse {
-    Feature_Explanation feature_explanation = 1;
-}
-
-message Hyperparameter_Explanation {
-    repeated string hyperparameter_names = 1;
-    map <string,ExplanationsResponse> plots = 2;
-    map <string,ExplanationsResponse> tables = 3;
+message ApplyAffectedActionsResponse {
+    map<string, TableContents> applied_affected_actions = 1;
 }
 
 // ----------------- Explanations Fields ----------------------------
 
 
 message ExplanationsRequest {
-
-    string explanation_type = 1;
-    string explanation_method = 2;
-
-//------------------ Pipeline Explainability --------------------------------------------------
-
-    // ----- PDP - ALE Fields -----
-
-    string model = 3;
+    string explanation_type = 1; // featureExplanation | hyperparameterExplanation
+    string explanation_method = 2; // pdp | 2dpdp | ale | counterfactuals | global_counterfactuals | prototypes
+    string model = 3; 
     int32 model_id = 4;
     string feature1 = 5;
     string feature2 = 6;
+    string query = 7;
+    string target = 9;
+    // Glance
+    int32 gcf_size = 10;  // Global Counterfactual (GCF) size
+    string cf_generator = 11;  // Counterfactual generator method
+    string cluster_action_choice_algo = 12;  // Algorithm for choosing clusters' actions
 
-    // ----- Influence Functions Fields -----
-
-    int32 num_influential = 7;
-
-    // ----- Counterfactual Explanation Fields -----
-    bytes proxy_dataset = 8;
-    string query = 9;
-
-//------------------ Model Explainability --------------------------------------------------
-
-    // ------------ PDP Fields -------------------------
-    // the other same as Pipeline Explainability plus
-    string features = 10;
-
-    // ------------ CounterfactualExplanations Fields -------------------------
-    // same as Model explainability plus target target label 
-    string target = 11;
-
-
-
-    // Include other fields if needed based on the chosen explanation type
 }
 
 
@@ -97,6 +51,12 @@ message Axis {
 message TableContents {
     int32 index=1;
     repeated string values = 2;
+    repeated string colour = 3;
+}
+
+message EffCost {
+   double eff = 1;
+   double cost = 2;
 }
 
 message ExplanationsResponse {
@@ -113,5 +73,10 @@ message ExplanationsResponse {
     Axis yAxis = 11;
     Axis zAxis = 12; 
     map<string, TableContents> table_contents= 13;
-
+    // Glance
+    map<string, TableContents> affected_clusters = 14; 
+    map<string, EffCost> eff_cost_actions = 15; 
+    float TotalEffectiveness = 16;
+    float TotalCost = 17;
+    map<string, TableContents> actions = 18;
 }

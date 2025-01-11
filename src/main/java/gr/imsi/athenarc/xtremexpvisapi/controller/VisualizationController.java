@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,8 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsReq;
-import gr.imsi.athenarc.xtremexpvisapi.domain.ExplabilityProcedure.ExplanationsRes;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ApplyAffectedActionsRes;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ExplanationsReq;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ExplanationsRes;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
@@ -41,9 +43,15 @@ public class VisualizationController {
     }
 
     @PostMapping("/explainability")
-    public ResponseEntity<ExplanationsRes> data(@RequestBody ExplanationsReq request) throws JsonProcessingException, InvalidProtocolBufferException {
+    public ResponseEntity<ExplanationsRes> getExplanation(@RequestBody ExplanationsReq request) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for explainability {}{}{}{}", request.getExplanationType(),request.getExplanationMethod(),request.getFeature1(), request.getModel());
         return ResponseEntity.ok(explainabilityService.GetExplains(request));
+    }
+    
+    @GetMapping("/applyAffectedActions")
+    public ResponseEntity<ApplyAffectedActionsRes> applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Request for apply affected actions");
+        return ResponseEntity.ok(explainabilityService.ApplyAffectedActions());
     }
 
 
