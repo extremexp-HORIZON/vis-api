@@ -7,5 +7,6 @@ import lombok.Data;
 @Data
 public class TableContents {
     private int index;
-    private List<String> values;   
+    private List<String> values; 
+    private List<String> colour;  
 }

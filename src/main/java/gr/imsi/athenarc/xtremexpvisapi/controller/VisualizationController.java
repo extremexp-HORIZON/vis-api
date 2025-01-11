@@ -48,7 +48,7 @@ public class VisualizationController {
         return ResponseEntity.ok(explainabilityService.GetExplains(request));
     }
     
-    @GetMapping("/applyAffectedActions")
+    @GetMapping("/affected")
     public ResponseEntity<ApplyAffectedActionsRes> applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for apply affected actions");
         return ResponseEntity.ok(explainabilityService.ApplyAffectedActions());
