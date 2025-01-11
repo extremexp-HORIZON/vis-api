@@ -28,11 +28,11 @@ message ExplanationsRequest {
     string feature1 = 5;
     string feature2 = 6;
     string query = 7;
-    string target = 9;
+    string target = 8;
     // Glance
-    int32 gcf_size = 10;  // Global Counterfactual (GCF) size
-    string cf_generator = 11;  // Counterfactual generator method
-    string cluster_action_choice_algo = 12;  // Algorithm for choosing clusters' actions
+    int32 gcf_size = 9;  // Global Counterfactual (GCF) size
+    string cf_generator = 10;  // Counterfactual generator method
+    string cluster_action_choice_algo = 11;  // Algorithm for choosing clusters' actions
 
 }
 
