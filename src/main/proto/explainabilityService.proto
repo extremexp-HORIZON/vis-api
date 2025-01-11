@@ -6,7 +6,7 @@ option java_package="explainabilityService";
 
 service Explanations {
     rpc GetExplanation (ExplanationsRequest) returns (ExplanationsResponse);
-    rpc ApplyAffectedActions () returns (ApplyAffectedActionsResponse);
+    rpc ApplyAffectedActions (ApplyAffectedActionsRequest) returns (ApplyAffectedActionsResponse);
 
 }
 
