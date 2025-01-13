@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.Filter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -16,7 +16,7 @@ public class TabularRequest {
     List<String> columns;
     Integer limit;
     Integer offset;
-    List<AbstractFilter> filters;
+    List<Filter> filters;
     List<String> groupBy;
     Map<String, Object> aggregation;
 }
