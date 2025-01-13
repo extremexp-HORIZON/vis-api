@@ -52,7 +52,6 @@ public class ExplainabilityService extends ExplanationsImplBase{
         .build();
         
         ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
-
         .usePlaintext()
         .build();
 

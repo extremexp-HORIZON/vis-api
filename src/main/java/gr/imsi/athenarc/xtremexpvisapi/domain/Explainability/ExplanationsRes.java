@@ -1,13 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.Explainability;
 import java.util.Map;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import lombok.Data;
-
-
-
-@JsonIgnoreProperties(ignoreUnknown = true)
 
 @Data
 public class ExplanationsRes {
