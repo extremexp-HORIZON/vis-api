@@ -21,11 +21,11 @@ public class ExplanationsRes {
     private Float TotalEffectiveness;
     private Float TotalCost;
     private Map<String, TableContents> actions;
-    @JsonProperty("xaxis")
+    @JsonProperty("xAxis")
     private Axis xAxis;
-    @JsonProperty("yaxis")
+    @JsonProperty("yAxis")
     private Axis yAxis;
-    @JsonProperty("zaxis")
+    @JsonProperty("zAxis")
     private Axis zAxis;
 
     
