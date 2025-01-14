@@ -19,16 +19,11 @@ public class ExplanationsRes {
     private Map<String, TableContents> tableContents;
     private Map<String, TableContents> affectedClusters;
     private Map<String, EffCost> effCostActions;
-    @JsonProperty("totalEffectiveness")
     private Float totalEffectiveness;
-    @JsonProperty("totalCost")
     private Float totalCost;
     private Map<String, TableContents> actions;
-    @JsonProperty("xAxis")
     private Axis xAxis;
-    @JsonProperty("yAxis")
     private Axis yAxis;
-    @JsonProperty("zAxis")
     private Axis zAxis;
 
     
