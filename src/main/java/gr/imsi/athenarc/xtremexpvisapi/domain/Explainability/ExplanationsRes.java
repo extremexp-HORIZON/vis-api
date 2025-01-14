@@ -19,8 +19,8 @@ public class ExplanationsRes {
     private Map<String, TableContents> tableContents;
     private Map<String, TableContents> affectedClusters;
     private Map<String, EffCost> effCostActions;
-    private Float TotalEffectiveness;
-    private Float TotalCost;
+    private Float totalEffectiveness;
+    private Float totalCost;
     private Map<String, TableContents> actions;
     @JsonProperty("xAxis")
     private Axis xAxis;
