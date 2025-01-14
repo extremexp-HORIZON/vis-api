@@ -18,6 +18,7 @@ public class ExplanationsRes {
     private String[] featureList;
     private Map<String, TableContents> tableContents;
     private Map<String, TableContents> affectedClusters;
+    private Map<String, EffCost> effCostActions;
     private Float TotalEffectiveness;
     private Float TotalCost;
     private Map<String, TableContents> actions;
