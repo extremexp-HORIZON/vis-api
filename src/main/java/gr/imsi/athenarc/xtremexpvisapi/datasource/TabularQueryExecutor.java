@@ -1,7 +1,10 @@
 
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Map;
 import java.util.List;
 import org.slf4j.Logger;
@@ -33,8 +36,10 @@ public class TabularQueryExecutor {
                     String columnTypeName = column.type().name();
                     switch (columnTypeName) {
                         case "DOUBLE":
-                            if (!(rangeFilter.getMin() instanceof Double) || !(rangeFilter.getMax() instanceof Double)) {
-                                throw new IllegalArgumentException("Min and Max must be of type Double for column: " + rangeFilter.getColumn());
+                            if (!(rangeFilter.getMin() instanceof Double)
+                                    || !(rangeFilter.getMax() instanceof Double)) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type Double for column: " + rangeFilter.getColumn());
                             }
                             LOG.debug("Number range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
                                     rangeFilter.getMin(), rangeFilter.getMax());
@@ -44,8 +49,10 @@ public class TabularQueryExecutor {
                                             .isLessThanOrEqualTo((Double) rangeFilter.getMax()));
                             break;
                         case "INTEGER":
-                            if (!(rangeFilter.getMin() instanceof Integer) || !(rangeFilter.getMax() instanceof Integer)) {
-                                throw new IllegalArgumentException("Min and Max must be of type Integer for column: " + rangeFilter.getColumn());
+                            if (!(rangeFilter.getMin() instanceof Integer)
+                                    || !(rangeFilter.getMax() instanceof Integer)) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type Integer for column: " + rangeFilter.getColumn());
                             }
                             LOG.debug("Integer range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
                                     rangeFilter.getMin(), rangeFilter.getMax());
@@ -55,14 +62,69 @@ public class TabularQueryExecutor {
                                             .isLessThanOrEqualTo((Integer) rangeFilter.getMax()));
                             break;
                         case "LOCAL_DATE_TIME":
-                            if (!(rangeFilter.getMin() instanceof LocalDateTime) || !(rangeFilter.getMax() instanceof LocalDateTime)) {
-                                throw new IllegalArgumentException("Min and Max must be of type LocalDateTime for column: " + rangeFilter.getColumn());
+                            LocalDateTime minDateTime;
+                            LocalDateTime maxDateTime;
+                            try {
+                                minDateTime = LocalDateTime.parse(rangeFilter.getMin().toString());
+                                maxDateTime = LocalDateTime.parse(rangeFilter.getMax().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type LocalDateTime for column: "
+                                                + rangeFilter.getColumn());
                             }
                             LOG.debug("Date range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
                                     rangeFilter.getMin(), rangeFilter.getMax());
                             filterSelection = table.dateTimeColumn(rangeFilter.getColumn())
-                                    .isBetweenIncluding((LocalDateTime) rangeFilter.getMin(),
-                                            (LocalDateTime) rangeFilter.getMax());
+                                    .isBetweenIncluding(minDateTime, maxDateTime);
+                            break;
+                        case "LOCAL_DATE":
+                            LocalDate minDate;
+                            LocalDate maxDate;
+                            try {
+                                minDate = LocalDate.parse(rangeFilter.getMin().toString());
+                                maxDate = LocalDate.parse(rangeFilter.getMax().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type LocalDate for column: " + rangeFilter.getColumn());
+                            }
+                            LOG.debug("Date range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
+                                    rangeFilter.getMin(), rangeFilter.getMax());
+                            filterSelection = table.dateColumn(rangeFilter.getColumn())
+                                    .isBetweenIncluding(minDate, maxDate);
+                            break;
+                        case "LOCAL_TIME":
+                            LocalTime minTime;
+                            LocalTime maxTime;
+                            try {
+                                minTime = LocalTime.parse(rangeFilter.getMin().toString());
+                                maxTime = LocalTime.parse(rangeFilter.getMax().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type LocalTime for column: " + rangeFilter.getColumn());
+                            }
+                            LOG.debug("Date range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
+                                    rangeFilter.getMin(), rangeFilter.getMax());
+                            filterSelection = table.timeColumn(rangeFilter.getColumn())
+                                    .isOnOrAfter(minTime)
+                                    .and(table.timeColumn(rangeFilter.getColumn())
+                                            .isOnOrBefore(maxTime));
+                            break;
+                        case "INSTANT":
+                            Instant minInstant;
+                            Instant maxInstant;
+                            try {
+                                minInstant = Instant.parse(rangeFilter.getMin().toString());
+                                maxInstant = Instant.parse(rangeFilter.getMax().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type Instant for column: " + rangeFilter.getColumn());
+                            }
+                            LOG.debug("Date range filtering {}, with min {} and max {}", rangeFilter.getColumn(),
+                                    rangeFilter.getMin(), rangeFilter.getMax());
+                            filterSelection = table.instantColumn(rangeFilter.getColumn())
+                                    .isAfter(minInstant)
+                                    .and(table.instantColumn(rangeFilter.getColumn())
+                                    .isBefore(maxInstant));
                             break;
                         default:
                             throw new IllegalArgumentException(
@@ -77,12 +139,13 @@ public class TabularQueryExecutor {
                     switch (columnTypeName) {
                         case "BOOLEAN":
                             if (!(equalsFilter.getValue() instanceof Boolean)) {
-                                throw new IllegalArgumentException("Value must be of type Boolean for column: " + equalsFilter.getColumn());
+                                throw new IllegalArgumentException(
+                                        "Value must be of type Boolean for column: " + equalsFilter.getColumn());
                             }
                             LOG.debug("Double equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
                             boolean booleanValue = Boolean.parseBoolean(equalsFilter.getValue().toString());
-                            if(booleanValue) {
+                            if (booleanValue) {
                                 filterSelection = table.booleanColumn(equalsFilter.getColumn()).isTrue();
                             } else {
                                 filterSelection = table.booleanColumn(equalsFilter.getColumn()).isFalse();
@@ -90,7 +153,8 @@ public class TabularQueryExecutor {
                             break;
                         case "DOUBLE":
                             if (!(equalsFilter.getValue() instanceof Double)) {
-                                throw new IllegalArgumentException("Value must be of type DOUBLE for column: " + equalsFilter.getColumn());
+                                throw new IllegalArgumentException(
+                                        "Value must be of type DOUBLE for column: " + equalsFilter.getColumn());
                             }
                             LOG.debug("Double equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
@@ -99,7 +163,8 @@ public class TabularQueryExecutor {
                             break;
                         case "INTEGER":
                             if (!(equalsFilter.getValue() instanceof Integer)) {
-                                throw new IllegalArgumentException("Value must be of type Integer for column: " + equalsFilter.getColumn());
+                                throw new IllegalArgumentException(
+                                        "Value must be of type Integer for column: " + equalsFilter.getColumn());
                             }
                             LOG.debug("Integer equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
@@ -108,7 +173,8 @@ public class TabularQueryExecutor {
                             break;
                         case "STRING":
                             if (!(equalsFilter.getValue() instanceof String)) {
-                                throw new IllegalArgumentException("Value must be of type String for column: " + equalsFilter.getColumn());
+                                throw new IllegalArgumentException(
+                                        "Value must be of type String for column: " + equalsFilter.getColumn());
                             }
                             LOG.debug("String equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
@@ -116,14 +182,56 @@ public class TabularQueryExecutor {
                                     .isEqualTo(equalsFilter.getValue().toString());
                             break;
                         case "LOCAL_DATE_TIME":
-                            if (!(equalsFilter.getValue() instanceof LocalDateTime)) {
-                                throw new IllegalArgumentException("Value must be of type LocalDateTime for column: " + equalsFilter.getColumn());
+                            LocalDateTime localDateTimeValue;
+                            try {
+                                localDateTimeValue = LocalDateTime.parse(equalsFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type LocalDateTime for column: " + equalsFilter.getColumn());
                             }
                             LOG.debug("DateTime equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
-                            LocalDateTime localDateTimeValue = LocalDateTime.parse(equalsFilter.getValue().toString());
                             filterSelection = table.dateTimeColumn(equalsFilter.getColumn())
                                     .isEqualTo(localDateTimeValue);
+                            break;
+                        case "LOCAL_DATE":
+                            LocalDate date;
+                            try {
+                                date = LocalDate.parse(equalsFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Min and Max must be of type LocalDate for column: " + equalsFilter.getColumn());
+                            }
+                            LOG.debug("Date range filtering {}, with value {}", equalsFilter.getColumn(),
+                            equalsFilter.getValue());
+                            filterSelection = table.dateColumn(equalsFilter.getColumn())
+                                    .isEqualTo(date);
+                            break;
+                        case "LOCAL_TIME":
+                            LocalTime timeValue;
+                            try {
+                                timeValue = LocalTime.parse(equalsFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type LocalTime for column: " + equalsFilter.getColumn());
+                            }
+                            LOG.debug("Time equals filtering {}, with value {}", equalsFilter.getColumn(),
+                                    equalsFilter.getValue());
+                            filterSelection = table.timeColumn(equalsFilter.getColumn())
+                                    .isEqualTo(timeValue);
+                            break;
+                        case "INSTANT":
+                            Instant instantValue;
+                            try {
+                                instantValue = Instant.parse(equalsFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type Instant for column: " + equalsFilter.getColumn());
+                            }
+                            LOG.debug("Instant equals filtering {}, with value {}", equalsFilter.getColumn(),
+                                    equalsFilter.getValue());
+                            filterSelection = table.instantColumn(equalsFilter.getColumn())
+                                    .isEqualTo(instantValue);
                             break;
                         default:
                             throw new IllegalArgumentException(
