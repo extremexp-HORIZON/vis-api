@@ -56,53 +56,15 @@ public class VisualizationController {
 
 
     @PostMapping("/visualization/timeseries")
-    public ResponseEntity<TimeSeriesResponse> getTimeSeriesData(@Valid @RequestBody TimeSeriesRequest timeSeriesRequest) {
-        LOG.info("Request for visualization data {}", timeSeriesRequest);
-
-        if (timeSeriesRequest.getDatasetId() == null) {
-            LOG.error("Dataset ID is missing");
-            return ResponseEntity.badRequest().body(new TimeSeriesResponse());
-        }
-        TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
-
-        LOG.info("Tabular query before getdata: {}", timeSeriesRequest);
-        try {
-            timeSeriesResponse = dataService.getTimeSeriesData(timeSeriesRequest);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
-        if (timeSeriesResponse.getData() == null) {
-            LOG.warn("No data found for the request");
-            return ResponseEntity.badRequest().body(timeSeriesResponse);
-        }        LOG.info("Visualization data retrieval successful");
-    
-        return ResponseEntity.ok(timeSeriesResponse);
+    public TimeSeriesResponse getTimeSeriesData(@Valid @RequestBody TimeSeriesRequest timeSeriesRequest) {
+        LOG.info("Request for visualization data {}", timeSeriesRequest);    
+        return dataService.getTimeSeriesData(timeSeriesRequest);
     }
    
     @PostMapping("/visualization/tabular")
-    public ResponseEntity<TabularResponse> tabulardata(@Valid @RequestBody TabularRequest tabularRequest) {
+    public TabularResponse tabulardata(@Valid @RequestBody TabularRequest tabularRequest) {
         LOG.info("Request for visualization data {}", tabularRequest);
-
-        if (tabularRequest.getDatasetId() == null) {
-            LOG.error("Dataset ID is missing");
-            return ResponseEntity.badRequest().body(new TabularResponse());
-        }
-        TabularResponse tabularResults = new TabularResponse();
-        
-        try {
-            tabularResults = dataService.getTabularData(tabularRequest);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
-        if (tabularResults.getData() == null) {
-            LOG.warn("No data found for the request");
-            return ResponseEntity.badRequest().body(tabularResults);
-        }        
-        LOG.info("Visualization data retrieval successful");
-    
-        return ResponseEntity.ok(tabularResults);
+        return dataService.getTabularData(tabularRequest);
     }
 
     @PostMapping("/visualization/metadata")

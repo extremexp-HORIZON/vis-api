@@ -1,92 +1,31 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter;
 
-import java.time.LocalDateTime;
-
 public class RangeFilter<T> extends AbstractFilter {
 
-    protected T minValue;
-    protected T maxValue;
+    protected T min;
+    protected T max;
 
     public RangeFilter() {}
     
-    public RangeFilter(String column, T minValue, T maxValue) {
+    public RangeFilter(String column, T min, T max) {
         super(column);
-        this.minValue = minValue;
-        this.maxValue = maxValue;
+        this.min = min;
+        this.max = max;
     }
 
-    public T getMinValue() {
-        return minValue;
+    public T getMin() {
+        return min;
     }
 
-    public void setMinValue(T minValue) {
-        this.minValue = minValue;
+    public void setMin(T min) {
+        this.min = min;
     }
 
-    public T getMaxValue() {
-        return maxValue;
+    public T getMax() {
+        return max;
     }
 
-    public void setMaxValue(T maxValue) {
-        this.maxValue = maxValue;
-    }
-
-    @Override
-    public String toString() {
-        return "RangeFilter [column=" + getColumn() + ", type=" + getType() + ", minValue=" + minValue + ", maxValue=" + maxValue + "]";
-    }
-
-    public class DoubleRangeFilter extends RangeFilter<Double> {
-
-        public DoubleRangeFilter(String column, Double minValue, Double maxValue) {
-            super(column, minValue, maxValue);
-            setType("range");
-        }
-
-        @Override
-        public Double getMaxValue() {
-            return super.getMaxValue();
-        }
-
-        @Override
-        public Double getMinValue() {
-            return super.getMinValue();
-        }
-    }
-
-    public class IntegerRangeFilter extends RangeFilter<Integer> {
-
-        public IntegerRangeFilter(String column, Integer minValue, Integer maxValue) {
-            super(column, minValue, maxValue);
-            setType("range");
-        }
-
-        @Override
-        public Integer getMaxValue() {
-            return super.getMaxValue();
-        }
-
-        @Override
-        public Integer getMinValue() {
-            return super.getMinValue();
-        }
-    }
-        
-    public class DateTimeRangeFilter extends RangeFilter<LocalDateTime> {
-
-        public DateTimeRangeFilter(String column, LocalDateTime minValue, LocalDateTime maxValue) {
-            super(column, minValue, maxValue);
-            setType("range");
-        }
-
-        @Override
-        public LocalDateTime getMaxValue() {
-            return super.getMaxValue();
-        }
-
-        @Override
-        public LocalDateTime getMinValue() {
-            return super.getMinValue();
-        }
+    public void setMax(T max) {
+        this.max = max;
     }
 }

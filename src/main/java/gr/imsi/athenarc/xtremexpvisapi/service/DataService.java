@@ -26,26 +26,21 @@ public class DataService {
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
     public TabularResponse getTabularData(TabularRequest tabularRequest) {
-        LOG.info("Retrieving tabular data for datasetId: {}", tabularRequest.getDatasetId());
-
         String datasetId = tabularRequest.getDatasetId();
         SourceType type = tabularRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        // Print datasetId being processed
+
         LOG.info("Processing data for datasetId: {}", datasetId);
         TabularResponse results = dataSource.fetchTabularData(tabularRequest);
         return results;
     }
     
     public TimeSeriesResponse getTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
-        LOG.info("Retrieving time series data for datasetId: {}", timeSeriesRequest.getDatasetId());
-
         String datasetId = timeSeriesRequest.getDatasetId();
         SourceType type = timeSeriesRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        // Print datasetId being processed
-        LOG.info("Processing data for datasetId: {}", datasetId);
 
+        LOG.info("Processing data for datasetId: {}", datasetId);
         TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesRequest);
         return results;
         

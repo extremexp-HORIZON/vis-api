@@ -2,21 +2,24 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
 
 import java.util.List;
 
+import org.springframework.lang.NonNull;
+
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.DataReduction;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.Filter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
 public class TimeSeriesRequest {
+    @NonNull
     String datasetId;
     SourceType type;
     List<String> columns;
     Integer limit;
     Integer offset;
-    List<Filter> filters; // Added to hold the instantiated filters
+    List<AbstractFilter> filters; // Added to hold the instantiated filters
     String from;
     String to;
     DataReduction dataReduction;
