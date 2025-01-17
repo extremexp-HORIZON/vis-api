@@ -200,9 +200,9 @@ public class TabularQueryExecutor {
                                 date = LocalDate.parse(equalsFilter.getValue().toString());
                             } catch (Exception e) {
                                 throw new IllegalArgumentException(
-                                        "Min and Max must be of type LocalDate for column: " + equalsFilter.getColumn());
+                                        "Value must be of type LocalDate for column: " + equalsFilter.getColumn());
                             }
-                            LOG.debug("Date range filtering {}, with value {}", equalsFilter.getColumn(),
+                            LOG.debug("Date equals filtering {}, with value {}", equalsFilter.getColumn(),
                             equalsFilter.getValue());
                             filterSelection = table.dateColumn(equalsFilter.getColumn())
                                     .isEqualTo(date);
