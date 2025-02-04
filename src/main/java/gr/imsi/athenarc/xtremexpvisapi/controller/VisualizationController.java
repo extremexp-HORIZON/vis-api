@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import explainabilityService.ApplyAffectedActionsResponse;
-import explainabilityService.ExplanationsResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
@@ -40,13 +40,13 @@ public class VisualizationController {
     }
 
     @PostMapping("/explainability")
-    public ExplanationsResponse getExplanation(@RequestBody String jsonRequest) throws JsonProcessingException, InvalidProtocolBufferException {
+    public JsonNode getExplanation(@RequestBody String jsonRequest) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Received explainability request: \n{}", jsonRequest);
         return explainabilityService.GetExplains(jsonRequest);
     }
     
     @GetMapping("/affected")
-    public ApplyAffectedActionsResponse applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
+    public JsonNode applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for apply affected actions");
         return explainabilityService.ApplyAffectedActions();
     }

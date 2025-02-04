@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 
@@ -33,41 +35,39 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
     DataService dataService;
     FileService fileService;
-    
 
     public ExplainabilityService(DataService dataService, FileService fileService) {
         this.dataService = dataService;
         this.fileService = fileService;
     }
 
-    public ExplanationsResponse GetExplains(String jsonRequest) throws InvalidProtocolBufferException, JsonProcessingException {
+    public JsonNode GetExplains(String jsonRequest) throws InvalidProtocolBufferException, JsonProcessingException {
 
         ExplanationsRequest.Builder requestBuilder = ExplanationsRequest.newBuilder();
         JsonFormat.parser().merge(jsonRequest, requestBuilder);
-        ExplanationsRequest request = requestBuilder.build();
 
         // If there are hyperconfigs, download the files from Zenoh
-        if(request.getHyperConfigsCount() != 0) {
-        request.getHyperConfigsMap().forEach((k, v) -> {
-            try {
-                fileService.downloadFileFromZenoh(k);
-                // Replace the existing key of the map to the new path
-                String newPath =  workingDirectory + k;
-                requestBuilder.removeHyperConfigs(k);
-                requestBuilder.putHyperConfigs(newPath, v);
+        if (requestBuilder.getHyperConfigsCount() != 0) {
+            requestBuilder.getHyperConfigsMap().forEach((k, v) -> {
+                try {
+                    fileService.downloadFileFromZenoh(k);
+                    // Replace the existing key of the map to the new path
+                    String newPath = workingDirectory + k;
+                    requestBuilder.removeHyperConfigs(k);
+                    requestBuilder.putHyperConfigs(newPath, v);
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
         }
 
         // If data is not null, download the file from Zenoh
-        if(request.getData() != null) {
+        if (requestBuilder.getData() != null) {
             try {
-                String dataPath = request.getData();
-                fileService.downloadFileFromZenoh(request.getData());
-                String newPath =  workingDirectory + dataPath;
+                String dataPath = requestBuilder.getData();
+                fileService.downloadFileFromZenoh(requestBuilder.getData());
+                String newPath = workingDirectory + dataPath;
                 requestBuilder.setData(newPath);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -75,18 +75,21 @@ public class ExplainabilityService extends ExplanationsImplBase {
         }
 
         // If model is not null, download the files from Zenoh
-        if(request.getModelCount() != 0) {
-            IntStream.range(0, request.getModelCount()).forEach(i -> {
+        if (requestBuilder.getModelCount() != 0) {
+            IntStream.range(0, requestBuilder.getModelCount()).forEach(i -> {
                 try {
-                    String model = request.getModel(i);
+                    String model = requestBuilder.getModel(i);
                     fileService.downloadFileFromZenoh(model);
-                    String newPath =  workingDirectory + model;
+                    String newPath = workingDirectory + model;
                     requestBuilder.setModel(i, newPath);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             });
         }
+
+        ExplanationsRequest request = requestBuilder.build();
+        System.out.println("Request: \n" + request);
 
         ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
                 .usePlaintext()
@@ -99,10 +102,14 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
         channel.shutdown();
 
-        return response;
+        String jsonString = JsonFormat.printer().print(response);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
     }
 
-    public ApplyAffectedActionsResponse ApplyAffectedActions() throws InvalidProtocolBufferException, JsonProcessingException {
+    public JsonNode ApplyAffectedActions()
+            throws InvalidProtocolBufferException, JsonProcessingException {
         ApplyAffectedActionsRequest request = ApplyAffectedActionsRequest.newBuilder()
                 .build();
 
@@ -118,8 +125,10 @@ public class ExplainabilityService extends ExplanationsImplBase {
         // Shutdown the channel
         channel.shutdown();
 
-        return response;
+        String jsonString = JsonFormat.printer().print(response);
 
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
     }
 
 }
