@@ -57,12 +57,14 @@ public class FileService {
         String folder = uriParts[1];
         String subFolder = uriParts[2];
         String fileName = uriParts[uriParts.length - 1];
+        System.out.println("ok:" + applicationFileProperties.getDirectory());
+        System.out.println("ok:" + uri);
         if (fileCache.containsKey(fileName)) {
             log.info(fileName + " already exists in the cache");
             resetFileDeletion(fileName);
         } else {
             log.fine("Downloading " + fileName + " from " + uri);
-            Path targetPath = Paths.get(applicationFileProperties.getDirectory(), fileName);
+            Path targetPath = Paths.get(applicationFileProperties.getDirectory(), uri);
             HttpResponse<InputStream> zenohResponse = zenohService.getSingleFile(useCase, folder, subFolder, fileName);
             log.fine("Download successful");
             
@@ -122,7 +124,7 @@ public class FileService {
             // Extract numbers and units from the folder size limit
             long limitNumber = Long.parseLong(applicationFileProperties.getSize().replaceAll("[^0-9]", ""));
             String limitUnit = applicationFileProperties.getSize().replaceAll("[^a-zA-Z]", "").toUpperCase();
-            long directoryCurrentSizeBytes = getDirectorySize(targetPath.getParent());
+            long directoryCurrentSizeBytes = getDirectorySize(Paths.get(applicationFileProperties.getDirectory()));
             long folderSizeLimitBytes = convertToBytes(limitNumber, limitUnit);
 
             log.info("Directory size: " + directoryCurrentSizeBytes + " bytes");
@@ -137,6 +139,7 @@ public class FileService {
                 makeSpace(targetPath, directoryCurrentSizeBytes, insertedFileSizeBytes, folderSizeLimitBytes,
                         fileToBeInserted);
             } else {
+                Files.createDirectories(targetPath.getParent());
                 Files.copy(fileToBeInserted, targetPath, StandardCopyOption.REPLACE_EXISTING);
                 log.finest("File inserted successfully");
             }

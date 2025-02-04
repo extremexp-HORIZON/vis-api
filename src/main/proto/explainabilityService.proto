@@ -2,37 +2,46 @@ syntax = "proto3";
  
 option java_multiple_files=true;
 option java_package="explainabilityService";
-// option java_outer_classname="GrpcProto";
 
 service Explanations {
     rpc GetExplanation (ExplanationsRequest) returns (ExplanationsResponse);
     rpc ApplyAffectedActions (ApplyAffectedActionsRequest) returns (ApplyAffectedActionsResponse);
-
+    rpc GetFeatureImportance (FeatureImportanceRequest) returns (FeatureImportanceResponse); 
 }
 
-message ApplyAffectedActionsRequest {
+//------------------ Pipeline - Model Explainability --------------------------------------------------
+
+message HyperparameterList {
+    string values = 1; // Possible values for the hyperparameter
+    string type = 2; // Type of the hyperparameter: "categorical", "numeric", etc.
 }
 
-message ApplyAffectedActionsResponse {
-    map<string, TableContents> applied_affected_actions = 1;
+message hyperparameters {
+    map<string, HyperparameterList> hyperparameter = 1; // Map of hyperparameter name to details
+    float metric_value = 2;
 }
-
-// ----------------- Explanations Fields ----------------------------
-
 
 message ExplanationsRequest {
-    string explanation_type = 1; // featureExplanation | hyperparameterExplanation
-    string explanation_method = 2; // pdp | 2dpdp | ale | counterfactuals | global_counterfactuals | prototypes
-    string model = 3; 
-    int32 model_id = 4;
-    string feature1 = 5;
-    string feature2 = 6;
-    string query = 7;
-    string target = 8;
-    // Glance
-    int32 gcf_size = 9;  // Global Counterfactual (GCF) size
-    string cf_generator = 10;  // Counterfactual generator method
-    string cluster_action_choice_algo = 11;  // Algorithm for choosing clusters' actions
+
+    string explanation_type = 1;
+    string explanation_method = 2;
+
+    repeated string model = 3; //different paths for the selected workflows
+    string data = 4; //path to dataset file, contains whole dataset 
+    repeated int32 train_index = 5; // list that contains indexes of dataset to create the train data
+    repeated int32 test_index = 6; // list that contains indexes of dataset to create the test data
+    string target_column = 7; // target variable of dataset
+    map<string, hyperparameters> hyper_configs = 8; // dictionaire with hyperparameters configs and respected metrics
+    string feature1 = 9;
+    string feature2 = 10;
+
+    // -----Local/Global Counterfactual Explanation Fields -----
+    string query = 11;
+
+    // same as Model explainability plus target target label 
+    int32 gcf_size = 12;  // Global Counterfactual (GCF) size
+    string cf_generator = 13;  // Counterfactual generator method
+    string cluster_action_choice_algo = 14;  // Algorithm for choosing clusters' actions
 
 }
 
@@ -69,14 +78,43 @@ message ExplanationsResponse {
     Features features = 7;
     repeated string hyperparameter_list = 8;
     repeated string feature_list = 9;
-    Axis x_axis = 10;
-    Axis y_axis = 11;
-    Axis z_axis = 12; 
+    Axis xAxis = 10;
+    Axis yAxis = 11;
+    Axis zAxis = 12; 
     map<string, TableContents> table_contents= 13;
-    // Glance
     map<string, TableContents> affected_clusters = 14; 
     map<string, EffCost> eff_cost_actions = 15; 
-    float total_effectiveness = 16;
-    float total_cost = 17;
+    float TotalEffectiveness = 16;
+    float TotalCost = 17;
     map<string, TableContents> actions = 18;
 }
+
+//------------------ Apply Affected Actions --------------------------------------------------
+
+
+message ApplyAffectedActionsRequest {
+}
+
+message ApplyAffectedActionsResponse {
+    map<string, TableContents> applied_affected_actions = 1;
+}
+
+//------------------ Get Feature Importance --------------------------------------------------
+
+
+message FeatureImportance {
+    string feature_name = 1;      // Name of the feature
+    double importance_score = 2; // Importance score of the feature
+}
+
+message FeatureImportanceRequest {
+    string data = 1; // Path to dataset file
+    string target_column = 2; // The target variable in the dataset
+    repeated int32 test_index = 3;
+    repeated string model = 4; // path to model file
+}
+
+message FeatureImportanceResponse {
+    repeated FeatureImportance feature_importances = 1; // List of top 5 important features
+}
+

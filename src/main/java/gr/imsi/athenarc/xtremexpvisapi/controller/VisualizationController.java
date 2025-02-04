@@ -2,7 +2,6 @@ package gr.imsi.athenarc.xtremexpvisapi.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,9 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ApplyAffectedActionsRes;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ExplanationsReq;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Explainability.ExplanationsRes;
+import explainabilityService.ApplyAffectedActionsResponse;
+import explainabilityService.ExplanationsResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
@@ -24,7 +22,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExplainabilityService;
-import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
 import jakarta.validation.Valid;
 
 @RestController
@@ -37,21 +34,21 @@ public class VisualizationController {
     private final DataService dataService;
     private final ExplainabilityService explainabilityService;
 
-    public VisualizationController(DataService dataService, ExplainabilityService explainabilityService, FileService fileService) {
+    public VisualizationController(DataService dataService, ExplainabilityService explainabilityService) {
         this.dataService = dataService;
         this.explainabilityService = explainabilityService;
     }
 
     @PostMapping("/explainability")
-    public ResponseEntity<ExplanationsRes> getExplanation(@RequestBody ExplanationsReq request) throws JsonProcessingException, InvalidProtocolBufferException {
-        LOG.info("Request for explainability {}{}{}{}", request.getExplanationType(),request.getExplanationMethod(),request.getFeature1(), request.getModel());
-        return ResponseEntity.ok(explainabilityService.GetExplains(request));
+    public ExplanationsResponse getExplanation(@RequestBody String jsonRequest) throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Received explainability request: \n{}", jsonRequest);
+        return explainabilityService.GetExplains(jsonRequest);
     }
     
     @GetMapping("/affected")
-    public ResponseEntity<ApplyAffectedActionsRes> applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
+    public ApplyAffectedActionsResponse applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for apply affected actions");
-        return ResponseEntity.ok(explainabilityService.ApplyAffectedActions());
+        return explainabilityService.ApplyAffectedActions();
     }
 
 
