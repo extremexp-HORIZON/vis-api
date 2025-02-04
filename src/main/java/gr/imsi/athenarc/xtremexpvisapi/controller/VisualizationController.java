@@ -53,6 +53,12 @@ public class VisualizationController {
         LOG.info("Request for apply affected actions");
         return ResponseEntity.ok(explainabilityService.ApplyAffectedActions());
     }
+    
+    @PostMapping("/umap")
+    public float[][] dimensionalityReduction(@RequestBody float[][] data) throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Request for dimensionality reduction");
+        return dataService.getUmap(data);
+    }
 
 
     @PostMapping("/visualization/timeseries")

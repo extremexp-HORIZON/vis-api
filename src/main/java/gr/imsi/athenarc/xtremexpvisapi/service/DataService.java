@@ -14,15 +14,17 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import tagbio.umap.Umap;
 
 @Service
 public class DataService {
     private final DataSourceFactory dataSourceFactory;
-     
+
     @Autowired
     public DataService(DataSourceFactory dataSourceFactory) {
         this.dataSourceFactory = dataSourceFactory;
     }
+
     private static final Logger LOG = LoggerFactory.getLogger(DataService.class);
 
     public TabularResponse getTabularData(TabularRequest tabularRequest) {
@@ -34,7 +36,7 @@ public class DataService {
         TabularResponse results = dataSource.fetchTabularData(tabularRequest);
         return results;
     }
-    
+
     public TimeSeriesResponse getTimeSeriesData(TimeSeriesRequest timeSeriesRequest) {
         String datasetId = timeSeriesRequest.getDatasetId();
         SourceType type = timeSeriesRequest.getType();
@@ -43,9 +45,9 @@ public class DataService {
         LOG.info("Processing data for datasetId: {}", datasetId);
         TimeSeriesResponse results = dataSource.fetchTimeSeriesData(timeSeriesRequest);
         return results;
-        
+
     }
-    
+
     public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
         LOG.info("Retrieving metadata for datasetId: {}", metadataRequest.getDatasetId());
 
@@ -56,5 +58,14 @@ public class DataService {
 
         return dataSource.getFileMetadata(metadataRequest);
     }
-    
+
+    public float[][] getUmap(float[][] data) {
+        LOG.info("Performing dimensionality reduction");
+        Umap umap = new Umap();
+        umap.setNumberComponents(2);
+        umap.setNumberNearestNeighbours(15);
+        umap.setThreads(1);
+        return umap.fitTransform(data);
+    }
+
 }
