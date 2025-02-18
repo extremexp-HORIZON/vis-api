@@ -1,5 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +20,7 @@ import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
+import explainabilityService.hyperparameters;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
@@ -48,17 +51,20 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
         // If there are hyperconfigs, download the files from Zenoh
         if (requestBuilder.getHyperConfigsCount() != 0) {
+            Map<String, hyperparameters> updatedHyperConfigs = new HashMap<>();
             requestBuilder.getHyperConfigsMap().forEach((k, v) -> {
                 try {
                     fileService.downloadFileFromZenoh(k);
                     // Replace the existing key of the map to the new path
                     String newPath = workingDirectory + k;
-                    requestBuilder.removeHyperConfigs(k);
-                    requestBuilder.putHyperConfigs(newPath, v);
-
+                    updatedHyperConfigs.put(newPath, v);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            });
+            updatedHyperConfigs.forEach((newKey, value) -> {
+                requestBuilder.removeHyperConfigs(newKey.substring(workingDirectory.length()));
+                requestBuilder.putHyperConfigs(newKey, value);
             });
         }
 
