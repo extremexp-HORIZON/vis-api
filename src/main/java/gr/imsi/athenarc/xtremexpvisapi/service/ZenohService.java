@@ -64,7 +64,7 @@ public class ZenohService {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         JsonNode rootNode = objectMapper.readTree(response.body());
-        rootNode.path("access_token").asText();
+        this.accessToken = rootNode.path("access_token").asText();
         return this.accessToken;
     }
 
