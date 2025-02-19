@@ -82,7 +82,7 @@ public class ZenohService {
 
         HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() == 401) {
-            refresh(); // If token has expired, refresh it
+            authenticate(); // If token has expired, refresh it
             request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/"
                             + subfolder + "/" + filename))
