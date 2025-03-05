@@ -51,6 +51,13 @@ public class VisualizationController {
     }
 
 
+        
+    @PostMapping("/umap")
+    public float[][] dimensionalityReduction(@RequestBody float[][] data) throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Request for dimensionality reduction");
+        return dataService.getUmap(data);
+    }
+
     @PostMapping("/visualization/timeseries")
     public TimeSeriesResponse getTimeSeriesData(@Valid @RequestBody TimeSeriesRequest timeSeriesRequest) {
         LOG.info("Request for visualization data {}", timeSeriesRequest);    

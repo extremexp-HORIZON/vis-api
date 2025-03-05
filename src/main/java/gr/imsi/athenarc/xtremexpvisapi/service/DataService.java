@@ -14,6 +14,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import tagbio.umap.Umap;
 
 @Service
 public class DataService {
@@ -56,5 +57,15 @@ public class DataService {
 
         return dataSource.getFileMetadata(metadataRequest);
     }
+
+    public float[][] getUmap(float[][] data) {
+        LOG.info("Performing dimensionality reduction");
+        Umap umap = new Umap();
+        umap.setNumberComponents(2);
+        umap.setNumberNearestNeighbours(15);
+        umap.setThreads(1);
+        return umap.fitTransform(data);
+    }
+
     
 }
