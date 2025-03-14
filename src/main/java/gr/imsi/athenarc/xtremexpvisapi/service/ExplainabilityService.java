@@ -69,7 +69,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
         }
 
         // If data is not null, download the file from Zenoh
-        if (requestBuilder.getData() != null) {
+        if (!requestBuilder.getData().isEmpty()) {
             try {
                 String dataPath = requestBuilder.getData();
                 fileService.downloadFileFromZenoh(requestBuilder.getData());

@@ -57,8 +57,6 @@ public class FileService {
         String folder = uriParts[1];
         String subFolder = uriParts[2];
         String fileName = uriParts[uriParts.length - 1];
-        System.out.println("ok:" + applicationFileProperties.getDirectory());
-        System.out.println("ok:" + uri);
         if (fileCache.containsKey(fileName)) {
             log.info(fileName + " already exists in the cache");
             resetFileDeletion(fileName);
