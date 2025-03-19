@@ -64,7 +64,7 @@ public class ZenohService {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         JsonNode rootNode = objectMapper.readTree(response.body());
-        rootNode.path("access_token").asText();
+        this.accessToken = rootNode.path("access_token").asText();
         return this.accessToken;
     }
 
@@ -82,7 +82,7 @@ public class ZenohService {
 
         HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() == 401) {
-            refresh(); // If token has expired, refresh it
+            authenticate(); // If token has expired, refresh it
             request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/file/" + useCase + "/" + folder + "/"
                             + subfolder + "/" + filename))
