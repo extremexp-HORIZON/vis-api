@@ -22,7 +22,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 @Service
-public class ExplainabilityService extends ExplanationsImplBase{
+public class ExplainabilityService extends ExplanationsImplBase {
 
     @Value("${app.grpc.host.name}")
     String grpcHostName;

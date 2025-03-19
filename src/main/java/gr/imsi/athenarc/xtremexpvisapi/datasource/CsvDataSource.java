@@ -6,16 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.visual.middleware.cache.MinMaxCache;
-import gr.imsi.athenarc.visual.middleware.datasource.QueryExecutor.CsvQueryExecutor;
-import gr.imsi.athenarc.visual.middleware.domain.QueryResults;
 import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
-import gr.imsi.athenarc.visual.middleware.domain.Dataset.CsvDataset;
-import gr.imsi.athenarc.visual.middleware.domain.Query.Query;
-import gr.imsi.athenarc.visual.middleware.util.DateTimeUtil;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
@@ -24,7 +16,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.DataReduction;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.TabularColumn;
 import jakarta.annotation.PostConstruct;
 import tech.tablesaw.api.*;
@@ -49,9 +40,6 @@ public class CsvDataSource implements DataSource {
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
     private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
     private String source;
-
-    // Map to hold the minmaxcache of each dataset, for time series exploration
-    private final ConcurrentHashMap<String, MinMaxCache> cacheMap = new ConcurrentHashMap<>();
 
     private Map<String, TimeInterval> fileTimeRangeMap = null;
 
@@ -89,9 +77,6 @@ public class CsvDataSource implements DataSource {
                 timeSeriesResponse = timeSeriesRawQuery(timeSeriesRequest);
                 break;
             case "aggregation":
-                break;
-            case "visualization-aware":
-                timeSeriesResponse = timeSeriesVisualQuery(timeSeriesRequest);
                 break;
         }
         return timeSeriesResponse;
@@ -249,108 +234,6 @@ public class CsvDataSource implements DataSource {
             // timeSeriesResponse.setFileNames(Arrays.asList(new String[]{table.name()}));
             timeSeriesResponse.setData(getJsonDataFromTableSawTable(resultsTable));
         }
-        return timeSeriesResponse;
-    }
-
-    private TimeSeriesResponse timeSeriesVisualQuery(TimeSeriesRequest timeSeriesRequest) {
-        TimeSeriesResponse timeSeriesResponse = new TimeSeriesResponse();
-
-        // Extract details from the query
-        DataReduction dataReduction = timeSeriesRequest.getDataReduction();
-        double errorBound = dataReduction.getErrorBound();
-        int width = dataReduction.getViewPort().getWidth();
-        int height = dataReduction.getViewPort().getHeight();
-        String datasetId = timeSeriesRequest.getDatasetId();
-
-        // TODO: Metadata for CsvDataset, need to be found automatically
-        String timeFormat = "yyyy-MM-dd HH:mm:ss";
-        String delimiter = ",";
-        boolean hasHeader = true;
-
-        String timeStampColumnName;
-        TabularColumn timestampColumn = getTimestampColumn();
-
-        if (timestampColumn != null) {
-            timeStampColumnName = timestampColumn.getName();
-        } else {
-            LOG.error("No timestamp column found for datasetId: {}", datasetId);
-            throw new IllegalArgumentException("No timestamp column found for datasetId: " + datasetId);
-        }
-
-        // Extract measures as indices
-        List<String> measureNames = timeSeriesRequest.getColumns(); // Get measure names from the query
-        List<Integer> measureIndices = new ArrayList<>();
-        Path path = Paths.get(workingDirectory, source);
-
-        // Read the CSV file
-        Table table = getTablesFromPath(path).get(0);
-        if (measureNames == null) {
-            throw new IllegalArgumentException("Measures cannot be null");
-        }
-        if (measureNames.isEmpty()) {
-            measureNames.addAll(
-                    table.columns().stream().map(this::getTabularColumnFromTableSawColumn).map(TabularColumn::getName)
-                            .toList());
-            measureNames.remove(timeStampColumnName); // remove timestamp from full query
-        }
-        for (String measureName : measureNames) {
-            int index = table.columnIndex(measureName);
-            if (index == -1) {
-                throw new IllegalArgumentException("Measure name not found: " + measureName);
-            }
-            measureIndices.add(index);
-        }
-
-        // Construct the CsvDataset
-        CsvDataset cacheDataset;
-        try {
-            cacheDataset = new CsvDataset(
-                    path.toString(), path.toString(), "csv", path.toString(), timeFormat, timeStampColumnName,
-                    delimiter, hasHeader);
-            fileTimeRangeMap = cacheDataset.getFileTimeRangeTreeMap();
-        } catch (IOException e) {
-            throw new RuntimeException("Error creating CsvDataset: " + e.getMessage(), e);
-        }
-
-        // Construct the Query
-
-        long from = timeSeriesRequest.getFrom() == null ? cacheDataset.getTimeRange().getFrom()
-                : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getFrom(), timeFormat);
-        long to = timeSeriesRequest.getTo() == null ? cacheDataset.getTimeRange().getTo()
-                : DateTimeUtil.parseDateTimeString(timeSeriesRequest.getTo(), timeFormat);
-
-        Query cacheQuery = new Query(
-                from, to, measureIndices, (float) (1 - errorBound), width, height, null);
-
-        // Fetch or create the MinMaxCache
-        MinMaxCache minMaxCache = cacheMap.computeIfAbsent(datasetId, key -> {
-            try {
-                CsvQueryExecutor minMaxCacheQueryExecutor = new CsvQueryExecutor(cacheDataset);
-                return new MinMaxCache(minMaxCacheQueryExecutor, cacheDataset, 0.5, 4, 6);
-            } catch (IOException e) {
-                LOG.error("Failed to initialize MinMaxCache for dataset: {}", datasetId, e);
-                throw new RuntimeException("Error initializing MinMaxCache: " + e.getMessage(), e);
-            }
-        });
-
-        // Execute the query
-        if (minMaxCache == null) {
-            throw new IllegalStateException("MinMaxCache is not initialized for dataset: " + datasetId);
-        }
-
-        // Prepare the response
-        QueryResults cacheQueryResults = minMaxCache.executeQuery(cacheQuery);
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            LOG.info("{}", cacheQueryResults.getData());
-            String cacheQueryData = objectMapper.writeValueAsString(cacheQueryResults.getData());
-            timeSeriesResponse.setData(cacheQueryData);
-            timeSeriesResponse.setFileTimeRange(fileTimeRangeMap);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Error converting data to JSON: " + e.getMessage(), e);
-        }
-        LOG.info("Time series visual query executed successfully for dataset: {}", datasetId);
-
         return timeSeriesResponse;
     }
 
