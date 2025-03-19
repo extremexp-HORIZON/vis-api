@@ -101,12 +101,11 @@
 			<version>1.18.36</version>
 			<scope>provided</scope>
 		</dependency>
-			<dependency>
+		<dependency>
 			<groupId>tech.molecules</groupId>
 			<artifactId>external-umap-java</artifactId>
 			<version>1.0</version>
 		</dependency>
-
 		<dependency>
 			<groupId>tech.molecules</groupId>
 			<artifactId>external-umap-java</artifactId>
@@ -205,6 +204,9 @@
 								<argument>8080:8080</argument>
 								<argument>--name</argument>
 								<argument>vis-api-container</argument>
+								<argument>-v</argument>
+								<!-- Mount the .env file inside the container -->
+								<argument>${project.basedir}/.env:/.env</argument>
 								<argument>-v</argument>
 								<!-- change this accordingly for the volume creation -->
 								<argument>/opt/experiments:/opt/experiments</argument>
