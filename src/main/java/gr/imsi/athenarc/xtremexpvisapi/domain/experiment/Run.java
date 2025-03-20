@@ -88,7 +88,7 @@ public class Run {
 
     public Run(String id, String name, String experimentId, Status status, Long startTime, Long endTime,
             List<Param> params, List<Metric> metrics, List<DataAsset> dataAssets,
-            List<String> tasks, Map<String, String> tags) {
+            List<Task> tasks, Map<String, String> tags) {
         this.id = id;
         this.name = name;
         this.experimentId = experimentId;
