@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Service interface for experiment tracking operations.
- * Implementations will connect to different execution engines.
+ * Implementations will connect to different experiment tracking tools.
  */
 public interface ExperimentService {
     ResponseEntity<List<Experiment>> getExperiments(int limit, int offset);
