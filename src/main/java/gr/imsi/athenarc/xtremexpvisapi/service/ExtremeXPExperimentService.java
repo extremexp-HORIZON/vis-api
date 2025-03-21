@@ -5,12 +5,14 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +95,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
 
-                Experiment experiment = mapToExperimentId(experimentData);
+                Experiment experiment = mapToExperiment(experimentData);
                 return ResponseEntity.ok(experiment);
             } else {
                 return ResponseEntity.status(response.getStatusCode()).build();
@@ -126,29 +128,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         return experiment;
     }
 
-    private Experiment mapToExperimentId(Map<String, Object> data) {
-        Experiment experiment = new Experiment();
-        experiment.setId((String) data.get("id"));
-        experiment.setName((String) data.get("name"));
-        Map<String, String> tags = new HashMap<>();
-        tags.put("status", (String) data.get("status"));
-        experiment.setTags(tags);
-        Object workflowIdsObj = data.get("workflow_ids");
-        if (workflowIdsObj instanceof List<?>) {
-            List<?> rawList = (List<?>) workflowIdsObj;
-            List<String> workflowIds = rawList.stream()
-                    .filter(String.class::isInstance) // Ensure only Strings
-                    .map(String.class::cast)
-                    .collect(Collectors.toList());
-            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
-        }
-        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
-        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
-        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
-        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
-        return experiment;
-    }
-
     private Long parseIsoDateToMillis(String isoDate) {
         if (isoDate == null || isoDate.isEmpty()) {
             return null;
@@ -163,14 +142,41 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
-        // Implement ExtremeXP-specific logic
-        return null; // Replace with actual implementation
+        //make it empty
+        return null;
     }
 
     @Override
     public ResponseEntity<Run> getRunById(String experimentId, String runId) {
-        // Implement ExtremeXP-specific logic
-        return null; // Replace with actual implementation
+        // Step 1: Get experiment details
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String workflowUrl = workflowsApiUrl + "/workflows/" + runId;
+        ResponseEntity<Map> workflowResponse = restTemplate.exchange(
+                workflowUrl, HttpMethod.GET, entity, Map.class);
+
+        Map<String, Object> workflowData = (Map<String, Object>) workflowResponse.getBody().get("workflow");
+        // Step 4: Convert response to Run object
+        Run run = new Run();
+        run.setId(runId);
+        run.setName((String) workflowData.get("name"));
+        run.setExperimentId((String) experimentId);
+        run.setStartTime(parseIsoDateToMillis((String) workflowData.get("start")));
+        run.setEndTime(parseIsoDateToMillis((String) workflowData.get("end")));
+        String statusStr = (String) workflowData.get("status"); // Get status as string
+        try {
+            run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
+        } catch (IllegalArgumentException e) {
+            run.setStatus(Status.FAILED); // Default or handle unknown status
+        }
+
+        List<Object> metrics = (List<Object>) workflowData.get("metrics");
+
+        return ResponseEntity.ok(run);
+
     }
 
     @Override
