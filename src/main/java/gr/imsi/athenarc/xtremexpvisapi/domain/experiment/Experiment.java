@@ -23,7 +23,7 @@ public class Experiment {
     /**
      * Unix timestamp of when the experiment was created (in milliseconds).
      */
-    private long creationTime;
+    private Long creationTime;
 
     /**
      * Unix timestamp of the last modification of the experiment (in milliseconds).
@@ -42,42 +42,24 @@ public class Experiment {
      */
     private Map<String, String> tags;
 
-    /**
-     * Added By Panos
-     */
-
-    /**
-     * A human-readable name that identifies the status (completed/running) of the
-     * current experiment.
-     * This field is optional.
-     */
-    private String status;
-
+    
     // Constructors
 
     public Experiment() {
     }
 
-    public Experiment(String id, String name, long creationTime, Long lastUpdateTime,
-            List<MetricDefinition> metricDefinitions, Map<String, String> tags, String status) {
+    public Experiment(String id, String name, Long creationTime, Long lastUpdateTime,
+            List<MetricDefinition> metricDefinitions, Map<String, String> tags) {
         this.id = id;
         this.name = name;
         this.creationTime = creationTime;
         this.lastUpdateTime = lastUpdateTime;
         this.metricDefinitions = metricDefinitions;
         this.tags = tags;
-        this.status = status;
     }
 
     // Getters and Setters
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
+    
     public String getId() {
         return id;
     }
@@ -94,11 +76,11 @@ public class Experiment {
         this.name = name;
     }
 
-    public long getCreationTime() {
+    public Long getCreationTime() {
         return creationTime;
     }
 
-    public void setCreationTime(long creationTime) {
+    public void setCreationTime(Long creationTime) {
         this.creationTime = creationTime;
     }
 

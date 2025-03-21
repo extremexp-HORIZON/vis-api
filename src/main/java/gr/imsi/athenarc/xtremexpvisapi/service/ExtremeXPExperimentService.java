@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,10 +37,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
     @Override
     public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset) {
         String requestUrl = workflowsApiUrl + "/experiments"; // API URL
-        System.out.println("Request URL: " + requestUrl);
-
         HttpHeaders headers = new HttpHeaders();
-        headers.set("access-token", workflowsApiKey); // Setting the API Key
+        headers.set("access-token", workflowsApiKey); // API Key
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -52,15 +51,19 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     Map.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                // Extract the experiments list
                 List<Map<String, Map<String, Object>>> experimentsList = (List<Map<String, Map<String, Object>>>) response
                         .getBody().get("experiments");
 
+                // Convert to Experiment objects
                 List<Experiment> experiments = experimentsList.stream()
                         .map(expMap -> expMap.values().iterator().next()) // Extract inner object
                         .map(this::mapToExperiment) // Convert to `Experiment` object
                         .skip(offset) // Apply offset
                         .limit(limit) // Apply limit
                         .toList();
+
+                // Fetch missing timestamps in parallel
 
                 return ResponseEntity.ok(experiments);
             } else {
@@ -70,8 +73,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        // Implement ExtremeXP-specific logic to retrieve experiments
-        // Replace with actual implementation
     }
 
     @Override
@@ -106,7 +107,12 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Experiment experiment = new Experiment();
         experiment.setId((String) data.get("id"));
         experiment.setName((String) data.get("name"));
-        experiment.setStatus((String) data.get("status"));
+        Map<String, String> tags = new HashMap<>();
+        tags.put("status", (String) data.get("status"));
+        experiment.setTags(tags);
+        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
+        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
+
         return experiment;
     }
 
@@ -114,7 +120,11 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Experiment experiment = new Experiment();
         experiment.setId((String) data.get("id"));
         experiment.setName((String) data.get("name"));
-        experiment.setStatus((String) data.get("status"));
+        Map<String, String> tags = new HashMap<>();
+        tags.put("status", (String) data.get("status"));
+        experiment.setTags(tags);
+        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
+        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
         return experiment;
