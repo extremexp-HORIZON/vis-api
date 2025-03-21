@@ -14,6 +14,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * ExtremeXP implementation of the ExperimentService.
@@ -109,6 +110,15 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setName((String) data.get("name"));
         Map<String, String> tags = new HashMap<>();
         tags.put("status", (String) data.get("status"));
+        Object workflowIdsObj = data.get("workflow_ids");
+        if (workflowIdsObj instanceof List<?>) {
+            List<?> rawList = (List<?>) workflowIdsObj;
+            List<String> workflowIds = rawList.stream()
+                    .filter(String.class::isInstance) // Ensure only Strings
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
+        }
         experiment.setTags(tags);
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
@@ -123,6 +133,15 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Map<String, String> tags = new HashMap<>();
         tags.put("status", (String) data.get("status"));
         experiment.setTags(tags);
+        Object workflowIdsObj = data.get("workflow_ids");
+        if (workflowIdsObj instanceof List<?>) {
+            List<?> rawList = (List<?>) workflowIdsObj;
+            List<String> workflowIds = rawList.stream()
+                    .filter(String.class::isInstance) // Ensure only Strings
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
+        }
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
