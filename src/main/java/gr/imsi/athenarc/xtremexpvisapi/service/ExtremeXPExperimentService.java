@@ -1,6 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +9,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -34,16 +35,11 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset) {
-        // Implement ExtremeXP-specific logic to retrieve experiments
-        return null; // Replace with actual implementation
-    }
-
-    @Override
-    public ResponseEntity<Experiment> getExperimentById(String experimentId) {
-        String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
+        String requestUrl = workflowsApiUrl + "/experiments"; // API URL
+        System.out.println("Request URL: " + requestUrl);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("access-token", workflowsApiKey);
+        headers.set("access-token", workflowsApiKey); // Setting the API Key
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -56,20 +52,84 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     Map.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return ResponseEntity.ok(mapToExperiment(response.getBody()));
+                List<Map<String, Map<String, Object>>> experimentsList = (List<Map<String, Map<String, Object>>>) response
+                        .getBody().get("experiments");
+
+                List<Experiment> experiments = experimentsList.stream()
+                        .map(expMap -> expMap.values().iterator().next()) // Extract inner object
+                        .map(this::mapToExperiment) // Convert to `Experiment` object
+                        .skip(offset) // Apply offset
+                        .limit(limit) // Apply limit
+                        .toList();
+
+                return ResponseEntity.ok(experiments);
             } else {
                 return ResponseEntity.status(response.getStatusCode()).build();
             }
-
         } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        // Implement ExtremeXP-specific logic to retrieve experiments
+        // Replace with actual implementation
+    }
+
+    @Override
+    public ResponseEntity<Experiment> getExperimentById(String experimentId) {
+        String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
+
+                Experiment experiment = mapToExperimentId(experimentData);
+                return ResponseEntity.ok(experiment);
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     private Experiment mapToExperiment(Map<String, Object> data) {
         Experiment experiment = new Experiment();
-        // map experiment data
+        experiment.setId((String) data.get("id"));
+        experiment.setName((String) data.get("name"));
+        experiment.setStatus((String) data.get("status"));
         return experiment;
+    }
+
+    private Experiment mapToExperimentId(Map<String, Object> data) {
+        Experiment experiment = new Experiment();
+        experiment.setId((String) data.get("id"));
+        experiment.setName((String) data.get("name"));
+        experiment.setStatus((String) data.get("status"));
+        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
+        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
+        return experiment;
+    }
+
+    private Long parseIsoDateToMillis(String isoDate) {
+        if (isoDate == null || isoDate.isEmpty()) {
+            return null;
+        }
+        try {
+            return Instant.parse(isoDate).toEpochMilli(); // Convert ISO string to milliseconds
+        } catch (DateTimeParseException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     @Override

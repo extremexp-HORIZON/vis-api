@@ -42,22 +42,41 @@ public class Experiment {
      */
     private Map<String, String> tags;
 
+    /**
+     * Added By Panos
+     */
+
+    /**
+     * A human-readable name that identifies the status (completed/running) of the
+     * current experiment.
+     * This field is optional.
+     */
+    private String status;
+
     // Constructors
 
     public Experiment() {
     }
 
     public Experiment(String id, String name, long creationTime, Long lastUpdateTime,
-            List<MetricDefinition> metricDefinitions, Map<String, String> tags) {
+            List<MetricDefinition> metricDefinitions, Map<String, String> tags, String status) {
         this.id = id;
         this.name = name;
         this.creationTime = creationTime;
         this.lastUpdateTime = lastUpdateTime;
         this.metricDefinitions = metricDefinitions;
         this.tags = tags;
+        this.status = status;
     }
 
     // Getters and Setters
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     public String getId() {
         return id;
