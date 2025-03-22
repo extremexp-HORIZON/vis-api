@@ -9,6 +9,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.MetricDefinition;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 
 import org.springframework.http.*;
@@ -36,6 +37,56 @@ public class ExtremeXPExperimentService implements ExperimentService {
     private String workflowsApiKey;
 
     private final RestTemplate restTemplate;
+
+    private Experiment mapToExperiment(Map<String, Object> data) {
+        Experiment experiment = new Experiment();
+        experiment.setId((String) data.get("id"));
+        experiment.setName((String) data.get("name"));
+        Map<String, String> tags = new HashMap<>();
+        tags.put("status", (String) data.get("status"));
+        Object workflowIdsObj = data.get("workflow_ids");
+        if (workflowIdsObj instanceof List<?>) {
+            List<?> rawList = (List<?>) workflowIdsObj;
+            List<String> workflowIds = rawList.stream()
+                    .filter(String.class::isInstance) // Ensure only Strings
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
+        }
+        experiment.setTags(tags);
+        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
+        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
+        experiment.setMetricDefinitions((List<MetricDefinition>) data.get("metric_definitions"));
+
+        return experiment;
+    }
+
+    private Long parseIsoDateToMillis(String isoDate) {
+        if (isoDate == null || isoDate.isEmpty()) {
+            return null;
+        }
+        try {
+            return Instant.parse(isoDate).toEpochMilli(); // Convert ISO string to milliseconds
+        } catch (DateTimeParseException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private void extractDatasets(Map<String, Object> workflowData, String datasetKey, DataAsset.Role role,
+            List<DataAsset> dataAssets) {
+        List<Map<String, Object>> datasets = (List<Map<String, Object>>) workflowData.get(datasetKey);
+        if (datasets != null) {
+            for (Map<String, Object> dataset : datasets) {
+                DataAsset dataAsset = new DataAsset();
+                dataAsset.setName((String) dataset.get("name"));
+                dataAsset.setSource((String) dataset.get("uri"));
+                dataAsset.setRole(role);
+
+                dataAssets.add(dataAsset);
+            }
+        }
+    }
 
     public ExtremeXPExperimentService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -110,40 +161,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    private Experiment mapToExperiment(Map<String, Object> data) {
-        Experiment experiment = new Experiment();
-        experiment.setId((String) data.get("id"));
-        experiment.setName((String) data.get("name"));
-        Map<String, String> tags = new HashMap<>();
-        tags.put("status", (String) data.get("status"));
-        Object workflowIdsObj = data.get("workflow_ids");
-        if (workflowIdsObj instanceof List<?>) {
-            List<?> rawList = (List<?>) workflowIdsObj;
-            List<String> workflowIds = rawList.stream()
-                    .filter(String.class::isInstance) // Ensure only Strings
-                    .map(String.class::cast)
-                    .collect(Collectors.toList());
-            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
-        }
-        experiment.setTags(tags);
-        experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
-        experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
-
-        return experiment;
-    }
-
-    private Long parseIsoDateToMillis(String isoDate) {
-        if (isoDate == null || isoDate.isEmpty()) {
-            return null;
-        }
-        try {
-            return Instant.parse(isoDate).toEpochMilli(); // Convert ISO string to milliseconds
-        } catch (DateTimeParseException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
+    // Todo impliment
     @Override
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
         // make it empty
@@ -212,21 +230,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
             }
         }
         run.setParams(params);
-
-        // List<Task> task = new ArrayList<>();
-        // Object tasksObj = workflowData.get("tasks");
-        // if (tasksObj instanceof List<?>) {
-        // List<Map<String, Object>> tasks = (List<Map<String, Object>>) tasksObj;
-        // for (Map<String, Object> taskObj : tasks) {
-        // String taskName = (String) taskObj.get("name");
-        // String taskType = (String) taskObj.get("source_code");
-        // Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
-        // Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
-
-        // task.add(new Task(taskName, taskType, taskStartTime, taskEndTime, null));
-        // }
-        // }
-        // run.setTasks(task);
         List<Task> tasks = new ArrayList<>();
         Object tasksObj = workflowData.get("tasks");
 
@@ -248,7 +251,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     for (Map<String, Object> paramObj : parameters) {
                         String paramName = (String) paramObj.get("name");
                         String paramValue = (String) paramObj.get("value");
-                        taskTags.put("param_" + paramName, paramValue); // Store as "param_paramName"
+                        taskTags.put(paramName, paramValue); // Store as "param_paramName"
                     }
                 }
 
@@ -291,33 +294,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     }
 
-    private void extractDataAssets(Map<String, Object> task, List<DataAsset> dataAssets) {
-        // Extract input datasets
-        extractDatasets(task, "input_datasets", DataAsset.Role.INPUT, dataAssets);
-
-        // Extract output datasets
-        extractDatasets(task, "output_datasets", DataAsset.Role.OUTPUT, dataAssets);
-    }
-
-    /**
-     * Extracts datasets from a given key in the task and adds them to the
-     * dataAssets list.
-     */
-    private void extractDatasets(Map<String, Object> workflowData, String datasetKey, DataAsset.Role role,
-            List<DataAsset> dataAssets) {
-        List<Map<String, Object>> datasets = (List<Map<String, Object>>) workflowData.get(datasetKey);
-        if (datasets != null) {
-            for (Map<String, Object> dataset : datasets) {
-                DataAsset dataAsset = new DataAsset();
-                dataAsset.setName((String) dataset.get("name"));
-                dataAsset.setSource((String) dataset.get("uri"));
-                dataAsset.setRole(role);
-
-                dataAssets.add(dataAsset);
-            }
-        }
-    }
-
     @Override
     public ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName) {
         String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
@@ -336,4 +312,5 @@ public class ExtremeXPExperimentService implements ExperimentService {
         metric.setValue(new Double(workflowData.get("value").toString()));
         return ResponseEntity.ok(metric);
     }
+
 }
