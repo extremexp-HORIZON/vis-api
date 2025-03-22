@@ -3,10 +3,14 @@ package gr.imsi.athenarc.xtremexpvisapi.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
+
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -142,7 +146,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
-        //make it empty
+        // make it empty
         return null;
     }
 
@@ -172,16 +176,164 @@ public class ExtremeXPExperimentService implements ExperimentService {
         } catch (IllegalArgumentException e) {
             run.setStatus(Status.FAILED); // Default or handle unknown status
         }
+        Map<String, String> tags = new HashMap<>();
+        Object workflowIdsObj = workflowData.get("metric_ids");
+        if (workflowIdsObj instanceof List<?>) {
+            List<?> rawList = (List<?>) workflowIdsObj;
+            List<String> workflowIds = rawList.stream()
+                    .filter(String.class::isInstance) // Ensure only Strings
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            tags.put("metric_ids", String.join(",", workflowIds)); // Store as CSV string
+        }
+        run.setTags(tags);
+        List pame = new ArrayList();
+        // i want to use for each metrics id the getMetricValues and set my
+        // run.setMetrics to this
+        for (String metricId : tags.get("metric_ids").split(",")) {
+            Metric metric = getMetricValues(experimentId, runId, metricId).getBody();
+            System.out.println("metricId: " + metric);
+            pame.add(metric);
+        }
+        run.setMetrics(pame);
 
-        List<Object> metrics = (List<Object>) workflowData.get("metrics");
+        List<Param> params = new ArrayList<>();
+        // workflow parmeats
+        Object workflowParamsObj = workflowData.get("parameters");
+        if (workflowParamsObj instanceof List<?>) {
+            List<Map<String, Object>> workflowParams = (List<Map<String, Object>>) workflowParamsObj;
+            for (Map<String, Object> paramObj : workflowParams) {
+                String paramName = (String) paramObj.get("name");
+                String paramValue = (String) paramObj.get("value");
+
+                if (paramName != null && paramValue != null) {
+                    params.add(new Param(paramName, paramValue));
+                }
+            }
+        }
+        run.setParams(params);
+
+        // List<Task> task = new ArrayList<>();
+        // Object tasksObj = workflowData.get("tasks");
+        // if (tasksObj instanceof List<?>) {
+        // List<Map<String, Object>> tasks = (List<Map<String, Object>>) tasksObj;
+        // for (Map<String, Object> taskObj : tasks) {
+        // String taskName = (String) taskObj.get("name");
+        // String taskType = (String) taskObj.get("source_code");
+        // Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
+        // Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
+
+        // task.add(new Task(taskName, taskType, taskStartTime, taskEndTime, null));
+        // }
+        // }
+        // run.setTasks(task);
+        List<Task> tasks = new ArrayList<>();
+        Object tasksObj = workflowData.get("tasks");
+
+        if (tasksObj instanceof List<?>) {
+            List<Map<String, Object>> taskList = (List<Map<String, Object>>) tasksObj;
+
+            for (Map<String, Object> taskObj : taskList) {
+                String taskName = (String) taskObj.get("name");
+                String taskType = (String) taskObj.get("source_code");
+                Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
+                Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
+
+                // Initialize task tags map
+                Map<String, String> taskTags = new HashMap<>();
+
+                // Extract task parameters
+                if (taskObj.containsKey("parameters")) {
+                    List<Map<String, Object>> parameters = (List<Map<String, Object>>) taskObj.get("parameters");
+                    for (Map<String, Object> paramObj : parameters) {
+                        String paramName = (String) paramObj.get("name");
+                        String paramValue = (String) paramObj.get("value");
+                        taskTags.put("param_" + paramName, paramValue); // Store as "param_paramName"
+                    }
+                }
+
+                // Extract input datasets
+                if (taskObj.containsKey("input_datasets")) {
+                    List<Map<String, Object>> inputDatasets = (List<Map<String, Object>>) taskObj.get("input_datasets");
+                    List<String> datasetNames = inputDatasets.stream()
+                            .map(dataset -> (String) dataset.get("name"))
+                            .collect(Collectors.toList());
+                    taskTags.put("input_datasets", String.join(",", datasetNames));
+                }
+
+                // Extract output datasets
+                if (taskObj.containsKey("output_datasets")) {
+                    List<Map<String, Object>> outputDatasets = (List<Map<String, Object>>) taskObj
+                            .get("output_datasets");
+                    List<String> datasetNames = outputDatasets.stream()
+                            .map(dataset -> (String) dataset.get("name"))
+                            .collect(Collectors.toList());
+                    taskTags.put("output_datasets", String.join(",", datasetNames));
+                }
+
+                // Create Task object and set tags
+                Task task = new Task(taskName, taskType, taskStartTime, taskEndTime, null);
+                task.setTags(taskTags); // Assuming Task class has setTags() method
+
+                tasks.add(task);
+            }
+        }
+
+        // Assign tasks to the run
+        run.setTasks(tasks);
+
+        List<DataAsset> dataAssets = new ArrayList<>();
+        extractDatasets(workflowData, "input_datasets", DataAsset.Role.INPUT, dataAssets);
+        extractDatasets(workflowData, "output_datasets", DataAsset.Role.OUTPUT, dataAssets);
+        run.setDataAssets(dataAssets);
 
         return ResponseEntity.ok(run);
 
     }
 
+    private void extractDataAssets(Map<String, Object> task, List<DataAsset> dataAssets) {
+        // Extract input datasets
+        extractDatasets(task, "input_datasets", DataAsset.Role.INPUT, dataAssets);
+
+        // Extract output datasets
+        extractDatasets(task, "output_datasets", DataAsset.Role.OUTPUT, dataAssets);
+    }
+
+    /**
+     * Extracts datasets from a given key in the task and adds them to the
+     * dataAssets list.
+     */
+    private void extractDatasets(Map<String, Object> workflowData, String datasetKey, DataAsset.Role role,
+            List<DataAsset> dataAssets) {
+        List<Map<String, Object>> datasets = (List<Map<String, Object>>) workflowData.get(datasetKey);
+        if (datasets != null) {
+            for (Map<String, Object> dataset : datasets) {
+                DataAsset dataAsset = new DataAsset();
+                dataAsset.setName((String) dataset.get("name"));
+                dataAsset.setSource((String) dataset.get("uri"));
+                dataAsset.setRole(role);
+
+                dataAssets.add(dataAsset);
+            }
+        }
+    }
+
     @Override
-    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-        // Implement ExtremeXP-specific logic
-        return null; // Replace with actual implementation
+    public ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName) {
+        String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey); // API Key
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> workflowResponse = restTemplate.exchange(
+                requestUrl, HttpMethod.GET, entity, Map.class);
+        Map<String, Object> workflowData = workflowResponse.getBody();
+        // Step 4: Convert response to Run object
+        Metric metric = new Metric();
+        metric.setName((String) workflowData.get("name"));
+        metric.setValue(new Double(workflowData.get("value").toString()));
+        return ResponseEntity.ok(metric);
     }
 }
