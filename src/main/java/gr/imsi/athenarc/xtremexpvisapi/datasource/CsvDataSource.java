@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 
-import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
@@ -40,8 +39,6 @@ public class CsvDataSource implements DataSource {
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
     private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
     private String source;
-
-    private Map<String, TimeInterval> fileTimeRangeMap = null;
 
     @Autowired
     @Value("${app.working.directory}")
@@ -330,10 +327,6 @@ public class CsvDataSource implements DataSource {
         }
 
         return uniqueValues;
-    }
-
-    public Map<String, TimeInterval> getFileTimeRange() {
-        return fileTimeRangeMap;
     }
 
 }

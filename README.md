@@ -23,15 +23,9 @@ Welcome to the XtremeXP Visualization API! This API is designed to provide visua
     cd vis-api
     ```
 
-3. Run the following command
+3. Install Docker and Docker Compose if you haven't already.
 
-    ```
-    mvn install:install-file -Dfile=lib/min-max-cache.jar -DgroupId=gr.imsi.athenarc.visual.middleware -DartifactId=min-max-cache -Dversion=2.0 -Dpackaging=jar
-    ```
-
-4. Install Docker and Docker Compose if you haven't already.
-
-5. Run the following command to build and start the container:
+4. Run the following command to build and start the container:
 
     ```
     ./mvnw compile jib:dockerBuild exec:exec@run-docker-container
