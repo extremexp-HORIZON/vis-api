@@ -48,6 +48,14 @@
 			<artifactId>spring-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-config</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
 			<optional>true</optional>
@@ -106,7 +114,6 @@
 			<artifactId>external-umap-java</artifactId>
 			<version>1.0</version>
 		</dependency>
-
 		<dependency>
 			<groupId>tech.molecules</groupId>
 			<artifactId>external-umap-java</artifactId>
