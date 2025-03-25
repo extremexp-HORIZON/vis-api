@@ -8,6 +8,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.MetricDefinition;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
@@ -44,14 +45,10 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setName((String) data.get("name"));
         Map<String, String> tags = new HashMap<>();
         tags.put("status", (String) data.get("status"));
-        Object workflowIdsObj = data.get("workflow_ids");
-        if (workflowIdsObj instanceof List<?>) {
-            List<?> rawList = (List<?>) workflowIdsObj;
-            List<String> workflowIds = rawList.stream()
-                    .filter(String.class::isInstance) // Ensure only Strings
-                    .map(String.class::cast)
-                    .collect(Collectors.toList());
-            tags.put("workflow_ids", String.join(",", workflowIds)); // Store as CSV string
+        Object metadata = data.get("metadata");
+        if (metadata instanceof Map) {
+            Map<String, String> metadataMap = (Map<String, String>) metadata;
+            tags.putAll(metadataMap);
         }
         experiment.setTags(tags);
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
@@ -149,6 +146,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     Map.class);
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
+                System.out.println("experimentData: " + experimentData.get("workflow_ids"));
 
                 Experiment experiment = mapToExperiment(experimentData);
                 return ResponseEntity.ok(experiment);
@@ -161,11 +159,43 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    // Todo impliment
     @Override
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
-        // make it empty
-        return null;
+        String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
+                System.out.println("experimentData: " + experimentData.get("workflow_ids"));
+
+                List<String> workflowIds = (List<String>) experimentData.get("workflow_ids");
+                List<Run> runs = new ArrayList<>();
+
+                for (String runId : workflowIds) {
+                    ResponseEntity<Run> runResponse = getRunById(experimentId, runId);
+                    if (runResponse.getStatusCode() == HttpStatus.OK && runResponse.getBody() != null) {
+                        runs.add(runResponse.getBody());
+                    }
+                }
+
+                return ResponseEntity.ok(runs);
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @Override
@@ -204,7 +234,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     .collect(Collectors.toList());
             tags.put("metric_ids", String.join(",", workflowIds)); // Store as CSV string
         }
-        run.setTags(tags);
+        // run.setTags(tags);
         List pame = new ArrayList();
         // i want to use for each metrics id the getMetricValues and set my
         // run.setMetrics to this
@@ -313,4 +343,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
         return ResponseEntity.ok(metric);
     }
 
+    @Override
+    public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId,
+            UserEvaluation userEvaluation) {
+        return ResponseEntity.ok(userEvaluation);
+    }
 }

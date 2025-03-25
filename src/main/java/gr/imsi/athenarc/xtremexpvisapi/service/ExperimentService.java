@@ -3,6 +3,7 @@ package gr.imsi.athenarc.xtremexpvisapi.service;
 import org.springframework.http.ResponseEntity;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 
 import java.util.List;
@@ -17,4 +18,5 @@ public interface ExperimentService {
     ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
     ResponseEntity<Run> getRunById(String experimentId, String runId);
     ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName);
+    ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
 }
