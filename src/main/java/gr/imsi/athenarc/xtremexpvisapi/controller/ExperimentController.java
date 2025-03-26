@@ -100,7 +100,7 @@ public class ExperimentController {
      * @return A ResponseEntity containing a list of metric values.
      */
     @GetMapping("/{experimentId}/runs/{runId}/metrics/{metricName}")
-    public ResponseEntity<Metric> getMetricValues(
+    public ResponseEntity<List<Metric>> getMetricValues(
             @PathVariable String experimentId,
             @PathVariable String runId,
             @PathVariable String metricName) {

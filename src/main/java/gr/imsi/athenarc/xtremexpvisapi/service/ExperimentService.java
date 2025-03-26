@@ -17,6 +17,6 @@ public interface ExperimentService {
     ResponseEntity<Experiment> getExperimentById(String experimentId);
     ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
     ResponseEntity<Run> getRunById(String experimentId, String runId);
-    ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName);
+    ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName);
     ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
 }

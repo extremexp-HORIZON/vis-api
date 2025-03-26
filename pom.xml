@@ -118,11 +118,6 @@
 			<artifactId>external-umap-java</artifactId>
 			<version>1.0</version>
 		</dependency>
-		<dependency>
-			<groupId>tech.molecules</groupId>
-			<artifactId>external-umap-java</artifactId>
-			<version>1.0</version>
-		</dependency>
 	</dependencies>
 	<build>
 		<extensions>
