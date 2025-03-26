@@ -7,6 +7,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
@@ -263,8 +264,55 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
-        // Not implemented
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/set-tag";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        try {
+            // Required field
+            setRunTag(requestUrl, runId, "user_evaluation.user", userEvaluation.getUser(), headers);
+            
+            // Optional fields
+            if (userEvaluation.getRating() != null) {
+                setRunTag(requestUrl, runId, "user_evaluation.rating", 
+                        String.valueOf(userEvaluation.getRating()), headers);
+            }
+            if (userEvaluation.getFavorite() != null) {
+                setRunTag(requestUrl, runId, "user_evaluation.favorite", 
+                        String.valueOf(userEvaluation.getFavorite()), headers);
+            }
+            if (userEvaluation.getComment() != null) {
+                setRunTag(requestUrl, runId, "user_evaluation.comment", 
+                        userEvaluation.getComment(), headers);
+            }
+
+            return ResponseEntity.ok(userEvaluation);
+
+        } catch (Exception e) {
+            LOG.error("Error submitting user evaluation for run {}", runId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("run_id", runId);
+        requestBody.put("key", key);
+        requestBody.put("value", value);
+
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
+
+        LOG.info("Setting tag {} for run {}", key, runId);
+        ResponseEntity<Map> response = restTemplate.exchange(
+                requestUrl,
+                HttpMethod.POST,
+                entity,
+                Map.class);
+        LOG.info("Received response from MLflow: {}", response.getStatusCode());
+
+        if (response.getStatusCode() != HttpStatus.OK) {
+            throw new RuntimeException("Failed to set tag " + key + " for run " + runId);
+        }
     }
 
     private List<Experiment> mapToExperiments(Map<String, Object> data) {
@@ -357,6 +405,19 @@ public class MLflowExperimentService implements ExperimentService {
                 )
                 .collect(Collectors.toList()));
         }
+
+        // Map inputs
+        if (data.get("inputs") != null) {
+            Map<String, Object> inputs = (Map<String, Object>) data.get("inputs");
+            if (inputs.get("dataset_inputs") instanceof List) {
+                List<Map<String, Object>> datasetInputs = (List<Map<String, Object>>) inputs.get("dataset_inputs");
+                run.setDataAssets(
+                    datasetInputs.stream()
+                    .map(this::mapToDataAsset)
+                    .collect(Collectors.toList())
+                );
+            }
+        }
         
         // Map tags
         Map<String, String> tags = new HashMap<>();
@@ -368,6 +429,42 @@ public class MLflowExperimentService implements ExperimentService {
         run.setTags(tags);
         
         return run;
+    }
+
+    private DataAsset mapToDataAsset(Map<String, Object> datasetInput) {
+        Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
+        List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
+        
+        DataAsset asset = new DataAsset();
+        asset.setName((String) dataset.get("name"));
+        asset.setSourceType((String) dataset.get("source_type"));
+        asset.setSource((String) dataset.get("source"));
+        
+        // Map tags from both dataset metadata and input tags
+        Map<String, String> tags = new HashMap<>();
+        
+        // Add dataset metadata as tags
+        if (dataset.get("digest") != null) {
+            tags.put("digest", (String) dataset.get("digest"));
+        }
+        if (dataset.get("schema") != null) {
+            tags.put("schema", (String) dataset.get("schema"));
+        }
+        if (dataset.get("profile") != null) {
+            tags.put("profile", (String) dataset.get("profile"));
+        }
+        
+        // Add input tags
+        if (inputTags != null) {
+            inputTags.forEach(tag -> 
+                tags.put((String) tag.get("key"), (String) tag.get("value"))
+            );
+        }
+        
+        asset.setTags(tags);
+        asset.setRole(DataAsset.Role.INPUT); // These are always input datasets from MLflow
+        
+        return asset;
     }
 
     private Run.Status mapStatus(String mlflowStatus) {
