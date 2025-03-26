@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 
@@ -231,7 +232,7 @@ public class MLflowExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName) {
+    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
 
         HttpHeaders headers = new HttpHeaders();
@@ -240,21 +241,30 @@ public class MLflowExperimentService implements ExperimentService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
+            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId, requestUrl);
             ResponseEntity<Map> response = restTemplate.exchange(
                     requestUrl,
                     HttpMethod.GET,
                     entity,
                     Map.class);
+            LOG.info("Received response from MLflow: {}", response.getStatusCode());
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return ResponseEntity.ok(mapToMetric(response.getBody()));
+                return ResponseEntity.ok(mapMetricHistory(response.getBody()));
             } else {
                 return ResponseEntity.status(response.getStatusCode()).build();
             }
 
         } catch (Exception e) {
+            LOG.error("Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @Override
+    public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
+        // Not implemented
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
     private List<Experiment> mapToExperiments(Map<String, Object> data) {
