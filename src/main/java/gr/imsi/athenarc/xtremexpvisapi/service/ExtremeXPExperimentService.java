@@ -239,7 +239,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         // i want to use for each metrics id the getMetricValues and set my
         // run.setMetrics to this
         for (String metricId : tags.get("metric_ids").split(",")) {
-            Metric metric = getMetricValues(experimentId, runId, metricId).getBody();
+            Metric metric = getMetricValues(experimentId, runId, metricId).getBody().get(0);
             System.out.println("metricId: " + metric);
             pame.add(metric);
         }
@@ -325,7 +325,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<Metric> getMetricValues(String experimentId, String runId, String metricName) {
+    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
         String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
         HttpHeaders headers = new HttpHeaders();
         headers.set("access-token", workflowsApiKey); // API Key
@@ -340,7 +340,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Metric metric = new Metric();
         metric.setName((String) workflowData.get("name"));
         metric.setValue(new Double(workflowData.get("value").toString()));
-        return ResponseEntity.ok(metric);
+        return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
     }
 
     @Override
