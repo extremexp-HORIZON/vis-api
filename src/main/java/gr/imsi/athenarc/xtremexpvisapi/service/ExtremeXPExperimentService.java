@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
+import org.apache.commons.logging.Log;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -44,7 +45,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setId((String) data.get("id"));
         experiment.setName((String) data.get("name"));
         Map<String, String> tags = new HashMap<>();
-        tags.put("status", (String) data.get("status"));
         Object metadata = data.get("metadata");
         if (metadata instanceof Map) {
             Map<String, String> metadataMap = (Map<String, String>) metadata;
@@ -53,7 +53,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setTags(tags);
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
-        experiment.setMetricDefinitions((List<MetricDefinition>) data.get("metric_definitions"));
 
         return experiment;
     }
@@ -116,10 +115,60 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         .map(this::mapToExperiment) // Convert to `Experiment` object
                         .skip(offset) // Apply offset
                         .limit(limit) // Apply limit
-                        .toList();
+                        .collect(Collectors.toList()); // Collect as List
 
-                // Fetch missing timestamps in parallel
+                // Iterate over each experiment to fetch metrics
+                for (Experiment experiment : experiments) {
+                    // Make the second API call to /metrics-query for each experiment
+                    String requestUrlMetc = workflowsApiUrl + "/metrics-query";
+                    Map<String, Object> requestBody = new HashMap<>();
+                    requestBody.put("experimentId", experiment.getId());
 
+                    // Create a new HttpEntity with the body for the metrics query request
+                    HttpEntity<Map<String, Object>> entityForMetrics = new HttpEntity<>(requestBody, headers);
+
+                    // Second API call to fetch metrics data
+                    ResponseEntity<List> responseMetrics = restTemplate.exchange(
+                            requestUrlMetc,
+                            HttpMethod.POST,
+                            entityForMetrics,
+                            List.class);
+
+                    if (responseMetrics.getStatusCode() == HttpStatus.OK && responseMetrics.getBody() != null) {
+                        List<Map<String, Object>> metricsResponse = (List<Map<String, Object>>) responseMetrics
+                                .getBody();
+                        List<MetricDefinition> metricDefinitions = new ArrayList<>();
+
+                        // Process metrics and populate MetricDefinition list
+                        for (Map<String, Object> metricResponse : metricsResponse) {
+                            String name = (String) metricResponse.get("name");
+                            String semanticType = (String) metricResponse.get("semantic_type");
+
+                            // Creating MetricDefinition objects with name and semanticType
+                            MetricDefinition metricDefinition = new MetricDefinition();
+                            metricDefinition.setName(name);
+                            metricDefinition.setSemanticType(semanticType);
+
+                            // Optionally, you can set placeholders or leave other fields empty for now
+                            metricDefinition.setDescription("Description not available");
+                            metricDefinition.setUnit("unit not available");
+                            metricDefinition.setGreaterIsBetter(null); // Or set based on your logic
+
+                            // Add the MetricDefinition to the list
+                            metricDefinitions.add(metricDefinition);
+                        }
+
+                        // Set the metricDefinitions to the experiment
+                        experiment.setMetricDefinitions(metricDefinitions);
+
+                    } else {
+                        System.out.println("Failed to retrieve metrics for experiment " + experiment.getId()
+                                + ". Status Code: " + responseMetrics.getStatusCode());
+                        System.out.println("Metrics Response Body: " + responseMetrics.getBody());
+                    }
+                }
+
+                // Return the list of experiments with populated metrics
                 return ResponseEntity.ok(experiments);
             } else {
                 return ResponseEntity.status(response.getStatusCode()).build();
@@ -138,22 +187,79 @@ public class ExtremeXPExperimentService implements ExperimentService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
+
         try {
+            // First API call to get experiment details
             ResponseEntity<Map> response = restTemplate.exchange(
                     requestUrl,
                     HttpMethod.GET,
                     entity,
                     Map.class);
+
+            // Debugging response for experiment details
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
-                System.out.println("experimentData: " + experimentData.get("workflow_ids"));
-
                 Experiment experiment = mapToExperiment(experimentData);
+
+                // Debugging the experiment details
+                System.out.println("Experiment Data: " + experiment);
+
+                // Now, make the second API call to /metrics-query
+                String requestUrlMetc = workflowsApiUrl + "/metrics-query";
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("experimentId", experimentId);
+
+                // Debugging the request body for metrics query
+                System.out.println("Metrics Query Request Body: " + requestBody);
+
+                // Create a new HttpEntity with the body for the metrics query request
+                HttpEntity<Map<String, Object>> entityForMetrics = new HttpEntity<>(requestBody, headers);
+
+                // Second API call to fetch metrics data
+                ResponseEntity<List> responseMetrics = restTemplate.exchange(
+                        requestUrlMetc,
+                        HttpMethod.POST,
+                        entityForMetrics,
+                        List.class);
+
+                // Debugging metrics response
+                if (responseMetrics.getStatusCode() == HttpStatus.OK && responseMetrics.getBody() != null) {
+                    List<Map<String, Object>> metricsResponse = (List<Map<String, Object>>) responseMetrics.getBody();
+                    List<MetricDefinition> metricDefinitions = new ArrayList<>();
+                    for (Map<String, Object> metricResponse : metricsResponse) {
+                        String name = (String) metricResponse.get("name");
+                        String semanticType = (String) metricResponse.get("semantic_type");
+
+                        // Creating MetricDefinition objects with name and semanticType
+                        MetricDefinition metricDefinition = new MetricDefinition();
+                        metricDefinition.setName(name);
+                        metricDefinition.setSemanticType(semanticType);
+
+                        // Optionally, you can set placeholders or leave other fields empty for now
+                        metricDefinition.setDescription("Description not available");
+                        metricDefinition.setUnit("unit not available");
+                        metricDefinition.setGreaterIsBetter(null); // Or set based on your logic
+
+                        // Add the MetricDefinition to the list
+                        metricDefinitions.add(metricDefinition);
+                    }
+                    experiment.setMetricDefinitions(metricDefinitions);
+
+                } else {
+                    System.out.println("Failed to retrieve metrics. Status Code: " + responseMetrics.getStatusCode());
+                    System.out.println("Metrics Response Body: " + responseMetrics.getBody());
+                }
+
+                // Return the experiment details
                 return ResponseEntity.ok(experiment);
             } else {
+                // Debugging experiment fetch failure
+                System.out.println("Failed to fetch experiment. Status Code: " + response.getStatusCode());
+                System.out.println("Experiment Fetch Response Body: " + response.getBody());
                 return ResponseEntity.status(response.getStatusCode()).build();
             }
         } catch (Exception e) {
+            // Log exception stack trace for more detailed error
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -176,7 +282,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
-                System.out.println("experimentData: " + experimentData.get("workflow_ids"));
+                // System.out.println("experimentData: " + experimentData.get("workflow_ids"));
 
                 List<String> workflowIds = (List<String>) experimentData.get("workflow_ids");
                 List<Run> runs = new ArrayList<>();
@@ -240,7 +346,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         // run.setMetrics to this
         for (String metricId : tags.get("metric_ids").split(",")) {
             Metric metric = getMetricValues(experimentId, runId, metricId).getBody().get(0);
-            System.out.println("metricId: " + metric);
+            // System.out.println("metricId: " + metric);
             pame.add(metric);
         }
         run.setMetrics(pame);
