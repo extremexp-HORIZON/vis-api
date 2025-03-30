@@ -1,6 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
-import org.apache.commons.logging.Log;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -69,17 +68,37 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    private void extractDatasets(Map<String, Object> workflowData, String datasetKey, DataAsset.Role role,
-            List<DataAsset> dataAssets) {
-        List<Map<String, Object>> datasets = (List<Map<String, Object>>) workflowData.get(datasetKey);
-        if (datasets != null) {
-            for (Map<String, Object> dataset : datasets) {
-                DataAsset dataAsset = new DataAsset();
-                dataAsset.setName((String) dataset.get("name"));
-                dataAsset.setSource((String) dataset.get("uri"));
-                dataAsset.setRole(role);
+    // private void extractDatasets(Map<String, Object> workflowData, String
+    // datasetKey, DataAsset.Role role,
+    // List<DataAsset> dataAssets) {
+    // List<Map<String, Object>> datasets = (List<Map<String, Object>>)
+    // workflowData.get(datasetKey);
+    // if (datasets != null) {
+    // for (Map<String, Object> dataset : datasets) {
+    // DataAsset dataAsset = new DataAsset();
+    // dataAsset.setName((String) dataset.get("name"));
+    // dataAsset.setSource((String) dataset.get("uri"));
+    // dataAsset.setRole(role);
 
-                dataAssets.add(dataAsset);
+    // dataAssets.add(dataAsset);
+    // }
+    // }
+    // }
+    private void extractDatasets(Map<String, Object> taskObj, String key, DataAsset.Role role, String taskName,
+            List<DataAsset> dataAssets) {
+        if (taskObj.containsKey(key)) {
+            List<Map<String, Object>> datasetList = (List<Map<String, Object>>) taskObj.get(key);
+            for (Map<String, Object> dataset : datasetList) {
+                String name = (String) dataset.get("name");
+                String uri = (String) dataset.get("uri");
+                Map<String, String> tags = new HashMap<>();
+
+                if (dataset.containsKey("metadata")) {
+                    Map<String, Object> metadata = (Map<String, Object>) dataset.get("metadata");
+                    metadata.forEach((metaKey, metaValue) -> tags.put(metaKey, metaValue.toString()));
+                }
+
+                dataAssets.add(new DataAsset(name, "unknown", uri, "unknown", role, taskName, tags));
             }
         }
     }
@@ -138,28 +157,29 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         List<Map<String, Object>> metricsResponse = (List<Map<String, Object>>) responseMetrics
                                 .getBody();
                         List<MetricDefinition> metricDefinitions = new ArrayList<>();
+                        Map<String, MetricDefinition> uniqueMetricDefinitions = new HashMap<>();
 
                         // Process metrics and populate MetricDefinition list
                         for (Map<String, Object> metricResponse : metricsResponse) {
                             String name = (String) metricResponse.get("name");
                             String semanticType = (String) metricResponse.get("semantic_type");
 
-                            // Creating MetricDefinition objects with name and semanticType
-                            MetricDefinition metricDefinition = new MetricDefinition();
-                            metricDefinition.setName(name);
-                            metricDefinition.setSemanticType(semanticType);
+                            // Only add if semanticType is unique
+                            if (!uniqueMetricDefinitions.containsKey(semanticType)) {
+                                MetricDefinition metricDefinition = new MetricDefinition();
+                                metricDefinition.setName(name);
+                                metricDefinition.setSemanticType(semanticType);
+                                metricDefinition.setDescription("Description not available");
+                                metricDefinition.setUnit("unit not available");
+                                metricDefinition.setGreaterIsBetter(null); // Set based on your logic
 
-                            // Optionally, you can set placeholders or leave other fields empty for now
-                            metricDefinition.setDescription("Description not available");
-                            metricDefinition.setUnit("unit not available");
-                            metricDefinition.setGreaterIsBetter(null); // Or set based on your logic
-
-                            // Add the MetricDefinition to the list
-                            metricDefinitions.add(metricDefinition);
+                                uniqueMetricDefinitions.put(semanticType, metricDefinition);
+                            }
                         }
 
                         // Set the metricDefinitions to the experiment
-                        experiment.setMetricDefinitions(metricDefinitions);
+                        // experiment.setMetricDefinitions(metricDefinitions);
+                        experiment.setMetricDefinitions(new ArrayList<>(uniqueMetricDefinitions.values()));
 
                     } else {
                         System.out.println("Failed to retrieve metrics for experiment " + experiment.getId()
@@ -225,25 +245,27 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 // Debugging metrics response
                 if (responseMetrics.getStatusCode() == HttpStatus.OK && responseMetrics.getBody() != null) {
                     List<Map<String, Object>> metricsResponse = (List<Map<String, Object>>) responseMetrics.getBody();
-                    List<MetricDefinition> metricDefinitions = new ArrayList<>();
+                    Map<String, MetricDefinition> uniqueMetricDefinitions = new HashMap<>();
+
                     for (Map<String, Object> metricResponse : metricsResponse) {
                         String name = (String) metricResponse.get("name");
                         String semanticType = (String) metricResponse.get("semantic_type");
 
-                        // Creating MetricDefinition objects with name and semanticType
-                        MetricDefinition metricDefinition = new MetricDefinition();
-                        metricDefinition.setName(name);
-                        metricDefinition.setSemanticType(semanticType);
+                        // Only add to map if semanticType is unique
+                        if (!uniqueMetricDefinitions.containsKey(semanticType)) {
+                            MetricDefinition metricDefinition = new MetricDefinition();
+                            metricDefinition.setName(name);
+                            metricDefinition.setSemanticType(semanticType);
+                            metricDefinition.setDescription("Description not available");
+                            metricDefinition.setUnit("unit not available");
+                            metricDefinition.setGreaterIsBetter(null); // Set based on your logic
 
-                        // Optionally, you can set placeholders or leave other fields empty for now
-                        metricDefinition.setDescription("Description not available");
-                        metricDefinition.setUnit("unit not available");
-                        metricDefinition.setGreaterIsBetter(null); // Or set based on your logic
-
-                        // Add the MetricDefinition to the list
-                        metricDefinitions.add(metricDefinition);
+                            uniqueMetricDefinitions.put(semanticType, metricDefinition);
+                        }
                     }
-                    experiment.setMetricDefinitions(metricDefinitions);
+
+                    // Convert map values to list and set to experiment
+                    experiment.setMetricDefinitions(new ArrayList<>(uniqueMetricDefinitions.values()));
 
                 } else {
                     System.out.println("Failed to retrieve metrics. Status Code: " + responseMetrics.getStatusCode());
@@ -325,31 +347,46 @@ public class ExtremeXPExperimentService implements ExperimentService {
         run.setStartTime(parseIsoDateToMillis((String) workflowData.get("start")));
         run.setEndTime(parseIsoDateToMillis((String) workflowData.get("end")));
         String statusStr = (String) workflowData.get("status"); // Get status as string
+        System.out.println("metada: " + workflowData.get("metadata"));
         try {
             run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
         } catch (IllegalArgumentException e) {
             run.setStatus(Status.FAILED); // Default or handle unknown status
         }
+        // Extract and store metadata in tags
         Map<String, String> tags = new HashMap<>();
+        if (workflowData.containsKey("metadata")) {
+            Map<String, Object> metadata = (Map<String, Object>) workflowData.get("metadata");
+            for (Map.Entry<String, Object> entry : metadata.entrySet()) {
+                if (entry.getValue() instanceof String) {
+                    tags.put(entry.getKey(), (String) entry.getValue()); // Add metadata to tags
+                } else {
+                    tags.put(entry.getKey(), entry.getValue().toString()); // Convert non-string values to String
+                }
+            }
+        }
+
+        // Set only metadata tags to the Run object
+        run.setTags(tags);
+
+        // Extract metric IDs separately (not inside tags)
+        List<String> metricIds = new ArrayList<>();
         Object workflowIdsObj = workflowData.get("metric_ids");
         if (workflowIdsObj instanceof List<?>) {
             List<?> rawList = (List<?>) workflowIdsObj;
-            List<String> workflowIds = rawList.stream()
+            metricIds = rawList.stream()
                     .filter(String.class::isInstance) // Ensure only Strings
                     .map(String.class::cast)
                     .collect(Collectors.toList());
-            tags.put("metric_ids", String.join(",", workflowIds)); // Store as CSV string
         }
-        // run.setTags(tags);
-        List pame = new ArrayList();
-        // i want to use for each metrics id the getMetricValues and set my
-        // run.setMetrics to this
-        for (String metricId : tags.get("metric_ids").split(",")) {
+
+        // Fetch and set metrics using the extracted metric IDs
+        List<Metric> metrics = new ArrayList<>();
+        for (String metricId : metricIds) {
             Metric metric = getMetricValues(experimentId, runId, metricId).getBody().get(0);
-            // System.out.println("metricId: " + metric);
-            pame.add(metric);
+            metrics.add(metric);
         }
-        run.setMetrics(pame);
+        run.setMetrics(metrics);
 
         List<Param> params = new ArrayList<>();
         // workflow parmeats
@@ -367,8 +404,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
         run.setParams(params);
         List<Task> tasks = new ArrayList<>();
-        Object tasksObj = workflowData.get("tasks");
+        List<DataAsset> dataAssets = new ArrayList<>();
 
+        Object tasksObj = workflowData.get("tasks");
         if (tasksObj instanceof List<?>) {
             List<Map<String, Object>> taskList = (List<Map<String, Object>>) tasksObj;
 
@@ -378,52 +416,24 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
 
-                // Initialize task tags map
                 Map<String, String> taskTags = new HashMap<>();
-
-                // Extract task parameters
                 if (taskObj.containsKey("parameters")) {
                     List<Map<String, Object>> parameters = (List<Map<String, Object>>) taskObj.get("parameters");
-                    for (Map<String, Object> paramObj : parameters) {
-                        String paramName = (String) paramObj.get("name");
-                        String paramValue = (String) paramObj.get("value");
-                        taskTags.put(paramName, paramValue); // Store as "param_paramName"
+                    for (Map<String, Object> param : parameters) {
+                        taskTags.put((String) param.get("name"), (String) param.get("value"));
                     }
                 }
 
-                // Extract input datasets
-                if (taskObj.containsKey("input_datasets")) {
-                    List<Map<String, Object>> inputDatasets = (List<Map<String, Object>>) taskObj.get("input_datasets");
-                    List<String> datasetNames = inputDatasets.stream()
-                            .map(dataset -> (String) dataset.get("name"))
-                            .collect(Collectors.toList());
-                    taskTags.put("input_datasets", String.join(",", datasetNames));
-                }
-
-                // Extract output datasets
-                if (taskObj.containsKey("output_datasets")) {
-                    List<Map<String, Object>> outputDatasets = (List<Map<String, Object>>) taskObj
-                            .get("output_datasets");
-                    List<String> datasetNames = outputDatasets.stream()
-                            .map(dataset -> (String) dataset.get("name"))
-                            .collect(Collectors.toList());
-                    taskTags.put("output_datasets", String.join(",", datasetNames));
-                }
-
-                // Create Task object and set tags
-                Task task = new Task(taskName, taskType, taskStartTime, taskEndTime, null);
-                task.setTags(taskTags); // Assuming Task class has setTags() method
-
+                Task task = new Task(taskName, taskType, taskStartTime, taskEndTime, taskTags);
                 tasks.add(task);
+
+                // Extract Datasets for this task
+                extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskName, dataAssets);
+                extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskName, dataAssets);
             }
         }
 
-        // Assign tasks to the run
         run.setTasks(tasks);
-
-        List<DataAsset> dataAssets = new ArrayList<>();
-        extractDatasets(workflowData, "input_datasets", DataAsset.Role.INPUT, dataAssets);
-        extractDatasets(workflowData, "output_datasets", DataAsset.Role.OUTPUT, dataAssets);
         run.setDataAssets(dataAssets);
 
         return ResponseEntity.ok(run);
