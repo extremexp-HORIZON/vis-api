@@ -7,6 +7,10 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
@@ -387,7 +391,7 @@ public class MLflowExperimentService implements ExperimentService {
             List<Map<String, Object>> params = (List<Map<String, Object>>) data2.get("params");
             run.setParams(
                 params.stream()
-                .map(p -> new Param((String) p.get("key"), (String) p.get("value")))
+                .map(p -> new Param((String) p.get("key"), (String) p.get("value"), null))
                 .collect(Collectors.toList())
             );
         }
@@ -438,7 +442,38 @@ public class MLflowExperimentService implements ExperimentService {
         DataAsset asset = new DataAsset();
         asset.setName((String) dataset.get("name"));
         asset.setSourceType((String) dataset.get("source_type"));
-        asset.setSource((String) dataset.get("source"));
+
+        Object source = dataset.get("source");
+        if (! (source instanceof String)) {
+            throw new RuntimeException("Dataset source is not a string as specified in MLflow API: " + source);
+        }
+        String source_str = (String) source;
+        ObjectMapper objectMapper = new ObjectMapper();
+        String asset_source;
+        try {
+            JsonNode jsonNode = objectMapper.readTree(source_str);
+            // read source, which lies in either "uri" or "url" field
+            // depending on the source type
+            if (jsonNode.get("uri") != null) {
+                asset_source = jsonNode.get("uri").asText();
+            } else if (jsonNode.get("url") != null) {
+                asset_source = jsonNode.get("url").asText();
+            } else {
+                throw new RuntimeException("Dataset source does not contain 'uri' or 'url' field: " + source_str);
+            }
+        } catch (JsonProcessingException e) {
+            // If the source is not a valid JSON string, we use it as is
+            LOG.warn(source_str + " is not a valid JSON string. It will be used as is.");
+            e.printStackTrace();
+            asset_source = source_str;
+        } catch (Exception e) {
+            // If the source IS a valid JSON string, but it does not contain "uri" or "url" field
+            // we again use the source as is (because a string is required) and log a warning
+            LOG.warn(source_str + " does not contain 'uri' or 'url' field. It will be used as is.");
+            e.printStackTrace();
+            asset_source = source_str;
+        }
+        asset.setSource(asset_source);
         
         // Map tags from both dataset metadata and input tags
         Map<String, String> tags = new HashMap<>();
