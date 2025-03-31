@@ -21,14 +21,20 @@ public class Param {
      */
     private String value;
 
+    /**
+     * The task this parameter is associated with, if applicable.
+     */
+    private String task;
+
     // Constructors
 
     public Param() {
     }
 
-    public Param(String name, String value) {
+    public Param(String name, String value, String task) {
         this.name = name;
         this.value = value;
+        this.task = task;
     }
 
     // Getters and Setters
@@ -49,13 +55,21 @@ public class Param {
         this.value = value;
     }
 
-    // toString() Method for Debugging
+    public String getTask() {
+        return task;
+    }
+
+    public void setTask(String task) {
+        this.task = task;
+    }
 
     @Override
     public String toString() {
         return "Param{" +
                 "name='" + name + '\'' +
                 ", value='" + value + '\'' +
+                ", task='" + task + '\'' +
                 '}';
     }
+
 }
