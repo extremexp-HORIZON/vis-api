@@ -388,55 +388,53 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
         run.setMetrics(metrics);
 
-        List<Param> params = new ArrayList<>();
-        // workflow parmeats
-        Object workflowParamsObj = workflowData.get("parameters");
-        if (workflowParamsObj instanceof List<?>) {
-            List<Map<String, Object>> workflowParams = (List<Map<String, Object>>) workflowParamsObj;
-            for (Map<String, Object> paramObj : workflowParams) {
-                String paramName = (String) paramObj.get("name");
-                String paramValue = (String) paramObj.get("value");
-
-                if (paramName != null && paramValue != null) {
-                    params.add(new Param(paramName, paramValue));
-                }
-            }
-        }
-        run.setParams(params);
         List<Task> tasks = new ArrayList<>();
+        List<Param> params = new ArrayList<>();
         List<DataAsset> dataAssets = new ArrayList<>();
-
+    
         Object tasksObj = workflowData.get("tasks");
         if (tasksObj instanceof List<?>) {
-            List<Map<String, Object>> taskList = (List<Map<String, Object>>) tasksObj;
-
-            for (Map<String, Object> taskObj : taskList) {
+            List<Map<String, Object>> tasksList = (List<Map<String, Object>>) tasksObj;
+    
+            for (Map<String, Object> taskObj : tasksList) {
+                // Extract task details
                 String taskName = (String) taskObj.get("name");
                 String taskType = (String) taskObj.get("source_code");
                 Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
-
+    
                 Map<String, String> taskTags = new HashMap<>();
+                
+                // Extract parameters for this task
                 if (taskObj.containsKey("parameters")) {
                     List<Map<String, Object>> parameters = (List<Map<String, Object>>) taskObj.get("parameters");
-                    for (Map<String, Object> param : parameters) {
-                        taskTags.put((String) param.get("name"), (String) param.get("value"));
+                    for (Map<String, Object> paramObj : parameters) {
+                        String paramName = (String) paramObj.get("name");
+                        String paramValue = (String) paramObj.get("value");
+                        if (paramName != null && paramValue != null) {
+                            params.add(new Param(paramName, paramValue, taskName)); // Assign task to Param
+                        }
                     }
                 }
-
+    
+                // Create task object and add it to the list
                 Task task = new Task(taskName, taskType, taskStartTime, taskEndTime, taskTags);
                 tasks.add(task);
-
-                // Extract Datasets for this task
+    
+                // Extract datasets for the task
                 extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskName, dataAssets);
                 extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskName, dataAssets);
             }
         }
-
+    
+        // Set extracted details into the Run object
+        run.setParams(params);  // Now Params have task association
         run.setTasks(tasks);
         run.setDataAssets(dataAssets);
-
+    
         return ResponseEntity.ok(run);
+
+        
 
     }
 
@@ -455,8 +453,13 @@ public class ExtremeXPExperimentService implements ExperimentService {
         // Step 4: Convert response to Run object
         Metric metric = new Metric();
         metric.setName((String) workflowData.get("name"));
-        metric.setValue(new Double(workflowData.get("value").toString()));
-        return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
+        Object valueObj = workflowData.get("value");
+        if (valueObj != null) {
+            metric.setValue(Double.valueOf(valueObj.toString()));
+        } else {
+            metric.setValue(0.0); // Set a default or handle appropriately
+        }
+                return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
     }
 
     @Override

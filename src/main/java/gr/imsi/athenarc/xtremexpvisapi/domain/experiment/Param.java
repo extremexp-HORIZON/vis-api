@@ -37,6 +37,13 @@ public class Param {
         this.task = task;
     }
 
+    // Add this missing constructor:
+    public Param(String name, String value) {
+        this.name = name;
+        this.value = value;
+        this.task = "default"; // Or any appropriate default value
+    }
+
     // Getters and Setters
 
     public String getName() {
