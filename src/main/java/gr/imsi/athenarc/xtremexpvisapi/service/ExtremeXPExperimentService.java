@@ -369,24 +369,24 @@ public class ExtremeXPExperimentService implements ExperimentService {
         // Set only metadata tags to the Run object
         run.setTags(tags);
 
-        // Extract metric IDs separately (not inside tags)
         List<String> metricIds = new ArrayList<>();
-        Object workflowIdsObj = workflowData.get("metric_ids");
-        if (workflowIdsObj instanceof List<?>) {
-            List<?> rawList = (List<?>) workflowIdsObj;
-            metricIds = rawList.stream()
-                    .filter(String.class::isInstance) // Ensure only Strings
-                    .map(String.class::cast)
-                    .collect(Collectors.toList());
-        }
+    Object workflowIdsObj = workflowData.get("metric_ids");
+    if (workflowIdsObj instanceof List<?>) {
+        metricIds = ((List<?>) workflowIdsObj).stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .collect(Collectors.toList());
+    }
 
-        // Fetch and set metrics using the extracted metric IDs
-        List<Metric> metrics = new ArrayList<>();
-        for (String metricId : metricIds) {
-            Metric metric = getMetricValues(experimentId, runId, metricId).getBody().get(0);
-            metrics.add(metric);
+    List<Metric> metrics = new ArrayList<>();
+    for (String metricId : metricIds) {
+        ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
+        if (metricResponse.getBody() != null) {
+            metrics.addAll(metricResponse.getBody()); // Append all extracted metrics
         }
-        run.setMetrics(metrics);
+    }
+    run.setMetrics(metrics);
+
 
         List<Task> tasks = new ArrayList<>();
         List<Param> params = new ArrayList<>();
@@ -439,18 +439,23 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-        String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("access-token", workflowsApiKey); // API Key
-        headers.setContentType(MediaType.APPLICATION_JSON);
+public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
+    String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
+    HttpHeaders headers = new HttpHeaders();
+    headers.set("access-token", workflowsApiKey); // API Key
+    headers.setContentType(MediaType.APPLICATION_JSON);
 
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+    ResponseEntity<Map> workflowResponse = restTemplate.exchange(
+            requestUrl, HttpMethod.GET, entity, Map.class);
 
-        ResponseEntity<Map> workflowResponse = restTemplate.exchange(
-                requestUrl, HttpMethod.GET, entity, Map.class);
-        Map<String, Object> workflowData = workflowResponse.getBody();
-        // Step 4: Convert response to Run object
+    Map<String, Object> workflowData = workflowResponse.getBody();
+    if (workflowData == null) {
+        return ResponseEntity.badRequest().build();
+    }
+
+    List<Map<String, Object>> records = (List<Map<String, Object>>) workflowData.get("records");
+    if (records == null) {
         Metric metric = new Metric();
         metric.setName((String) workflowData.get("name"));
         Object valueObj = workflowData.get("value");
@@ -459,10 +464,27 @@ public class ExtremeXPExperimentService implements ExperimentService {
         } else {
             metric.setValue(0.0); // Set a default or handle appropriately
         }
-                return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
+        return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
+    }
+    
+
+    List<Metric> metrics = new ArrayList<>();
+    String name = (String) workflowData.get("name");
+    long timestamp = System.currentTimeMillis(); // Or extract from API if available
+
+    for (int i = 0; i < records.size(); i++) {
+        Map<String, Object> record = records.get(i);
+        Object valueObj = record.get("value");
+        double value = valueObj != null ? Double.parseDouble(valueObj.toString()) : 0.0;
+
+        metrics.add(new Metric(name, value, timestamp, i));
     }
 
-    @Override
+    return ResponseEntity.ok(metrics);
+}
+
+
+       @Override
     public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId,
             UserEvaluation userEvaluation) {
         return ResponseEntity.ok(userEvaluation);
