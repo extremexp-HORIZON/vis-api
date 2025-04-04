@@ -393,6 +393,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         List<DataAsset> dataAssets = new ArrayList<>();
     
         Object tasksObj = workflowData.get("tasks");
+        System.out.println("tasksObj: " + tasksObj);
         if (tasksObj instanceof List<?>) {
             List<Map<String, Object>> tasksList = (List<Map<String, Object>>) tasksObj;
     
@@ -404,6 +405,13 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
     
                 Map<String, String> taskTags = new HashMap<>();
+                String variant = null;
+                Object metadataObj = taskObj.get("metadata");
+                if (metadataObj instanceof Map<?, ?>) {
+                    Map<String, Object> metadataMap = (Map<String, Object>) metadataObj;
+                    variant = (String) metadataMap.get("prototypical_name");
+                }
+            
                 
                 // Extract parameters for this task
                 if (taskObj.containsKey("parameters")) {
@@ -418,7 +426,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 }
     
                 // Create task object and add it to the list
-                Task task = new Task(taskName, taskType, taskStartTime, taskEndTime, taskTags);
+                Task task = new Task(taskName, taskType,variant, taskStartTime, taskEndTime, taskTags);
                 tasks.add(task);
     
                 // Extract datasets for the task
