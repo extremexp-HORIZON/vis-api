@@ -4,10 +4,6 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.experiment;
  * Represents a key-value pair used as an input parameter for a run.
  * Parameters typically define the configuration of an experiment, such as
  * hyperparameters for training models.
- * They can also represent categorical values, such as the algorithm type (e.g.,
- * "NeuralNetwork", "RecurrentNeuralNetwork").
- * Additionally, they can be used to track task-based variations in
- * workflow-based systems (e.g., ExtremeXP).
  */
 public class Param {
 
@@ -17,7 +13,7 @@ public class Param {
     private String name;
 
     /**
-     * The value assigned to the parameter (e.g., "0.001", "32", "RNN").
+     * The value assigned to the parameter (e.g., "0.001", "32").
      */
     private String value;
 

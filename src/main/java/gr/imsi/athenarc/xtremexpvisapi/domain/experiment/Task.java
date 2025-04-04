@@ -23,6 +23,12 @@ public class Task {
     private String type;
 
     /**
+     * The specific implementation of the task used in this run (e.g., `"TrainRNN"`,
+     * `"TrainNN"`)
+     */
+    private String variant;
+
+    /**
      * Unix timestamp (milliseconds) when the task started.
      * This field is optional.
      */
@@ -45,15 +51,14 @@ public class Task {
     public Task() {
     }
 
-    public Task(String name, String type, Long startTime, Long endTime, Map<String, String> tags) {
+    public Task(String name, String type, String variant, Long startTime, Long endTime, Map<String, String> tags) {
         this.name = name;
         this.type = type;
+        this.variant = variant;
         this.startTime = startTime;
         this.endTime = endTime;
         this.tags = tags;
     }
-
-    // Getters and Setters
 
     public String getName() {
         return name;
@@ -69,6 +74,14 @@ public class Task {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getVariant() {
+        return variant;
+    }
+
+    public void setVariant(String variant) {
+        this.variant = variant;
     }
 
     public Long getStartTime() {
@@ -100,9 +113,11 @@ public class Task {
         return "Task{" +
                 "name='" + name + '\'' +
                 ", type='" + type + '\'' +
+                ", variant='" + variant + '\'' +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
                 ", tags=" + tags +
                 '}';
     }
+
 }
