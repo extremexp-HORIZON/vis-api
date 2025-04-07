@@ -80,6 +80,18 @@ public class CsvDataSource implements DataSource {
 
     }
 
+    public boolean hasLatLonColumns(Table table) {
+        Set<String> lowerColNames = table.columnNames()
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+    
+        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
+        boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long") || lowerColNames.contains("longitude");
+    
+        return hasLat && hasLon;
+    }
+    
     @Override
     public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
         TabularResponse tabularResults = new TabularResponse();
@@ -162,6 +174,8 @@ public class CsvDataSource implements DataSource {
     public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
         Path path = Paths.get(workingDirectory, source);
         Table table = readCsvFromFile(path);
+        
+        
         Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
                 table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
@@ -172,6 +186,7 @@ public class CsvDataSource implements DataSource {
         metadataResponse.setTotalItems(table.rowCount());
         metadataResponse.setUniqueColumnValues(uniqueColumnValues);
         metadataResponse.setDatasetType(datasetTypeDetection(table));
+        metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
         return metadataResponse;
     }
 
