@@ -405,7 +405,8 @@ public class MLflowExperimentService implements ExperimentService {
                     (String) m.get("key"),
                     (Double) m.get("value"),
                     ((Number) m.get("timestamp")).longValue(),
-                    (Integer) m.get("step"))
+                    (Integer) m.get("step"),
+                    (String) m.get("producedByTask"))
                 )
                 .collect(Collectors.toList()));
         }
@@ -522,7 +523,9 @@ public class MLflowExperimentService implements ExperimentService {
                 (String) m.get("key"),
                 (Double) m.get("value"),
                 ((Number) m.get("timestamp")).longValue(), // Timestamp is already in milliseconds
-                (Integer) m.get("step")))
+                (Integer) m.get("step"),
+                (String) m.get("producedByTask"))
+            )
             .collect(Collectors.toList());
     }
 

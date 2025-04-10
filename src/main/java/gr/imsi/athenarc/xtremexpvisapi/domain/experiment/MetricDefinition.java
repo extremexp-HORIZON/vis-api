@@ -34,20 +34,31 @@ public class MetricDefinition {
      */
     private Boolean greaterIsBetter;
 
+    private String producedByTask;
+
     // Constructors
 
     public MetricDefinition() {
     }
 
-    public MetricDefinition(String name, String description, String semanticType, String unit, Boolean greaterIsBetter) {
+    public MetricDefinition(String name, String description, String semanticType, String unit, Boolean greaterIsBetter, String producedByTask) {
         this.name = name;
         this.description = description;
         this.semanticType = semanticType;
         this.unit = unit;
         this.greaterIsBetter = greaterIsBetter;
+        this.producedByTask= producedByTask;
     }
 
     // Getters and Setters
+
+    public String getProducedByTask() {
+        return producedByTask;
+    }
+
+    public void setProducedByTask(String producedByTask) {
+        this.producedByTask = producedByTask;
+    }
 
     public String getName() {
         return name;
@@ -99,6 +110,7 @@ public class MetricDefinition {
                 ", semanticType='" + semanticType + '\'' +
                 ", unit='" + unit + '\'' +
                 ", greaterIsBetter=" + greaterIsBetter +
+                ", producedByTask='" + producedByTask + '\'' +
                 '}';
     }
 }

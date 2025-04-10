@@ -251,19 +251,19 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         String name = (String) metricResponse.get("name");
                         String semanticType = (String) metricResponse.get("semantic_type");
 
-                        // Only add to map if semanticType is unique
-                        if (!uniqueMetricDefinitions.containsKey(semanticType)) {
+                        String producedByTask= (String) metricResponse.get("producedByTask");
+
+                        if (!uniqueMetricDefinitions.containsKey(name)) {
                             MetricDefinition metricDefinition = new MetricDefinition();
                             metricDefinition.setName(name);
                             metricDefinition.setSemanticType(semanticType);
                             metricDefinition.setDescription("Description not available");
                             metricDefinition.setUnit("unit not available");
-                            metricDefinition.setGreaterIsBetter(null); // Set based on your logic
-
-                            uniqueMetricDefinitions.put(semanticType, metricDefinition);
+                            metricDefinition.setGreaterIsBetter(null);
+                            metricDefinition.setProducedByTask(producedByTask);
+                            uniqueMetricDefinitions.put(name, metricDefinition);
                         }
                     }
-
                     // Convert map values to list and set to experiment
                     experiment.setMetricDefinitions(new ArrayList<>(uniqueMetricDefinitions.values()));
 
@@ -411,8 +411,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     Map<String, Object> metadataMap = (Map<String, Object>) metadataObj;
                     variant = (String) metadataMap.get("prototypical_name");
                 }
-            
-                
                 // Extract parameters for this task
                 if (taskObj.containsKey("parameters")) {
                     List<Map<String, Object>> parameters = (List<Map<String, Object>>) taskObj.get("parameters");
@@ -466,6 +464,7 @@ public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String 
     if (records == null) {
         Metric metric = new Metric();
         metric.setName((String) workflowData.get("name"));
+        metric.setProducedByTask((String) workflowData.get("producedByTask"));
         Object valueObj = workflowData.get("value");
         if (valueObj != null) {
             metric.setValue(Double.valueOf(valueObj.toString()));
@@ -485,7 +484,8 @@ public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String 
         Object valueObj = record.get("value");
         double value = valueObj != null ? Double.parseDouble(valueObj.toString()) : 0.0;
 
-        metrics.add(new Metric(name, value, timestamp, i));
+
+        metrics.add(new Metric(name, value, timestamp, i, null));
     }
 
     return ResponseEntity.ok(metrics);

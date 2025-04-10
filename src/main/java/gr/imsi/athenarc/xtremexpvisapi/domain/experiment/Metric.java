@@ -27,19 +27,36 @@ public class Metric {
      */
     private Integer step;
 
+    /**
+     * The task which the metric was produced by.
+     * This field is optional.
+     */
+    private String producedByTask;
+
+
+
     // Constructors
 
     public Metric() {
     }
 
-    public Metric(String name, double value, long timestamp, Integer step) {
+    public Metric(String name, double value, long timestamp, Integer step, String producedByTask) {
         this.name = name;
         this.value = value;
         this.timestamp = timestamp;
         this.step = step;
+        this.producedByTask = producedByTask;
     }
 
     // Getters and Setters
+
+    public String getProducedByTask() {
+        return producedByTask;
+    }
+
+    public void setProducedByTask(String producedByTask) {
+        this.producedByTask = producedByTask;
+    }
 
     public String getName() {
         return name;
@@ -82,6 +99,7 @@ public class Metric {
                 ", value=" + value +
                 ", timestamp=" + timestamp +
                 ", step=" + step +
+                ", producedByTask='" + producedByTask + '\'' +
                 '}';
     }
 }
