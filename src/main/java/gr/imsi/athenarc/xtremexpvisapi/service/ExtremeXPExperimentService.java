@@ -464,7 +464,7 @@ public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String 
     if (records == null) {
         Metric metric = new Metric();
         metric.setName((String) workflowData.get("name"));
-        metric.setProducedByTask((String) workflowData.get("producedByTask"));
+        metric.setTask((String) workflowData.get("producedByTask"));
         Object valueObj = workflowData.get("value");
         if (valueObj != null) {
             metric.setValue(Double.valueOf(valueObj.toString()));
