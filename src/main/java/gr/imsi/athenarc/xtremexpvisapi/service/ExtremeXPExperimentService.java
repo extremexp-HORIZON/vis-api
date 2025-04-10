@@ -19,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -222,15 +223,11 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 Experiment experiment = mapToExperiment(experimentData);
 
                 // Debugging the experiment details
-                System.out.println("Experiment Data: " + experiment);
 
                 // Now, make the second API call to /metrics-query
                 String requestUrlMetc = workflowsApiUrl + "/metrics-query";
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("experimentId", experimentId);
-
-                // Debugging the request body for metrics query
-                System.out.println("Metrics Query Request Body: " + requestBody);
 
                 // Create a new HttpEntity with the body for the metrics query request
                 HttpEntity<Map<String, Object>> entityForMetrics = new HttpEntity<>(requestBody, headers);
@@ -251,7 +248,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         String name = (String) metricResponse.get("name");
                         String semanticType = (String) metricResponse.get("semantic_type");
 
-                        String producedByTask= (String) metricResponse.get("producedByTask");
+                        String producedByTask = (String) metricResponse.get("producedByTask");
 
                         if (!uniqueMetricDefinitions.containsKey(name)) {
                             MetricDefinition metricDefinition = new MetricDefinition();
@@ -347,7 +344,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         run.setStartTime(parseIsoDateToMillis((String) workflowData.get("start")));
         run.setEndTime(parseIsoDateToMillis((String) workflowData.get("end")));
         String statusStr = (String) workflowData.get("status"); // Get status as string
-        System.out.println("metada: " + workflowData.get("metadata"));
         try {
             run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
         } catch (IllegalArgumentException e) {
@@ -370,40 +366,68 @@ public class ExtremeXPExperimentService implements ExperimentService {
         run.setTags(tags);
 
         List<String> metricIds = new ArrayList<>();
-    Object workflowIdsObj = workflowData.get("metric_ids");
-    if (workflowIdsObj instanceof List<?>) {
-        metricIds = ((List<?>) workflowIdsObj).stream()
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .collect(Collectors.toList());
-    }
-
-    List<Metric> metrics = new ArrayList<>();
-    for (String metricId : metricIds) {
-        ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
-        if (metricResponse.getBody() != null) {
-            metrics.addAll(metricResponse.getBody()); // Append all extracted metrics
+        Object workflowIdsObj = workflowData.get("metric_ids");
+        if (workflowIdsObj instanceof List<?>) {
+            metricIds = ((List<?>) workflowIdsObj).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
         }
-    }
-    run.setMetrics(metrics);
 
+        // List<Metric> metrics = new ArrayList<>();
+        // for (String metricId : metricIds) {
+        // ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId,
+        // runId, metricId);
+        // if (metricResponse.getBody() != null) {
+        // metrics.addAll(metricResponse.getBody()); // Append all extracted metrics
+        // }
+        // }
+        // run.setMetrics(metrics);
+
+        List<Metric> finalMetrics = new ArrayList<>();
+
+        for (String metricId : metricIds) {
+            ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
+            List<Metric> fetchedMetrics = metricResponse.getBody();
+
+            if (fetchedMetrics == null || fetchedMetrics.isEmpty()) {
+                continue;
+            }
+
+            // Case 1: Single-value metric (step is null)
+            if (fetchedMetrics.size() == 1 && fetchedMetrics.get(0).getStep() == null) {
+                finalMetrics.add(fetchedMetrics.get(0));
+            }
+            // Case 2: Multi-step metric - pick the one with the highest step
+            else {
+                Metric highestStepMetric = fetchedMetrics.stream()
+                        .filter(m -> m.getStep() != null)
+                        .max(Comparator.comparingInt(Metric::getStep))
+                        .orElse(null);
+
+                if (highestStepMetric != null) {
+                    finalMetrics.add(highestStepMetric);
+                }
+            }
+        }
+
+        run.setMetrics(finalMetrics);
 
         List<Task> tasks = new ArrayList<>();
         List<Param> params = new ArrayList<>();
         List<DataAsset> dataAssets = new ArrayList<>();
-    
+
         Object tasksObj = workflowData.get("tasks");
-        System.out.println("tasksObj: " + tasksObj);
         if (tasksObj instanceof List<?>) {
             List<Map<String, Object>> tasksList = (List<Map<String, Object>>) tasksObj;
-    
+
             for (Map<String, Object> taskObj : tasksList) {
                 // Extract task details
                 String taskName = (String) taskObj.get("name");
                 String taskType = (String) taskObj.get("source_code");
                 Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
-    
+
                 Map<String, String> taskTags = new HashMap<>();
                 String variant = null;
                 Object metadataObj = taskObj.get("metadata");
@@ -422,77 +446,104 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         }
                     }
                 }
-    
+
                 // Create task object and add it to the list
-                Task task = new Task(taskName, taskType,variant, taskStartTime, taskEndTime, taskTags);
+                Task task = new Task(taskName, taskType, variant, taskStartTime, taskEndTime, taskTags);
                 tasks.add(task);
-    
+
                 // Extract datasets for the task
                 extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskName, dataAssets);
                 extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskName, dataAssets);
             }
         }
-    
+
         // Set extracted details into the Run object
-        run.setParams(params);  // Now Params have task association
+        run.setParams(params); // Now Params have task association
         run.setTasks(tasks);
         run.setDataAssets(dataAssets);
-    
-        return ResponseEntity.ok(run);
 
-        
+        return ResponseEntity.ok(run);
 
     }
 
     @Override
-public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-    String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
-    HttpHeaders headers = new HttpHeaders();
-    headers.set("access-token", workflowsApiKey); // API Key
-    headers.setContentType(MediaType.APPLICATION_JSON);
+    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
+        String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey); // API Key
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-    HttpEntity<String> entity = new HttpEntity<>(headers);
-    ResponseEntity<Map> workflowResponse = restTemplate.exchange(
-            requestUrl, HttpMethod.GET, entity, Map.class);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<Map> workflowResponse = restTemplate.exchange(
+                requestUrl, HttpMethod.GET, entity, Map.class);
+        System.out.println("workflowResponse: " + workflowResponse);
+        try {
+            Map<String, Object> workflowData = workflowResponse.getBody();
+            if (workflowData == null) {
+                return ResponseEntity.badRequest().build();
+            }
 
-    Map<String, Object> workflowData = workflowResponse.getBody();
-    if (workflowData == null) {
-        return ResponseEntity.badRequest().build();
-    }
+            // list to collect metrics
+            List<Metric> metrics = new ArrayList<>();
+            Object rawValue = workflowData.get("value");
 
-    List<Map<String, Object>> records = (List<Map<String, Object>>) workflowData.get("records");
-    if (records == null) {
-        Metric metric = new Metric();
-        metric.setName((String) workflowData.get("name"));
-        metric.setTask((String) workflowData.get("producedByTask"));
-        Object valueObj = workflowData.get("value");
-        if (valueObj != null) {
-            metric.setValue(Double.valueOf(valueObj.toString()));
-        } else {
-            metric.setValue(0.0); // Set a default or handle appropriately
+            if (rawValue instanceof Number) {
+                Metric metric = new Metric();
+                metric.setName((String) workflowData.get("name"));
+                metric.setTask((String) workflowData.get("producedByTask"));
+                metric.setValue(((Number) rawValue).doubleValue());
+                metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
+                metrics.add(metric);
+            } else if (rawValue instanceof String) {
+                String valueStr = ((String) rawValue).trim();
+                if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
+                    valueStr = valueStr.substring(1, valueStr.length() - 1);
+                    String[] parts = valueStr.split(",");
+                    for (int i = 0; i < parts.length; i++) {
+                        try {
+                            double val = Double.parseDouble(parts[i].trim());
+                            Metric metric = new Metric();
+                            metric.setName((String) workflowData.get("name"));
+                            metric.setTask((String) workflowData.get("producedByTask"));
+                            metric.setValue(val);
+                            metric.setStep(i);
+                            metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
+                            metrics.add(metric);
+                        } catch (NumberFormatException e) {
+                            System.err.println("Skipping invalid number: " + parts[i]);
+                        }
+                    }
+                } else {
+                    try {
+                        double val = Double.parseDouble(valueStr);
+                        Metric metric = new Metric();
+                        metric.setName((String) workflowData.get("name"));
+                        metric.setTask((String) workflowData.get("producedByTask"));
+                        metric.setValue(val);
+                        metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
+                        metrics.add(metric);
+                    } catch (NumberFormatException e) {
+                        return ResponseEntity.badRequest().build();
+                    }
+                }
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
+
+            return ResponseEntity.ok(metrics);
+
+        } catch (Exception e) {
+            e.printStackTrace(); // optional
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // fallback for unexpected issues
         }
-        return ResponseEntity.ok(new ArrayList<>(List.of(metric)));
-    }
-    
-
-    List<Metric> metrics = new ArrayList<>();
-    String name = (String) workflowData.get("name");
-    long timestamp = System.currentTimeMillis(); // Or extract from API if available
-
-    for (int i = 0; i < records.size(); i++) {
-        Map<String, Object> record = records.get(i);
-        Object valueObj = record.get("value");
-        double value = valueObj != null ? Double.parseDouble(valueObj.toString()) : 0.0;
-
-
-        metrics.add(new Metric(name, value, timestamp, i, null));
     }
 
-    return ResponseEntity.ok(metrics);
-}
+    private long getTimestampFromWorkflowData(Map<String, Object> workflowData) {
+        Object dateObj = workflowData.get("date");
+        return dateObj != null ? parseIsoDateToMillis((String) dateObj) : 0L;
+    }
 
-
-       @Override
+    @Override
     public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId,
             UserEvaluation userEvaluation) {
         return ResponseEntity.ok(userEvaluation);
