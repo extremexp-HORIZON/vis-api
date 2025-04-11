@@ -348,6 +348,12 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
         // Set only metadata tags to the Run object
         run.setTags(tags);
+
+        
+
+
+
+
         ResponseEntity<Experiment> experiment = getExperimentById(experimentId);
         List<MetricDefinition> metricdef = experiment.getBody().getMetricDefinitions();
         List<String> metricNames = metricdef.stream()
@@ -382,6 +388,11 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
 
         run.setMetrics(finalMetrics);
+
+
+
+
+
 
         List<Task> tasks = new ArrayList<>();
         List<Param> params = new ArrayList<>();
@@ -478,7 +489,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
                         valueStr = valueStr.substring(1, valueStr.length() - 1);
                         String[] parts = valueStr.split(",");
-                        for (int i = 0; i < parts.length; i++) {
+                        for (int i = 0; i < 10; i++) {
                             try {
                                 double val = Double.parseDouble(parts[i].trim());
                                 Metric metric = new Metric();
