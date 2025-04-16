@@ -869,7 +869,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         String workflowUrl = workflowsApiUrl + "/workflows/" + runId;
         ResponseEntity<Map> workflowResponse = restTemplate.exchange(
                 workflowUrl, HttpMethod.GET, entity, Map.class);
-
         Map<String, Object> workflowData = (Map<String, Object>) workflowResponse.getBody().get("workflow");
         // Step 4: Convert response to Run object
         Run run = new Run();
@@ -960,6 +959,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 // Extract task details
                 String taskName = (String) taskObj.get("name");
                 String taskType = (String) taskObj.get("source_code");
+                String taskId = (String) taskObj.get("id");
                 Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
 
@@ -977,18 +977,18 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         String paramName = (String) paramObj.get("name");
                         String paramValue = (String) paramObj.get("value");
                         if (paramName != null && paramValue != null) {
-                            params.add(new Param(paramName, paramValue, taskName)); // Assign task to Param
+                            params.add(new Param(paramName, paramValue, taskId)); // Assign task to Param
                         }
                     }
                 }
 
                 // Create task object and add it to the list
-                Task task = new Task(taskName, taskType, variant, taskStartTime, taskEndTime, taskTags);
+                Task task = new Task(taskName, taskType, variant, taskStartTime, taskEndTime, taskTags, taskId);
                 tasks.add(task);
 
                 // Extract datasets for the task
-                extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskName, dataAssets);
-                extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskName, dataAssets);
+                extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskId, dataAssets);
+                extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskId, dataAssets);
             }
         }
 

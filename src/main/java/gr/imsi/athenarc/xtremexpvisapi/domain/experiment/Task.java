@@ -46,18 +46,29 @@ public class Task {
      */
     private Map<String, String> tags;
 
+    private String id;
+
     // Constructors
 
     public Task() {
     }
 
-    public Task(String name, String type, String variant, Long startTime, Long endTime, Map<String, String> tags) {
+    public Task(String name, String type, String variant, Long startTime, Long endTime, Map<String, String> tags ,String id) {
         this.name = name;
         this.type = type;
         this.variant = variant;
         this.startTime = startTime;
         this.endTime = endTime;
         this.tags = tags;
+        this.id = id;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getName() {
@@ -117,6 +128,7 @@ public class Task {
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
                 ", tags=" + tags +
+                ", id='" + id + '\'' +
                 '}';
     }
 
