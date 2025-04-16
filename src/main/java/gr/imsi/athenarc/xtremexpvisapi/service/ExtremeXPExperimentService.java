@@ -478,7 +478,7 @@
 //                     if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
 //                         valueStr = valueStr.substring(1, valueStr.length() - 1);
 //                         String[] parts = valueStr.split(",");
-//                         for (int i = 0; i < parts.length; i++) {
+//                         for (int i = 0; i < 10; i++) {
 //                             try {
 //                                 double val = Double.parseDouble(parts[i].trim());
 //                                 Metric metric = new Metric();
@@ -841,7 +841,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 List<String> workflowIds = (List<String>) experimentData.get("workflow_ids");
                 List<Run> runs = new ArrayList<>();
 
-                for (String runId : workflowIds) {
+                for (String runId : workflowIds.subList(0, 15)) {
                     ResponseEntity<Run> runResponse = getRunById(experimentId, runId);
                     if (runResponse.getStatusCode() == HttpStatus.OK && runResponse.getBody() != null) {
                         runs.add(runResponse.getBody());
