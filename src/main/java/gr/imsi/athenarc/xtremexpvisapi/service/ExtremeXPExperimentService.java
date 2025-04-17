@@ -841,7 +841,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 List<String> workflowIds = (List<String>) experimentData.get("workflow_ids");
                 List<Run> runs = new ArrayList<>();
 
-                for (String runId : workflowIds.subList(0, 15)) {
+                for (String runId : workflowIds) {
                     ResponseEntity<Run> runResponse = getRunById(experimentId, runId);
                     if (runResponse.getStatusCode() == HttpStatus.OK && runResponse.getBody() != null) {
                         runs.add(runResponse.getBody());
@@ -1011,7 +1011,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<Map> workflowResponse = restTemplate.exchange(
                 requestUrl, HttpMethod.GET, entity, Map.class);
-        System.out.println("workflowResponse: " + workflowResponse);
+        System.out.println("workflowResponse METRICS: " + workflowResponse);
         try {
             Map<String, Object> workflowData = workflowResponse.getBody();
             if (workflowData == null) {
@@ -1021,34 +1021,12 @@ public class ExtremeXPExperimentService implements ExperimentService {
             // list to collect metrics
             List<Metric> metrics = new ArrayList<>();
             Object rawValue = workflowData.get("value");
+            System.out.println("rawValue: " + rawValue);
 
-            if (rawValue instanceof Number) {
-                Metric metric = new Metric();
-                metric.setName((String) workflowData.get("name"));
-                metric.setTask((String) workflowData.get("producedByTask"));
-                metric.setValue(((Number) rawValue).doubleValue());
-                metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
-                metrics.add(metric);
-            } else if (rawValue instanceof String) {
+            if (rawValue instanceof String) {
+                System.out.println("rawValue is String");
                 String valueStr = ((String) rawValue).trim();
-                if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
-                    valueStr = valueStr.substring(1, valueStr.length() - 1);
-                    String[] parts = valueStr.split(",");
-                    for (int i = 0; i < parts.length; i++) {
-                        try {
-                            double val = Double.parseDouble(parts[i].trim());
-                            Metric metric = new Metric();
-                            metric.setName((String) workflowData.get("name"));
-                            metric.setTask((String) workflowData.get("producedByTask"));
-                            metric.setValue(val);
-                            metric.setStep(i);
-                            metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
-                            metrics.add(metric);
-                        } catch (NumberFormatException e) {
-                            System.err.println("Skipping invalid number: " + parts[i]);
-                        }
-                    }
-                } else {
+                    System.out.println("rawValue is not a list");
                     try {
                         double val = Double.parseDouble(valueStr);
                         Metric metric = new Metric();
@@ -1057,11 +1035,13 @@ public class ExtremeXPExperimentService implements ExperimentService {
                         metric.setValue(val);
                         metric.setTimestamp(getTimestampFromWorkflowData(workflowData));
                         metrics.add(metric);
+                        System.out.println("EGEINE");
                     } catch (NumberFormatException e) {
+                        System.err.println("Invalid single value: " + valueStr);
                         return ResponseEntity.badRequest().build();
-                    }
-                }
+                 }
             } else {
+                System.out.println("rawValue is neither Number nor String");
                 return ResponseEntity.badRequest().build();
             }
 
