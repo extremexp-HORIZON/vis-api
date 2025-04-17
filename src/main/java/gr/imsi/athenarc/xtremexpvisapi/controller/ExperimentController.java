@@ -107,6 +107,14 @@ public class ExperimentController {
         return experimentServiceFactory.getActiveService().getMetricValues(experimentId, runId, metricName);
     }
 
+    @GetMapping("/{experimentId}/runs/{runId}/metrics-all/{metricName}")
+    public ResponseEntity<List<Metric>> getAllMetrics(
+            @PathVariable String experimentId,
+            @PathVariable String runId,
+            @PathVariable String metricName) {
+        return experimentServiceFactory.getActiveService().getAllMetrics(experimentId, runId, metricName);
+    }
+
     /**
      * This endpoint abstracts user feedback submitted via the dashboard.
      * Most experiment tracking tools do not natively support such evaluations,
