@@ -111,9 +111,9 @@ public class CsvDataSource implements DataSource {
                 }
             }
             LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
-            tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
+            // tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
-            tabularResults.setColumns(columns);
+            // tabularResults.setColumns(columns);
         } else {
             if (tabularRequest.getDatasetId().endsWith(".json")) {
                 String json = readJsonFromFile(path);
@@ -122,17 +122,18 @@ public class CsvDataSource implements DataSource {
                 Table table = readCsvFromFile(path);
                 QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
                 Table resultsTable = queryResult.getResultTable();
-                Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
-                tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
                 tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                tabularResults.setColumns(
-                        resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
-                tabularResults.setOriginalColumns(
-                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
                 tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
-                tabularResults.setUniqueColumnValues(uniqueColumnValues);
+                // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
+                tabularResults.setColumns(
+                        resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // tabularResults.setOriginalColumns(
+                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+               
+                // tabularResults.setUniqueColumnValues(uniqueColumnValues);
             }
         }
         return tabularResults;
@@ -187,6 +188,21 @@ public class CsvDataSource implements DataSource {
         metadataResponse.setUniqueColumnValues(uniqueColumnValues);
         metadataResponse.setDatasetType(datasetTypeDetection(table));
         metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
+        List<String> timeColumns = new ArrayList<>();
+    for (Column<?> column : table.columns()) {
+        ColumnType type = column.type();
+        if (type.name().equals("LOCAL_DATE_TIME") || 
+            type.name().equals("LOCAL_DATE") || 
+            type.name().equals("INSTANT")) {
+            timeColumns.add(column.name());
+        }
+    }
+
+    // Set the timeColumn field based on results
+    if (!timeColumns.isEmpty()) {
+        metadataResponse.setTimeColumn(timeColumns.size() == 1 ? Collections.singletonList(timeColumns.get(0)) : timeColumns);
+    }
+
         return metadataResponse;
     }
 

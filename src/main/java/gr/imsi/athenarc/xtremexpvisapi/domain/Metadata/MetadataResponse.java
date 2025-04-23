@@ -15,5 +15,6 @@ public class MetadataResponse {
     private int totalItems;
     private Map<String, List<?>> uniqueColumnValues;
     private boolean hasLatLonColumns;
+    private List<String> timeColumn; 
 
 }
