@@ -300,7 +300,32 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName) {
-        return ResponseEntity.ok(new ArrayList<>());
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId, requestUrl);
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
+            LOG.info("Received response from MLflow: {}", response.getStatusCode());
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return ResponseEntity.ok(mapMetricHistory(response.getBody()));
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).build();
+            }
+
+        } catch (Exception e) {
+            LOG.error("Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
     private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
         Map<String, String> requestBody = new HashMap<>();
