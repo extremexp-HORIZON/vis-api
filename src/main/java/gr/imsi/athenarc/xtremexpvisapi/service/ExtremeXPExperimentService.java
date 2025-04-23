@@ -269,44 +269,172 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    @Override
-    public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
-        String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("access-token", workflowsApiKey);
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+    
+public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
+    String requestUrl = workflowsApiUrl + "/workflows-query";
+    HttpHeaders headers = new HttpHeaders();
+    headers.set("access-token", workflowsApiKey);
+    headers.setContentType(MediaType.APPLICATION_JSON);
 
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
+    // Create request body with experimentId
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("experimentId", experimentId);
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                Map<String, Object> experimentData = (Map<String, Object>) response.getBody().get("experiment");
-                // System.out.println("experimentData: " + experimentData.get("workflow_ids"));
+    // Create HTTP entity with headers and body
+    HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
-                List<String> workflowIds = (List<String>) experimentData.get("workflow_ids");
-                List<Run> runs = new ArrayList<>();
+    try {
+        ResponseEntity<List> response = restTemplate.exchange(
+                requestUrl,
+                HttpMethod.POST,
+                entity,
+                List.class);
 
-                for (String runId : workflowIds) {
-                    ResponseEntity<Run> runResponse = getRunById(experimentId, runId);
-                    if (runResponse.getStatusCode() == HttpStatus.OK && runResponse.getBody() != null) {
-                        runs.add(runResponse.getBody());
-                    }
-                }
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            List<Object> responseObjects = (List<Object>) response.getBody();
+            List<Run> runs = responseObjects.stream()
+                    .filter(Map.class::isInstance)
+                    .map(run -> runPreparation((Map<String, Object>) run).getBody())
+                    .collect(Collectors.toList());
 
-                return ResponseEntity.ok(runs);
+            return ResponseEntity.ok(runs);
+        } else {
+            return ResponseEntity.status(response.getStatusCode()).build();
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+}
+
+public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
+   
+    Run run = new Run();
+    run.setId(responseObject.get("id").toString());
+    run.setName(responseObject.get("name").toString());
+    run.setExperimentId(responseObject.get("experimentId").toString());
+    run.setStartTime(parseIsoDateToMillis(responseObject.get("start").toString()));
+    run.setEndTime(parseIsoDateToMillis(responseObject.get("end").toString()));
+    String statusStr = responseObject.get("status").toString(); // Get status as string
+    try {
+        run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
+    } catch (IllegalArgumentException e) {
+        run.setStatus(Status.FAILED); // Default or handle unknown status
+    }
+    // Extract and store metadata in tags
+    Map<String, String> tags = new HashMap<>();
+    if (responseObject.containsKey("metadata")) {
+        Map<String, Object> metadata = (Map<String, Object>) responseObject.get("metadata");
+        for (Map.Entry<String, Object> entry : metadata.entrySet()) {
+            if (entry.getValue() instanceof String) {
+                tags.put(entry.getKey(), (String) entry.getValue()); // Add metadata to tags
             } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
+                tags.put(entry.getKey(), entry.getValue().toString()); // Convert non-string values to String
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    // Set only metadata tags to the Run object
+    run.setTags(tags);
+
+    List<String> metricIds = new ArrayList<>();
+    Object workflowIdsObj = responseObject.get("metric_ids");
+    if (workflowIdsObj instanceof List<?>) {
+        metricIds = ((List<?>) workflowIdsObj).stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    List<Metric> finalMetrics = new ArrayList<>();
+    String experimentId = run.getExperimentId();
+    String runId = run.getId();
+
+    for (String metricId : metricIds) {
+        ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
+        System.out.println("metricResponse: " + metricResponse);
+        List<Metric> fetchedMetrics = metricResponse.getBody();
+
+        if (fetchedMetrics == null || fetchedMetrics.isEmpty()) {
+            continue;
+        }
+
+        // Case 1: Single-value metric (step is null)
+        if (fetchedMetrics.size() == 1 && fetchedMetrics.get(0).getStep() == 1) {
+            System.out.println("isws na prepei");
+            finalMetrics.add(fetchedMetrics.get(0));
+        }
+        // Case 2: Multi-step metric - pick the one with the highest step
+        else {
+            System.out.println("isws na mhn prepei");
+            Metric highestStepMetric = fetchedMetrics.stream()
+                    .filter(m -> m.getStep() != null)
+                    .max(Comparator.comparingInt(Metric::getStep))
+                    .orElse(null);
+
+            if (highestStepMetric != null) {
+                finalMetrics.add(highestStepMetric);
+            }
+        }
+    }
+
+    run.setMetrics(finalMetrics);
+
+    List<Task> tasks = new ArrayList<>();
+    List<Param> params = new ArrayList<>();
+    List<DataAsset> dataAssets = new ArrayList<>();
+
+    Object tasksObj = responseObject.get("tasks");
+    if (tasksObj instanceof List<?>) {
+        List<Map<String, Object>> tasksList = (List<Map<String, Object>>) tasksObj;
+
+        for (Map<String, Object> taskObj : tasksList) {
+            // Extract task details
+            String taskName = (String) taskObj.get("name");
+            String taskId = (String) taskObj.get("id");
+            String taskType = (String) taskObj.get("source_code");
+            Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
+            Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
+
+            Map<String, String> taskTags = new HashMap<>();
+            String variant = null;
+            Object metadataObj = taskObj.get("metadata");
+            if (metadataObj instanceof Map<?, ?>) {
+                Map<String, Object> metadataMap = (Map<String, Object>) metadataObj;
+                variant = (String) metadataMap.get("prototypical_name");
+            }
+            // Extract parameters for this task
+            if (taskObj.containsKey("parameters")) {
+                List<Map<String, Object>> parameters = (List<Map<String, Object>>) taskObj.get("parameters");
+                for (Map<String, Object> paramObj : parameters) {
+                    String paramName = (String) paramObj.get("name");
+                    String paramValue = (String) paramObj.get("value");
+                    if (paramName != null && paramValue != null) {
+                        params.add(new Param(paramName, paramValue, taskName)); // Assign task to Param
+                    }
+                }
+            }
+
+            // Create task object and add it to the list
+            Task task = new Task(taskName, taskType, variant, taskStartTime, taskEndTime, taskTags, taskId);
+            tasks.add(task);
+
+            // Extract datasets for the task
+            extractDatasets(taskObj, "input_datasets", DataAsset.Role.INPUT, taskName, dataAssets);
+            extractDatasets(taskObj, "output_datasets", DataAsset.Role.OUTPUT, taskName, dataAssets);
+        }
+    }
+
+    // Set extracted details into the Run object
+    run.setParams(params); // Now Params have task association
+    run.setTasks(tasks);
+    run.setDataAssets(dataAssets);
+
+    return ResponseEntity.ok(run);
+
+}
+
+
 
     @Override
     public ResponseEntity<Run> getRunById(String experimentId, String runId) {
@@ -370,20 +498,23 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
         List<Metric> finalMetrics = new ArrayList<>();
 
-        for (String metricId : metricIds) {
-            ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
+            ResponseEntity<List<Metric>> metricResponse = getAllMetricsLast(experimentId, runId);
+            System.out.println("metricResponse: " + metricResponse);
             List<Metric> fetchedMetrics = metricResponse.getBody();
 
             if (fetchedMetrics == null || fetchedMetrics.isEmpty()) {
-                continue;
+                return ResponseEntity.badRequest().build();
             }
 
             // Case 1: Single-value metric (step is null)
             if (fetchedMetrics.size() == 1 && fetchedMetrics.get(0).getStep() == null) {
+                System.out.println("isws na prepei");
+
                 finalMetrics.add(fetchedMetrics.get(0));
             }
             // Case 2: Multi-step metric - pick the one with the highest step
             else {
+                System.out.println("isws na mhn prepei");
                 Metric highestStepMetric = fetchedMetrics.stream()
                         .filter(m -> m.getStep() != null)
                         .max(Comparator.comparingInt(Metric::getStep))
@@ -393,7 +524,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     finalMetrics.add(highestStepMetric);
                 }
             }
-        }
+        
 
         run.setMetrics(finalMetrics);
 
@@ -453,7 +584,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-        System.out.println(experimentId);
         String requestUrl = workflowsApiUrl + "/metrics/" + metricName; // API URL
         HttpHeaders headers = new HttpHeaders();
         headers.set("access-token", workflowsApiKey); // API Key
@@ -462,7 +592,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<Map> workflowResponse = restTemplate.exchange(
                 requestUrl, HttpMethod.GET, entity, Map.class);
-        System.out.println("workflowResponse METRICS: " + workflowResponse);
         try {
             Map<String, Object> workflowData = workflowResponse.getBody();
             if (workflowData == null) {
@@ -471,7 +600,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
             List<Metric> metrics = new ArrayList<>();
             Object rawValue = workflowData.get("value");
-            System.out.println("rawValue: " + rawValue);
 
             String metricNameFromData = (String) workflowData.get("name");
             String producedByTask = (String) workflowData.get("producedByTask");
@@ -483,22 +611,20 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
                     // It's a stringified list
                     try {
-                        System.out.println("is stringified list");
                         valueStr = valueStr.substring(1, valueStr.length() - 1); // remove brackets
                         String[] parts = valueStr.split(",");
 
-                        for (int i = 0; i < parts.length; i++) {
-                            System.out.println("is stringified list" + i);
-
-                            String part = parts[i].trim();
-                            double val = Double.parseDouble(part);
+                        if (parts.length > 0) {
+                            String lastPart = parts[parts.length - 1].trim();
+                            double val = Double.parseDouble(lastPart);
+                    
                             Metric metric = new Metric();
                             metric.setName(metricNameFromData);
                             metric.setTask(producedByTask);
                             metric.setValue(val);
-                            metric.setStep(i + 1); // step starts from 1
-                            // metric.setTimestamp(timestamp);
-                            System.out.println("metric: " + metric);
+                            metric.setStep(parts.length); // last one = last step
+                            // metric.setTimestamp(timestamp); // uncomment if needed
+                    
                             metrics.add(metric);
                         }
 
@@ -534,7 +660,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
+@Override
     public ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName) {
         String requestUrl = workflowsApiUrl + "/metrics-query";
         HttpHeaders headers = new HttpHeaders();
@@ -544,6 +670,36 @@ public class ExtremeXPExperimentService implements ExperimentService {
         requestBody.put("experimentId", experimentId);
         requestBody.put("parent_id", runId);
         requestBody.put("name", metricName);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        try {
+            ResponseEntity<List> response = restTemplate.exchange(
+                    requestUrl, HttpMethod.POST, entity, List.class);
+            List<Map<String, Object>> responseList = response.getBody();
+            if (responseList == null || responseList.isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            List<Metric> metrics = new ArrayList<>();
+            for (Map<String, Object> workflowData : responseList) {
+                List<Metric> parsedMetrics = mapToMetrics(workflowData);
+                metrics.addAll(parsedMetrics);
+            }
+
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+    }
+
+    private ResponseEntity<List<Metric>> getAllMetricsLast(String experimentId, String runId ) {
+        String requestUrl = workflowsApiUrl + "/metrics-query";
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("access-token", workflowsApiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("experimentId", experimentId);
+        requestBody.put("parent_id", runId);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
         try {
             ResponseEntity<List> response = restTemplate.exchange(

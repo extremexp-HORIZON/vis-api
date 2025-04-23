@@ -298,6 +298,10 @@ public class MLflowExperimentService implements ExperimentService {
         }
     }
 
+    @Override
+    public ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName) {
+        return ResponseEntity.ok(new ArrayList<>());
+    }
     private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("run_id", runId);
