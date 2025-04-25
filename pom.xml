@@ -207,6 +207,9 @@
 								<argument>--name</argument>
 								<argument>vis-api-container</argument>
 								<argument>-v</argument>
+								<!-- Mount the .env file inside the container -->
+								<argument>${project.basedir}/.env:/.env</argument>
+								<argument>-v</argument>
 								<!-- change this accordingly for the volume creation -->
 								<argument>/opt/experiments:/opt/experiments</argument>
 								<argument>vis-api</argument>
