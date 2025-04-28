@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 
 import java.util.List;
@@ -19,5 +20,5 @@ public interface ExperimentService {
     ResponseEntity<Run> getRunById(String experimentId, String runId);
     ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName);
     ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName);
-    ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
+    ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
 }

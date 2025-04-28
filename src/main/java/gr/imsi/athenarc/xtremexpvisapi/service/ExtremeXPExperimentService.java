@@ -9,6 +9,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.MetricDefinition;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
@@ -676,7 +677,7 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
                     requestUrl, HttpMethod.POST, entity, List.class);
             List<Map<String, Object>> responseList = response.getBody();
             if (responseList == null || responseList.isEmpty()) {
-                return ResponseEntity.badRequest().build();
+                return ResponseEntity.ok(new <List<Metric>> ArrayList());
             }
             List<Metric> metrics = new ArrayList<>();
             for (Map<String, Object> workflowData : responseList) {
@@ -768,8 +769,53 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
     }
 
     @Override
-    public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId,
+    public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId,
             UserEvaluation userEvaluation) {
-        return ResponseEntity.ok(userEvaluation);
+                String requestUrl = workflowsApiUrl + "/metrics-query";
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("access-token", workflowsApiKey);
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("experimentId", experimentId);
+                requestBody.put("parent_id", runId);
+                requestBody.put("name", "user rating");
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+                try {
+                    ResponseEntity<List> response = restTemplate.exchange(
+                            requestUrl, HttpMethod.POST, entity, List.class);
+                    List<Map<String, Object>> responseList = response.getBody();
+                    System.out.println("responseList: " + responseList);
+                    if (responseList == null || responseList.isEmpty()) {
+                        System.out.println("No metrics found for the given experiment and run.");
+                        String putUrl = workflowsApiUrl + "/metrics";
+                        Map<String, Object> putBody = new HashMap<>();
+                        // putBody.put("experimentId", experimentId);
+                        putBody.put("parent_id", runId);
+                        putBody.put("name", "user rating");
+                        putBody.put("parent_type", "workflow");
+                        // putBody.put("semanticType", "user_rating");
+                        // putBody.put("step", 1);
+                        putBody.put("value", userEvaluation.getRating().toString());
+                        HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(putBody, headers);
+                        ResponseEntity<String> putResponse = restTemplate.exchange(
+                                putUrl, HttpMethod.PUT, putEntity, String.class);
+                        if (putResponse.getStatusCode() == HttpStatus.OK) {
+                            return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
+                        } else {
+                            return ResponseEntity.status(putResponse.getStatusCode()).build();
+                        }
+
+
+                        
+
+                        // return ResponseEntity.ok(new UserEvaluationResponse("failed", "User evaluation was not submitted "));
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                }
+        
+        return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
     }
 }

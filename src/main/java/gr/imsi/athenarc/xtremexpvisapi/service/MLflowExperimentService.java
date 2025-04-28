@@ -15,6 +15,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 
@@ -267,7 +268,7 @@ public class MLflowExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<UserEvaluation> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
+    public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/set-tag";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -290,7 +291,7 @@ public class MLflowExperimentService implements ExperimentService {
                         userEvaluation.getComment(), headers);
             }
 
-            return ResponseEntity.ok(userEvaluation);
+            return ResponseEntity.ok(new UserEvaluationResponse());
 
         } catch (Exception e) {
             LOG.error("Error submitting user evaluation for run {}", runId, e);
