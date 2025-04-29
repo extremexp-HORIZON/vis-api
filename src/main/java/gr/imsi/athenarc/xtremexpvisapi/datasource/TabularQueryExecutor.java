@@ -139,13 +139,9 @@ public class TabularQueryExecutor {
                     LOG.debug("value type is: {}", equalsFilter.getValue().getClass().getName());
                     switch (columnTypeName) {
                         case "BOOLEAN":
-                            if (!(equalsFilter.getValue() instanceof Boolean)) {
-                                throw new IllegalArgumentException(
-                                        "Value must be of type Boolean for column: " + equalsFilter.getColumn());
-                            }
                             LOG.debug("Double equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
-                            boolean booleanValue = Boolean.parseBoolean(equalsFilter.getValue().toString());
+                            boolean booleanValue = Boolean.parseBoolean(equalsFilter.getValue().toString().toLowerCase());
                             if (booleanValue) {
                                 filterSelection = table.booleanColumn(equalsFilter.getColumn()).isTrue();
                             } else {
@@ -249,8 +245,12 @@ public class TabularQueryExecutor {
                     switch (columnTypeName) {
                         case "DOUBLE":
                             if (!(inequalityFilter.getValue() instanceof Double)) {
-                                throw new IllegalArgumentException(
-                                        "Value must be of type Double for column: " + inequalityFilter.getColumn());
+                                try{
+                                    Double.parseDouble(inequalityFilter.getValue().toString());
+                                } catch (NumberFormatException e) {
+                                    throw new IllegalArgumentException(
+                                            "Value must be of type Double for column: " + inequalityFilter.getColumn());
+                                }
                             }
                             double doubleValue = Double.parseDouble(inequalityFilter.getValue().toString());
                             LOG.debug("Double inequality filtering {}, with value {} and operator {}", 
@@ -275,8 +275,12 @@ public class TabularQueryExecutor {
                             break;
                         case "INTEGER":
                             if (!(inequalityFilter.getValue() instanceof Integer)) {
-                                throw new IllegalArgumentException(
-                                        "Value must be of type Integer for column: " + inequalityFilter.getColumn());
+                                try {
+                                    Integer.parseInt(inequalityFilter.getValue().toString());
+                                } catch (NumberFormatException e) {
+                                    throw new IllegalArgumentException(
+                                            "Value must be of type Integer for column: " + inequalityFilter.getColumn()); 
+                                }
                             }
                             int intValue = Integer.parseInt(inequalityFilter.getValue().toString());
                             LOG.debug("Integer inequality filtering {}, with value {} and operator {}", 
