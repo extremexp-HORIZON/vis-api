@@ -778,7 +778,7 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("experimentId", experimentId);
                 requestBody.put("parent_id", runId);
-                requestBody.put("name", "user rating");
+                requestBody.put("name", "rating");
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
                 try {
                     ResponseEntity<List> response = restTemplate.exchange(
@@ -791,7 +791,7 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
                         Map<String, Object> putBody = new HashMap<>();
                         // putBody.put("experimentId", experimentId);
                         putBody.put("parent_id", runId);
-                        putBody.put("name", "user rating");
+                        putBody.put("name", "rating");
                         putBody.put("parent_type", "workflow");
                         // putBody.put("semanticType", "user_rating");
                         // putBody.put("step", 1);
@@ -809,13 +809,36 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
                         
 
                         // return ResponseEntity.ok(new UserEvaluationResponse("failed", "User evaluation was not submitted "));
-                    }
+                    }else{
+                        System.out.println("Metrics found for the given experiment and run.");
+                        System.out.println("responseList: " + responseList);
+                        Map<String, Object> metric = responseList.get(0); // assuming only one relevant metric
+                        String metricId = (String) metric.get("id");
+                        // Construct the URL
+                        String postUrl = workflowsApiUrl + "/metrics/" + metricId;
+                        // Create the body
+                        Map<String, Object> postBody = new HashMap<>();
+                        postBody.put("value", userEvaluation.getRating().toString());
+
+                        // Create the request
+                        HttpEntity<Map<String, Object>> postEntity = new HttpEntity<>(postBody, headers);
+
+                        // Send POST request
+                        ResponseEntity<String> postResponse = restTemplate.exchange(
+                            postUrl, HttpMethod.POST, postEntity, String.class);
+                            if (postResponse.getStatusCode() == HttpStatus.OK) {
+                                return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation updated successfully"));
+                            } else {
+                                return ResponseEntity.status(postResponse.getStatusCode()).body(
+                                    new UserEvaluationResponse("failed", "Failed to update existing user evaluation"));
+                            }
+                        }
 
                 } catch (Exception e) {
                     e.printStackTrace();
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
                 }
         
-        return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
+        // return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
     }
 }
