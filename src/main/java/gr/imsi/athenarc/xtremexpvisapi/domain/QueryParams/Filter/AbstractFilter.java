@@ -13,7 +13,9 @@ import lombok.Data;
 )
 @JsonSubTypes({
     @JsonSubTypes.Type(value = EqualsFilter.class, name = "equals"),
-    @JsonSubTypes.Type(value = RangeFilter.class, name = "range")
+    @JsonSubTypes.Type(value = RangeFilter.class, name = "range"),
+    @JsonSubTypes.Type(value = InequalityFilter.class, name = "inequality"),
+    @JsonSubTypes.Type(value = StringFilter.class, name = "string")
 })
 public abstract class AbstractFilter {
  
