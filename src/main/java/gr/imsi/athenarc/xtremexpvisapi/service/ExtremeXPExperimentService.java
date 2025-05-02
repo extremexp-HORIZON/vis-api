@@ -339,7 +339,10 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
     run.setTags(tags);
 
     List<String> metricIds = new ArrayList<>();
+    System.out.println("metricIds" + metricIds);
     Object workflowIdsObj = responseObject.get("metric_ids");
+    System.out.println("workflowIdsObj" + workflowIdsObj);
+
     if (workflowIdsObj instanceof List<?>) {
         metricIds = ((List<?>) workflowIdsObj).stream()
                 .filter(String.class::isInstance)
@@ -348,10 +351,74 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
     }
 
     List<Metric> finalMetrics = new ArrayList<>();
+    System.out.println("finalMetrics" + finalMetrics);
+
+    
     String experimentId = run.getExperimentId();
     String runId = run.getId();
+    String checkUrl = workflowsApiUrl + "/metrics-query";
+HttpHeaders headers = new HttpHeaders();
+headers.set("access-token", workflowsApiKey);
+headers.setContentType(MediaType.APPLICATION_JSON);
+
+Map<String, Object> checkBody = new HashMap<>();
+checkBody.put("experimentId", experimentId);
+checkBody.put("parent_id", runId);
+checkBody.put("name", "rating");
+
+HttpEntity<Map<String, Object>> checkEntity = new HttpEntity<>(checkBody, headers);
+
+try {
+    ResponseEntity<List> checkResponse = restTemplate.exchange(
+        checkUrl, HttpMethod.POST, checkEntity, List.class);
+
+    List<Map<String, Object>> existingMetrics = checkResponse.getBody();
+    if (existingMetrics == null || existingMetrics.isEmpty()) {
+        // No "rating" metric exists; create one
+        String putUrl = workflowsApiUrl + "/metrics";
+        Map<String, Object> putBody = new HashMap<>();
+        putBody.put("parent_id", runId);
+        putBody.put("name", "rating");
+        putBody.put("parent_type", "workflow");
+        putBody.put("value", "0"); // or default/placeholder value
+
+        HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(putBody, headers);
+        ResponseEntity<String> putResponse = restTemplate.exchange(
+            putUrl, HttpMethod.PUT, putEntity, String.class);
+
+            if (putResponse.getStatusCode().is2xxSuccessful()) {
+                System.out.println("Rating metric created for run: " + runId);
+
+                // ✅ Retry logic to confirm the metric exists
+                boolean metricFound = false;
+                for (int i = 0; i < 3; i++) {
+                    Thread.sleep(500); // wait 500ms
+                    ResponseEntity<List> retryCheck = restTemplate.exchange(
+                        checkUrl, HttpMethod.POST, checkEntity, List.class);
+                    List<Map<String, Object>> retryMetrics = retryCheck.getBody();
+                    if (retryMetrics != null && !retryMetrics.isEmpty()) {
+                        System.out.println("Rating metric found after retry.");
+                        metricFound = true;
+                        break;
+                    }
+                }
+                if (!metricFound) {
+                    System.out.println("Warning: Rating metric not visible after retries.");
+                }
+
+            } else {
+                System.out.println("Failed to create rating metric for run: " + runId);
+            }
+        } else {
+            System.out.println("Rating metric already exists for run: " + runId);
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        System.out.println("Exception while checking/creating rating metric for run: " + runId);
+    }
 
     for (String metricId : metricIds) {
+
         ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
         System.out.println("metricResponse: " + metricResponse);
         List<Metric> fetchedMetrics = metricResponse.getBody();
