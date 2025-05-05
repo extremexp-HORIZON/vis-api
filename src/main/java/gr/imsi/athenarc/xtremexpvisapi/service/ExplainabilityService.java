@@ -68,13 +68,54 @@ public class ExplainabilityService extends ExplanationsImplBase {
             });
         }
 
-        // If data is not null, download the file from Zenoh
-        if (!requestBuilder.getData().isEmpty()) {
+        // If data is not null and has at least one non-empty field, download the files from Zenoh
+        if (requestBuilder.hasData() && 
+            (!requestBuilder.getData().getXTrain().isEmpty() || 
+             !requestBuilder.getData().getXTest().isEmpty() || 
+             !requestBuilder.getData().getYTrain().isEmpty() || 
+             !requestBuilder.getData().getYTest().isEmpty() || 
+             !requestBuilder.getData().getYPred().isEmpty())) {
             try {
-                String dataPath = requestBuilder.getData();
-                fileService.downloadFileFromZenoh(requestBuilder.getData());
-                String newPath = workingDirectory + dataPath;
-                requestBuilder.setData(newPath);
+                // Create a new DataPaths.Builder to hold the updated paths
+                explainabilityService.DataPaths.Builder dataPathsBuilder = requestBuilder.getData().toBuilder();
+                
+                // Handle X_train
+                if (!dataPathsBuilder.getXTrain().isEmpty()) {
+                    String xTrainPath = dataPathsBuilder.getXTrain();
+                    fileService.downloadFileFromZenoh(xTrainPath);
+                    dataPathsBuilder.setXTrain(workingDirectory + xTrainPath);
+                }
+                
+                // Handle X_test
+                if (!dataPathsBuilder.getXTest().isEmpty()) {
+                    String xTestPath = dataPathsBuilder.getXTest();
+                    fileService.downloadFileFromZenoh(xTestPath);
+                    dataPathsBuilder.setXTest(workingDirectory + xTestPath);
+                }
+                
+                // Handle Y_train
+                if (!dataPathsBuilder.getYTrain().isEmpty()) {
+                    String yTrainPath = dataPathsBuilder.getYTrain();
+                    fileService.downloadFileFromZenoh(yTrainPath);
+                    dataPathsBuilder.setYTrain(workingDirectory + yTrainPath);
+                }
+                
+                // Handle Y_test
+                if (!dataPathsBuilder.getYTest().isEmpty()) {
+                    String yTestPath = dataPathsBuilder.getYTest();
+                    fileService.downloadFileFromZenoh(yTestPath);
+                    dataPathsBuilder.setYTest(workingDirectory + yTestPath);
+                }
+                
+                // Handle Y_pred
+                if (!dataPathsBuilder.getYPred().isEmpty()) {
+                    String yPredPath = dataPathsBuilder.getYPred();
+                    fileService.downloadFileFromZenoh(yPredPath);
+                    dataPathsBuilder.setYPred(workingDirectory + yPredPath);
+                }
+                
+                // Set the updated DataPaths object in the request builder
+                requestBuilder.setData(dataPathsBuilder.build());
             } catch (Exception e) {
                 e.printStackTrace();
             }
