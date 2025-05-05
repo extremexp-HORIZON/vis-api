@@ -142,6 +142,14 @@
 					<pluginId>grpc-java</pluginId>
 					<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
 					<clearOutputDirectory>false</clearOutputDirectory>
+					<!-- 
+						Enable useArgumentFile to handle paths with non-ASCII characters.
+						This was added because some protoc versions > 3.3.0 have issues handling
+						non-ASCII characters in file paths on Windows. Using argument files
+						provides a workaround for this limitation while allowing us to use
+						newer protoc versions.
+					-->
+					<useArgumentFile>true</useArgumentFile>
 				</configuration>
 				<executions>
 					<execution>
