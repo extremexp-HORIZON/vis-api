@@ -32,6 +32,14 @@ public class MlAnalysisResourceHelper {
         return folder.resolve("X_test.csv");
     }
 
+    public Path getXTrainPath(Path folder) {
+        return folder.resolve("X_train.csv");
+    }
+
+    public Path getYTrainPath(Path folder) {
+        return folder.resolve("Y_train.csv");
+    }
+
     public Path getYTestPath(Path folder) {
         return folder.resolve("Y_test.csv");
     }
@@ -41,7 +49,6 @@ public class MlAnalysisResourceHelper {
     }
 
     public Path getModelPath(Path folder) {
-        // Adjust extension if you use something else (.onnx, .joblib, etc.)
         return folder.resolve("model.pkl");
     }
 
@@ -55,7 +62,9 @@ public class MlAnalysisResourceHelper {
         return Files.exists(getXTestPath(folder)) &&
                 Files.exists(getYTestPath(folder)) &&
                 Files.exists(getYPredPath(folder)) &&
-                Files.exists(getModelPath(folder));
+                Files.exists(getModelPath(folder)) &&
+                Files.exists(getXTrainPath(folder)) &&
+                Files.exists(getYTrainPath(folder));
     }
 
     /**
@@ -68,6 +77,8 @@ public class MlAnalysisResourceHelper {
         Map<String, Path> map = new LinkedHashMap<>();
         map.put("X_test", getXTestPath(folder));
         map.put("Y_test", getYTestPath(folder));
+        map.put("Y_train", getYTrainPath(folder));
+        map.put("X_train", getXTrainPath(folder));
         map.put("Y_pred", getYPredPath(folder));
         map.put("model", getModelPath(folder));
         return map;
