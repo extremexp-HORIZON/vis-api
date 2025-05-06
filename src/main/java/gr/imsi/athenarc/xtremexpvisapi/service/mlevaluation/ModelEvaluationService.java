@@ -1,0 +1,176 @@
+package gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
+import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
+import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
+import tech.tablesaw.api.StringColumn;
+import tech.tablesaw.api.Table;
+
+@Service
+public class ModelEvaluationService {
+
+    private final DataSourceFactory dataSourceFactory;
+    private final ExperimentServiceFactory experimentServiceFactory;
+
+    private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
+    private static final String ML_ANALYSIS_FOLDER_NAME = "ml_analysis_resources";
+
+    // Maximum number of rows to return for labeled test instances
+    private static final int MAX_PAGE_SIZE = 1000;
+
+    @Value("${app.mock.ml-evaluation.path:}")
+    private String mockEvaluationPath;
+
+    public ModelEvaluationService(DataSourceFactory dataSourceFactory,
+            ExperimentServiceFactory experimentServiceFactory) {
+        this.dataSourceFactory = dataSourceFactory;
+        this.experimentServiceFactory = experimentServiceFactory;
+    }
+
+    @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
+    public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
+        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        ExperimentService service = experimentServiceFactory.getActiveService();
+        ResponseEntity<Run> response = service.getRunById(experimentId, runId);
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            return Optional.empty();
+        }
+
+        Run run = response.getBody();
+        Optional<Path> folderOpt = findAnalysisFolder(run.getDataAssets());
+
+        // Fallback to mock path if no folder found and mock path is configured
+        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
+            LOG.warn("No analysis folder found in run metadata. Falling back to mock path: {}", mockEvaluationPath);
+            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
+        }
+        if (folderOpt.isEmpty())
+            return Optional.empty();
+
+        Path folder = folderOpt.get();
+        Table x = loadTable(folder.resolve("X_test.csv"));
+        Table y = loadTable(folder.resolve("Y_test.csv"));
+        Table yPred = loadTable(folder.resolve("Y_pred.csv"));
+        validateAlignment(x, y, yPred);
+        return Optional.of(new ModelEvaluationData(x, y, yPred));
+    }
+
+    private Optional<Path> findAnalysisFolder(List<DataAsset> assets) {
+        return assets.stream()
+                .filter(a -> a.getName().equals(ML_ANALYSIS_FOLDER_NAME))
+                .map(a -> Paths.get(a.getSource()))
+                .findFirst();
+    }
+
+    private Table loadTable(Path path) {
+        SourceType type = SourceType.csv;
+        CsvDataSource ds = (CsvDataSource) dataSourceFactory.createDataSource(type, path.toString());
+        if (ds == null) {
+            throw new IllegalStateException("Failed to create data source for path: " + path);
+        }
+        LOG.info("Loading ML evaluation table from path: {}", path);
+        return ds.readCsvFromFile(path);
+    }
+
+    private void validateAlignment(Table x, Table y, Table yPred) {
+        int n = x.rowCount();
+        if (y.rowCount() != n || yPred.rowCount() != n) {
+            throw new IllegalStateException("Row counts do not match between X_test, Y_test, and Y_pred");
+        }
+    }
+
+    /**
+     * Computes a confusion matrix from the evaluation data and returns it
+     * as a structured result suitable for frontend consumption.
+     * Converts labels to strings to support mixed types (e.g., numeric classes).
+     *
+     * @param data the evaluation data containing actual and predicted labels
+     * @return a structured confusion matrix result
+     */
+    public ConfusionMatrixResult getConfusionMatrixResult(ModelEvaluationData data) {
+        // Convert label columns to string format
+        StringColumn actual = data.yTest().column(0).asStringColumn().setName("actual");
+        StringColumn predicted = data.yPred().column(0).asStringColumn().setName("predicted");
+
+        // Create a temporary table with both columns
+        Table labelTable = Table.create("Labels", actual, predicted);
+
+        // Compute the confusion matrix
+        Table confusionTable = labelTable.xTabCounts("actual", "predicted");
+
+        LOG.info("Confusion matrix:{}", confusionTable.print());
+
+        List<String> predictedLabels = confusionTable.columnNames().subList(1, confusionTable.columnCount() - 1); // skip
+                                                                                                                  // last
+                                                                                                                  // "total"
+                                                                                                                  // column
+
+        List<List<Integer>> matrix = confusionTable.stream()
+                .filter(row -> !row.getString(0).equalsIgnoreCase("Total")) // skip "Total" row
+                .map(row -> predictedLabels.stream()
+                        .map(label -> {
+                            Object val = row.getObject(label);
+                            return (val instanceof Number) ? ((Number) val).intValue() : 0;
+                        })
+                        .collect(Collectors.toList()))
+                .collect(Collectors.toList());
+
+        return new ConfusionMatrixResult(predictedLabels, matrix);
+    }
+
+    /**
+     * Returns a paged list of test instances with feature values,
+     * actual labels, and predicted labels.
+     *
+     * @param data   the evaluation data containing X_test, Y_test, and Y_pred
+     * @param offset the starting row index (nullable, defaults to 0)
+     * @param limit  the maximum number of rows to return (nullable, defaults to
+     *               100, capped)
+     * @return a list of maps representing labeled test instances
+     */
+    public List<Map<String, Object>> getLabeledTestInstances(ModelEvaluationData data, Integer offset, Integer limit) {
+        Table x = data.xTest();
+        StringColumn actual = data.yTest().column(0).asStringColumn();
+        StringColumn predicted = data.yPred().column(0).asStringColumn();
+
+        List<String> featureNames = x.columnNames();
+        int totalRows = x.rowCount();
+
+        int start = offset != null ? Math.max(0, offset) : 0;
+        int end = Math.min(totalRows, start + (limit != null ? Math.min(limit, MAX_PAGE_SIZE) : 100));
+
+        List<Map<String, Object>> rows = new ArrayList<>(end - start);
+        for (int i = start; i < end; i++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (String feature : featureNames) {
+                row.put(feature, x.column(feature).get(i));
+            }
+            row.put("actual", actual.get(i));
+            row.put("predicted", predicted.get(i));
+            rows.add(row);
+        }
+
+        return rows;
+    }
+
+}

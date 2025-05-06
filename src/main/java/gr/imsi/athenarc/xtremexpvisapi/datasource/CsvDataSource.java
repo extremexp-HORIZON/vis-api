@@ -294,21 +294,34 @@ public class CsvDataSource implements DataSource {
         return new String(jsonData);
     }
 
-    private Table readCsvFromFile(Path filePath) {
+    public Table readCsvFromFile(Path filePath) {
         String fileName = filePath.getFileName().toString();
-        // Check if the table is already cached
-        if (tableCache.containsKey(fileName)) {
-            return tableCache.get(fileName);
-        }
-        try (InputStream inputStream = Files.newInputStream(filePath)) {
-            CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
-            Table table = Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
-            tableCache.put(fileName, table);
-            return table;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read CSV file", e);
+        LOG.info("Reading CSV file: {}", fileName);
+    
+        // Attempt 1: with sample-based type inference
+        try (InputStream stream = Files.newInputStream(filePath)) {
+            CsvReadOptions options = CsvReadOptions.builder(stream)
+                .header(true)
+                .sample(true)
+                .build();
+            return Table.read().usingOptions(options).setName(fileName);
+    
+        } catch (Exception firstException) {
+            LOG.warn("Initial type inference failed for '{}'. Retrying with full parsing (sample=false)", fileName);
+    
+            // Attempt 2: fallback to more conservative parsing
+            try (InputStream retryStream = Files.newInputStream(filePath)) {
+                CsvReadOptions fallbackOptions = CsvReadOptions.builder(retryStream)
+                    .header(true)
+                    .sample(false)
+                    .build();
+                return Table.read().usingOptions(fallbackOptions).setName(fileName);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to read CSV file (even with fallback): " + fileName, e);
+            }
         }
     }
+    
 
     public void setSource(String source) {
         this.source = source;
