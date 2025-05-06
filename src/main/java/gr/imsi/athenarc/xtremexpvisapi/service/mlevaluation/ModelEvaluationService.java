@@ -19,10 +19,10 @@ import org.springframework.stereotype.Service;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
 
@@ -33,7 +33,6 @@ public class ModelEvaluationService {
     private final ExperimentServiceFactory experimentServiceFactory;
 
     private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
-    private static final String ML_ANALYSIS_FOLDER_NAME = "ml_analysis_resources";
 
     // Maximum number of rows to return for labeled test instances
     private static final int MAX_PAGE_SIZE = 1000;
@@ -41,10 +40,13 @@ public class ModelEvaluationService {
     @Value("${app.mock.ml-evaluation.path:}")
     private String mockEvaluationPath;
 
+    private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
+
     public ModelEvaluationService(DataSourceFactory dataSourceFactory,
-            ExperimentServiceFactory experimentServiceFactory) {
+            ExperimentServiceFactory experimentServiceFactory, MlAnalysisResourceHelper mlAnalysisResourceHelper) {
         this.dataSourceFactory = dataSourceFactory;
         this.experimentServiceFactory = experimentServiceFactory;
+        this.mlAnalysisResourceHelper = mlAnalysisResourceHelper;
     }
 
     @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
@@ -57,7 +59,7 @@ public class ModelEvaluationService {
         }
 
         Run run = response.getBody();
-        Optional<Path> folderOpt = findAnalysisFolder(run.getDataAssets());
+        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
 
         // Fallback to mock path if no folder found and mock path is configured
         if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
@@ -68,18 +70,16 @@ public class ModelEvaluationService {
             return Optional.empty();
 
         Path folder = folderOpt.get();
-        Table x = loadTable(folder.resolve("X_test.csv"));
-        Table y = loadTable(folder.resolve("Y_test.csv"));
-        Table yPred = loadTable(folder.resolve("Y_pred.csv"));
+
+        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+            LOG.warn("Analysis folder exists but is missing one or more required files.");
+            return Optional.empty();
+        }
+        Table x = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+        Table y = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+        Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
         validateAlignment(x, y, yPred);
         return Optional.of(new ModelEvaluationData(x, y, yPred));
-    }
-
-    private Optional<Path> findAnalysisFolder(List<DataAsset> assets) {
-        return assets.stream()
-                .filter(a -> a.getName().equals(ML_ANALYSIS_FOLDER_NAME))
-                .map(a -> Paths.get(a.getSource()))
-                .findFirst();
     }
 
     private Table loadTable(Path path) {
