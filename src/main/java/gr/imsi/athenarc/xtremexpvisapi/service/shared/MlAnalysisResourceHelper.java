@@ -1,12 +1,15 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.shared;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
-import org.springframework.stereotype.Component;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.stereotype.Component;
+
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 
 /**
  * Helper for resolving and validating ML analysis resources
@@ -62,7 +65,6 @@ public class MlAnalysisResourceHelper {
         return Files.exists(getXTestPath(folder)) &&
                 Files.exists(getYTestPath(folder)) &&
                 Files.exists(getYPredPath(folder)) &&
-                Files.exists(getModelPath(folder)) &&
                 Files.exists(getXTrainPath(folder)) &&
                 Files.exists(getYTrainPath(folder));
     }
