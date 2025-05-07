@@ -310,7 +310,7 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
     run.setName(responseObject.get("name").toString());
     run.setExperimentId(responseObject.get("experimentId").toString());
     run.setStartTime(parseIsoDateToMillis(responseObject.get("start").toString()));
-    run.setEndTime(parseIsoDateToMillis(responseObject.get("end").toString()));
+    run.setEndTime(responseObject.containsKey("end") ? parseIsoDateToMillis(responseObject.get("end").toString()) : null);
     String statusStr = responseObject.get("status").toString(); // Get status as string
     try {
         run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
@@ -589,6 +589,7 @@ try {
             }
         
 
+        
         run.setMetrics(finalMetrics);
 
         List<Task> tasks = new ArrayList<>();
