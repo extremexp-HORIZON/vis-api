@@ -1,9 +1,11 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
-import java.util.HashMap;
+import java.nio.file.Path;
 import java.util.Map;
-import java.util.stream.IntStream;
+import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,13 +20,15 @@ import explainabilityService.ApplyAffectedActionsResponse;
 import explainabilityService.ExplanationsGrpc;
 import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
+import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ModelEvaluationService;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
-import explainabilityService.hyperparameters;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import lombok.extern.java.Log;
 
 @Service
+@Log
 public class ExplainabilityService extends ExplanationsImplBase {
 
     @Value("${app.grpc.host.name}")
@@ -36,68 +40,46 @@ public class ExplainabilityService extends ExplanationsImplBase {
     @Value("${app.file.cache.directory}")
     private String workingDirectory;
 
+    @Value("${app.mock.ml-evaluation.path:}")
+    private String mockEvaluationPath;
+
     DataService dataService;
     FileService fileService;
+    ModelEvaluationService modelEvaluationService;
+    private static final Logger LOG = LoggerFactory.getLogger(ExplainabilityService.class);
 
-    public ExplainabilityService(DataService dataService, FileService fileService) {
+    public ExplainabilityService(DataService dataService, FileService fileService,
+            ModelEvaluationService modelEvaluationService) {
         this.dataService = dataService;
         this.fileService = fileService;
+        this.modelEvaluationService = modelEvaluationService;
     }
 
-    public JsonNode GetExplains(String jsonRequest) throws InvalidProtocolBufferException, JsonProcessingException {
+    public JsonNode GetExplains(String explainabilityRequest,
+            String experimentId, String runId)
+            throws InvalidProtocolBufferException, JsonProcessingException {
 
         ExplanationsRequest.Builder requestBuilder = ExplanationsRequest.newBuilder();
-        JsonFormat.parser().merge(jsonRequest, requestBuilder);
+        JsonFormat.parser().merge(explainabilityRequest, requestBuilder);
+        Optional<Map<String, Path>> loadedPaths = modelEvaluationService.loadExplainabilityDataPaths(experimentId, runId);
 
-        // If there are hyperconfigs, download the files from Zenoh
-        if (requestBuilder.getHyperConfigsCount() != 0) {
-            Map<String, hyperparameters> updatedHyperConfigs = new HashMap<>();
-            requestBuilder.getHyperConfigsMap().forEach((k, v) -> {
-                try {
-                    fileService.downloadFileFromZenoh(k);
-                    // Replace the existing key of the map to the new path
-                    String newPath = workingDirectory + k;
-                    updatedHyperConfigs.put(newPath, v);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-            updatedHyperConfigs.forEach((newKey, value) -> {
-                requestBuilder.removeHyperConfigs(newKey.substring(workingDirectory.length()));
-                requestBuilder.putHyperConfigs(newKey, value);
-            });
+        if (loadedPaths.isEmpty()) {
+            throw new RuntimeException(
+                    "Failed to load explainability data for experiment: " + experimentId + ", run: " + runId);
         }
 
-        // If data is not null, download the file from Zenoh
-        if (!requestBuilder.getData().isEmpty()) {
-            try {
-                String dataPath = requestBuilder.getData();
-                fileService.downloadFileFromZenoh(requestBuilder.getData());
-                String newPath = workingDirectory + dataPath;
-                requestBuilder.setData(newPath);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        Map<String, String> loadedData = loadedPaths.get().entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().toString()));
 
-        // If model is not null, download the files from Zenoh
-        if (requestBuilder.getModelCount() != 0) {
-            IntStream.range(0, requestBuilder.getModelCount()).forEach(i -> {
-                try {
-                    String model = requestBuilder.getModel(i);
-                    fileService.downloadFileFromZenoh(model);
-                    String newPath = workingDirectory + model;
-                    requestBuilder.setModel(i, newPath);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
+        requestBuilder.putAllData(loadedData);
 
         ExplanationsRequest request = requestBuilder.build();
         System.out.println("Request: \n" + request);
 
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
+        ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
+                Integer.parseInt(grpcHostPort))
                 .usePlaintext()
                 .build();
 
@@ -135,6 +117,6 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readTree(jsonString);
-    }
+    } 
 
 }
