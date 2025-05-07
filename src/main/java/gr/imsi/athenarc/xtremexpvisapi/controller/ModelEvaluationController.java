@@ -74,4 +74,23 @@ public class ModelEvaluationController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Returns the ROC curve data for a given run.
+     * <p>
+     * This endpoint reads the ROC curve data from a JSON file located in the
+     * <code>ml_analysis_resources</code> folder of the run.
+     *
+     * @param experimentId the ID of the experiment
+     * @param runId        the ID of the run within the experiment
+     * @return a JSON string representing the ROC curve data, or 404 if not found
+     */
+    @GetMapping("/roc-curve")
+    public ResponseEntity<String> getRocCurveData(
+            @PathVariable String experimentId,
+            @PathVariable String runId) {
+        return evaluationService.getRocCurveData(experimentId, runId)
+                .map(json -> ResponseEntity.ok().body(json))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
 }

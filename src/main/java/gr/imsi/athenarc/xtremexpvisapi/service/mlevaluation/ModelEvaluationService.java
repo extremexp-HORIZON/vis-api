@@ -1,5 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -118,8 +120,6 @@ public class ModelEvaluationService {
         // Compute the confusion matrix
         Table confusionTable = labelTable.xTabCounts("actual", "predicted");
 
-        LOG.info("Confusion matrix:{}", confusionTable.print());
-
         List<String> predictedLabels = confusionTable.columnNames().subList(1, confusionTable.columnCount() - 1); // skip
                                                                                                                   // last
                                                                                                                   // "total"
@@ -171,6 +171,47 @@ public class ModelEvaluationService {
         }
 
         return rows;
+    }
+
+    /**
+     * Returns the ROC curve JSON data for a given run.
+     * <p>
+     * This method reads the ROC curve data from a JSON file located in the
+     * <code>ml_analysis_resources</code> folder of the run.
+     *
+     * @param experimentId the ID of the experiment
+     * @param runId        the ID of the run within the experiment
+     * @return an Optional containing the ROC curve JSON data, or an empty Optional
+     *         if not found
+     */
+    public Optional<String> getRocCurveData(String experimentId, String runId) {
+        ExperimentService service = experimentServiceFactory.getActiveService();
+        ResponseEntity<Run> response = service.getRunById(experimentId, runId);
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            return Optional.empty();
+        }
+
+        Run run = response.getBody();
+        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
+
+        // Fallback to mock folder if available
+        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
+            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
+        }
+        if (folderOpt.isEmpty())
+            return Optional.empty();
+
+        Path rocPath = mlAnalysisResourceHelper.getRocCurvePath(folderOpt.get());
+        if (!Files.exists(rocPath)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(Files.readString(rocPath));
+        } catch (IOException e) {
+            LOG.error("Error reading ROC curve file", e);
+            return Optional.empty();
+        }
     }
 
 }

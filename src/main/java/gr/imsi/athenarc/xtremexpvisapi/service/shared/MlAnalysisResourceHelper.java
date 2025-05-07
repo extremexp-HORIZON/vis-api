@@ -55,6 +55,10 @@ public class MlAnalysisResourceHelper {
         return folder.resolve("model.pkl");
     }
 
+    public Path getRocCurvePath(Path folder) {
+        return folder.resolve("roc_data.json");
+    }
+
     /**
      * Checks that all required evaluation files exist in the folder.
      *
