@@ -14,7 +14,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import gr.imsi.athenarc.xtremexpvisapi.service.ExplainabilityService;
+import gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService;
 
 @RestController
 @CrossOrigin
