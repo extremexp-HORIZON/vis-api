@@ -156,10 +156,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                                 MetricDefinition metricDefinition = new MetricDefinition();
                                 metricDefinition.setName(name);
                                 metricDefinition.setSemanticType(semanticType);
-                                metricDefinition.setDescription("Description not available");
-                                metricDefinition.setUnit("unit not available");
-                                metricDefinition.setGreaterIsBetter(null); // Set based on your logic
-
+                                metricDefinition.setGreaterIsBetter(null);
                                 uniqueMetricDefinitions.put(semanticType, metricDefinition);
                             }
                         }
@@ -240,8 +237,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
                             MetricDefinition metricDefinition = new MetricDefinition();
                             metricDefinition.setName(name);
                             metricDefinition.setSemanticType(semanticType);
-                            metricDefinition.setDescription("Description not available");
-                            metricDefinition.setUnit("unit not available");
                             metricDefinition.setGreaterIsBetter(null);
                             metricDefinition.setProducedByTask(producedByTask);
                             uniqueMetricDefinitions.put(name, metricDefinition);
