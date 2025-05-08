@@ -75,8 +75,6 @@ public class ExplainabilityService extends ExplanationsImplBase {
                         Map.Entry::getKey,
                         e -> e.getValue().toString()));
 
-        requestBuilder.putAllData(loadedData);
-
         ExplanationsRequest request = requestBuilder.build();
         System.out.println("Request: \n" + request);
 

@@ -21,13 +21,21 @@ message hyperparameters {
     float metric_value = 2;
 }
 
+message DataPaths {
+    string X_train = 1;
+    string X_test = 2;
+    string Y_train = 3;
+    string Y_test = 4;
+    string Y_pred = 5;
+}
+
 message ExplanationsRequest {
 
     string explanation_type = 1;
     string explanation_method = 2;
 
     repeated string model = 3; //different paths for the selected workflows
-    // map<string, string> data = 4; //path to dataset file, contains whole dataset 
+    DataPaths data = 4; //path to dataset file, contains whole dataset 
     string target_column = 5; // target variable of dataset
     map<string, hyperparameters> hyper_configs = 6; // dictionaire with hyperparameters configs and respected metrics
     string feature1 = 7;
