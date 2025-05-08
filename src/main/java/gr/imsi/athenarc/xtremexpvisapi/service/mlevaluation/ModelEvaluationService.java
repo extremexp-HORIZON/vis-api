@@ -37,7 +37,7 @@ public class ModelEvaluationService {
     private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
 
     // Maximum number of rows to return for labeled test instances
-    private static final int MAX_PAGE_SIZE = 1000;
+    private static final int MAX_PAGE_SIZE = 3000;
 
     @Value("${app.mock.ml-evaluation.path:}")
     private String mockEvaluationPath;
