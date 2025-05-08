@@ -20,7 +20,5 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose the application port
 EXPOSE 8080
 
-# ENV PATH="${PATH}:/opt/java/openjdk/bin"
-
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
