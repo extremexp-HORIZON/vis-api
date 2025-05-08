@@ -22,6 +22,7 @@ import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ConfusionMatrixResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.ClassReportEntry;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.OverallMetrics;
@@ -88,7 +89,6 @@ public class ModelEvaluationService {
 
         validateAlignment(xTest, yTest, yPred);
         return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
-       
     }
 
     private Table loadTable(Path path) {
@@ -127,9 +127,8 @@ public class ModelEvaluationService {
         // Compute the confusion matrix
         Table confusionTable = labelTable.xTabCounts("actual", "predicted");
 
+        // skip total column
         List<String> predictedLabels = confusionTable.columnNames().subList(1, confusionTable.columnCount() - 1);
-
-
 
         List<List<Integer>> matrix = confusionTable.stream()
                 .filter(row -> !row.getString(0).equalsIgnoreCase("Total")) // skip "Total" row
@@ -220,7 +219,7 @@ public class ModelEvaluationService {
         }
     }
 
-        /*
+    /*
      * Loads the paths of the required files for explainability analysis.
      * <p>
      * This method checks if the specified experiment and run have the necessary

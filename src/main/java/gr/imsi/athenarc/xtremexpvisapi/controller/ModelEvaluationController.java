@@ -4,11 +4,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ModelEvaluationService;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ConfusionMatrixResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
-import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ConfusionMatrixResult;
+import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ModelEvaluationService;
 
 @RestController
 @RequestMapping("/experiments/{experimentId}/runs/{runId}/evaluation")
