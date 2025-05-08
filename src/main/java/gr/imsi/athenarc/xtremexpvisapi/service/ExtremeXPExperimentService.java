@@ -309,7 +309,7 @@ public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
     run.setId(responseObject.get("id").toString());
     run.setName(responseObject.get("name").toString());
     run.setExperimentId(responseObject.get("experimentId").toString());
-    run.setStartTime(parseIsoDateToMillis(responseObject.get("start").toString()));
+    run.setStartTime(responseObject.containsKey("start") ? parseIsoDateToMillis(responseObject.get("start").toString()) : null);
     run.setEndTime(responseObject.containsKey("end") ? parseIsoDateToMillis(responseObject.get("end").toString()) : null);
     String statusStr = responseObject.get("status").toString(); // Get status as string
     try {
