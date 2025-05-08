@@ -65,18 +65,13 @@ public class ModelEvaluationService {
         }
 
         Run run = response.getBody();
-        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
 
-        // Fallback to mock path if no folder found and mock path is configured
-        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
-            LOG.warn("No analysis folder found in run metadata. Falling back to mock path: {}", mockEvaluationPath);
-            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
-        }
-        if (folderOpt.isEmpty())
+        Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
+        if (folderOpt.isEmpty()) {
             return Optional.empty();
+        }
 
         Path folder = folderOpt.get();
-
         if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
             LOG.warn("Analysis folder exists but is missing one or more required files.");
             return Optional.empty();
@@ -197,14 +192,10 @@ public class ModelEvaluationService {
         }
 
         Run run = response.getBody();
-        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
-
-        // Fallback to mock folder if available
-        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
-            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
-        }
-        if (folderOpt.isEmpty())
+        Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
+        if (folderOpt.isEmpty()) {
             return Optional.empty();
+        }
 
         Path rocPath = mlAnalysisResourceHelper.getRocCurvePath(folderOpt.get());
         if (!Files.exists(rocPath)) {
@@ -223,8 +214,7 @@ public class ModelEvaluationService {
      * Loads the paths of the required files for explainability analysis.
      * <p>
      * This method checks if the specified experiment and run have the necessary
-     * files for explainability analysis. If not, it falls back to a mock path if
-     * configured.
+     * files for explainability analysis.
      *
      * @param experimentId the ID of the experiment
      * 
@@ -244,15 +234,10 @@ public class ModelEvaluationService {
         }
 
         Run run = response.getBody();
-        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
-
-        // Fallback to mock path if no folder found and mock path is configured
-        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
-            LOG.warn("No analysis folder found in run metadata. Falling back to mock path: {}", mockEvaluationPath);
-            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
-        }
-        if (folderOpt.isEmpty())
+        Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
+        if (folderOpt.isEmpty()) {
             return Optional.empty();
+        }
 
         Path folder = folderOpt.get();
 
@@ -358,4 +343,10 @@ public class ModelEvaluationService {
                 classLabels,
                 splitSizes);
     }
+
+    private Optional<Path> resolveMlAnalysisFolderPath(Run run) {
+        // return mlAnalysisResourceHelper.getMlResourceFolder(run);
+        return Optional.of(Paths.get(mockEvaluationPath));
+    }
+
 }
