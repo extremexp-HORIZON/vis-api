@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation;
+package gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation;
 
 import java.util.List;
 
