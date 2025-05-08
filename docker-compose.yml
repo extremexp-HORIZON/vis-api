@@ -9,4 +9,5 @@ services:
       - "8080:8080"
     volumes:
       - ./.env:/app/.env
+      - /opt:/opt
     restart: unless-stopped
