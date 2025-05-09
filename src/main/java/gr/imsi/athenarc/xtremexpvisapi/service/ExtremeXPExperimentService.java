@@ -306,14 +306,18 @@ public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
 public ResponseEntity<Run> runPreparation(Map<String, Object> responseObject) {
    
     Run run = new Run();
-    run.setId(responseObject.get("id").toString());
-    run.setName(responseObject.get("name").toString());
-    run.setExperimentId(responseObject.get("experimentId").toString());
-    run.setStartTime(parseIsoDateToMillis(responseObject.get("start").toString()));
-    run.setEndTime(responseObject.containsKey("end") ? parseIsoDateToMillis(responseObject.get("end").toString()) : null);
-    String statusStr = responseObject.get("status").toString(); // Get status as string
+    // Add null checks for all map retrievals
+    run.setId(responseObject.get("id") != null ? responseObject.get("id").toString() : null);
+    run.setName(responseObject.get("name") != null ? responseObject.get("name").toString() : null);
+    run.setExperimentId(responseObject.get("experimentId") != null ? responseObject.get("experimentId").toString() : null);
+    run.setStartTime(responseObject.get("start") != null ? parseIsoDateToMillis(responseObject.get("start").toString()) : null);
+    run.setEndTime(responseObject.containsKey("end") && responseObject.get("end") != null ? 
+                  parseIsoDateToMillis(responseObject.get("end").toString()) : null);
+    
+    // Handle status with null check
+    String statusStr = responseObject.get("status") != null ? responseObject.get("status").toString() : null;
     try {
-        run.setStatus(Status.valueOf(statusStr.toUpperCase())); // Convert to Enum
+        run.setStatus(statusStr != null ? Status.valueOf(statusStr.toUpperCase()) : Status.FAILED);
     } catch (IllegalArgumentException e) {
         run.setStatus(Status.FAILED); // Default or handle unknown status
     }

@@ -211,7 +211,7 @@
 								<argument>${project.basedir}/.env:/.env</argument>
 								<argument>-v</argument>
 								<!-- change this accordingly for the volume creation -->
-								<argument>/opt/experiments:/opt/experiments</argument>
+								<argument>/opt:/opt</argument>
 								<argument>vis-api</argument>
 							</arguments>
 						</configuration>

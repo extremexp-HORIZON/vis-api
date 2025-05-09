@@ -51,8 +51,24 @@ public class MlAnalysisResourceHelper {
         return folder.resolve("Y_pred.csv");
     }
 
-    public Path getModelPath(Path folder) {
-        return folder.resolve("model.pkl");
+    public Path getModelPath1(Path folder) {
+        return folder.resolve("model1.pkl");
+    }
+
+    public Path getModelPath2(Path folder) {
+        return folder.resolve("model2.pkl");
+    }
+
+    public Path getModelPath3(Path folder) {
+        return folder.resolve("model3.pkl");
+    }
+
+    public Path getModelPath4(Path folder) {
+        return folder.resolve("model4.pkl");
+    }
+
+    public Path getModelPath5(Path folder) {
+        return folder.resolve("model5.pkl");
     }
 
     public Path getRocCurvePath(Path folder) {
@@ -86,7 +102,11 @@ public class MlAnalysisResourceHelper {
         map.put("Y_train", getYTrainPath(folder));
         map.put("X_train", getXTrainPath(folder));
         map.put("Y_pred", getYPredPath(folder));
-        map.put("model", getModelPath(folder));
+        map.put("model1", getModelPath1(folder));
+        map.put("model2", getModelPath2(folder));
+        map.put("model3", getModelPath3(folder));
+        map.put("model4", getModelPath4(folder));
+        map.put("model5", getModelPath5(folder));
         return map;
     }
 }

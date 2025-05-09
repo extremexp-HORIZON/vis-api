@@ -16,7 +16,7 @@ message HyperparameterList {
     string type = 2; // Type of the hyperparameter: "categorical", "numeric", etc.
 }
 
-message hyperparameters {
+message Hyperparameters {
     map<string, HyperparameterList> hyperparameter = 1; // Map of hyperparameter name to details
     float metric_value = 2;
 }
@@ -37,7 +37,7 @@ message ExplanationsRequest {
     repeated string model = 3; //different paths for the selected workflows
     DataPaths data = 4; //path to dataset file, contains whole dataset 
     string target_column = 5; // target variable of dataset
-    map<string, hyperparameters> hyper_configs = 6; // dictionaire with hyperparameters configs and respected metrics
+    map<string, Hyperparameters> hyper_configs = 6; // dictionaire with hyperparameters configs and respected metrics
     string feature1 = 7;
     string feature2 = 8;
 
