@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ModelEvaluationService;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
 import gr.imsi.athenarc.xtremexpvisapi.service.mlevaluation.ConfusionMatrixResult;
 
 @RestController
@@ -17,6 +18,30 @@ public class ModelEvaluationController {
 
     public ModelEvaluationController(ModelEvaluationService evaluationService) {
         this.evaluationService = evaluationService;
+    }
+    /**
+     * Returns a summary of model evaluation metrics for a completed run.
+     * <p>
+     * This includes:
+     * - Overall accuracy, precision, recall, F1 (global, micro-averaged)
+     * - Per-class classification report
+     * - Test set shape and class distribution
+     *
+     * Requires the files: X_test.csv, Y_test.csv, Y_pred.csv, X_train.csv
+     *
+     * @param experimentId the ID of the experiment
+     * @param runId        the ID of the run
+     * @return a {@link ModelEvaluationSummary} if available, or 404 otherwise
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<ModelEvaluationSummary> getModelEvaluationSummary(
+            @PathVariable String experimentId,
+            @PathVariable String runId) {
+
+        return evaluationService.loadEvaluationData(experimentId, runId)
+                .map(evaluationService::getModelEvaluationSummary)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**

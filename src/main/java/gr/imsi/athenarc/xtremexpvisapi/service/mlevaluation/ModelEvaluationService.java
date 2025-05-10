@@ -22,6 +22,9 @@ import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.ClassReportEntry;
+import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.OverallMetrics;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
@@ -37,7 +40,7 @@ public class ModelEvaluationService {
     private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
 
     // Maximum number of rows to return for labeled test instances
-    private static final int MAX_PAGE_SIZE = 1000;
+    private static final int MAX_PAGE_SIZE = 10000;
 
     @Value("${app.mock.ml-evaluation.path:}")
     private String mockEvaluationPath;
@@ -77,11 +80,15 @@ public class ModelEvaluationService {
             LOG.warn("Analysis folder exists but is missing one or more required files.");
             return Optional.empty();
         }
-        Table x = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-        Table y = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+        Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+        Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
         Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-        validateAlignment(x, y, yPred);
-        return Optional.of(new ModelEvaluationData(x, y, yPred));
+        Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
+        Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+
+        validateAlignment(xTest, yTest, yPred);
+        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+       
     }
 
     private Table loadTable(Path path) {
@@ -120,10 +127,9 @@ public class ModelEvaluationService {
         // Compute the confusion matrix
         Table confusionTable = labelTable.xTabCounts("actual", "predicted");
 
-        List<String> predictedLabels = confusionTable.columnNames().subList(1, confusionTable.columnCount() - 1); // skip
-                                                                                                                  // last
-                                                                                                                  // "total"
-                                                                                                                  // column
+        List<String> predictedLabels = confusionTable.columnNames().subList(1, confusionTable.columnCount() - 1);
+
+
 
         List<List<Integer>> matrix = confusionTable.stream()
                 .filter(row -> !row.getString(0).equalsIgnoreCase("Total")) // skip "Total" row
@@ -212,5 +218,145 @@ public class ModelEvaluationService {
             LOG.error("Error reading ROC curve file", e);
             return Optional.empty();
         }
+    }
+
+        /*
+     * Loads the paths of the required files for explainability analysis.
+     * <p>
+     * This method checks if the specified experiment and run have the necessary
+     * files for explainability analysis. If not, it falls back to a mock path if
+     * configured.
+     *
+     * @param experimentId the ID of the experiment
+     * 
+     * @param runId the ID of the run within the experiment
+     * 
+     * @return an Optional containing a map of file names to their paths, or an
+     * empty
+     * Optional if no files are found
+     */
+    @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
+    public Optional<Map<String, Path>> loadExplainabilityDataPaths(String experimentId, String runId) {
+        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        ExperimentService service = experimentServiceFactory.getActiveService();
+        ResponseEntity<Run> response = service.getRunById(experimentId, runId);
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            return Optional.empty();
+        }
+
+        Run run = response.getBody();
+        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
+
+        // Fallback to mock path if no folder found and mock path is configured
+        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
+            LOG.warn("No analysis folder found in run metadata. Falling back to mock path: {}", mockEvaluationPath);
+            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
+        }
+        if (folderOpt.isEmpty())
+            return Optional.empty();
+
+        Path folder = folderOpt.get();
+
+        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+            LOG.warn("Analysis folder exists but is missing one or more required files.");
+            return Optional.empty();
+        }
+
+        if (mlAnalysisResourceHelper.getRequiredFilePaths(folder).isEmpty()) {
+            return Optional.empty();
+        } else {
+            return Optional.of(mlAnalysisResourceHelper.getRequiredFilePaths(folder));
+        }
+    }
+
+    /**
+     * Computes an evaluation summary for a trained model using test and train data.
+     * <p>
+     * This includes:
+     * <ul>
+     * <li>Global scalar metrics (true global/micro-averaged): accuracy, precision,
+     * recall, F1</li>
+     * <li>Per-class classification metrics</li>
+     * <li>Input shape: number of samples and features in X_test</li>
+     * <li>Dataset size breakdown from X_train and X_test</li>
+     * <li>Class labels</li>
+     * </ul>
+     *
+     * @param data Evaluation data including X_test, Y_test, Y_pred, and X_train
+     * @return a {@link ModelEvaluationSummary} with structured results for display
+     *         and analysis
+     */
+    public ModelEvaluationSummary getModelEvaluationSummary(ModelEvaluationData data) {
+        Table xTest = data.xTest();
+        Table yTest = data.yTest();
+        Table yPred = data.yPred();
+        Table xTrain = data.xTrain();
+
+        int numSamples = xTest.rowCount();
+        int numFeatures = xTest.columnCount();
+        int trainSize = xTrain.rowCount();
+
+        StringColumn actual = yTest.column(0).asStringColumn();
+        StringColumn predicted = yPred.column(0).asStringColumn();
+
+        List<String> classLabels = actual.unique().asList();
+        List<ClassReportEntry> classReport = new ArrayList<>();
+
+        int totalTP = 0, totalFP = 0, totalFN = 0;
+
+        // Per-class classification report
+        for (String label : classLabels) {
+            int tp = 0, fp = 0, fn = 0, support = 0;
+            for (int i = 0; i < actual.size(); i++) {
+                String actualLabel = actual.get(i);
+                String predictedLabel = predicted.get(i);
+
+                if (actualLabel.equals(label)) {
+                    support++;
+                    if (predictedLabel.equals(label))
+                        tp++;
+                    else
+                        fn++;
+                } else if (predictedLabel.equals(label)) {
+                    fp++;
+                }
+            }
+
+            totalTP += tp;
+            totalFP += fp;
+            totalFN += fn;
+
+            double precision = tp + fp == 0 ? Double.NaN : (double) tp / (tp + fp);
+            double recall = support == 0 ? Double.NaN : (double) tp / support;
+            double f1 = precision + recall == 0 ? Double.NaN : 2 * precision * recall / (precision + recall);
+
+            classReport.add(new ClassReportEntry(label, precision, recall, f1, support));
+        }
+
+        // Global scalar metrics
+        double precision = totalTP + totalFP == 0 ? Double.NaN : (double) totalTP / (totalTP + totalFP);
+        double recall = totalTP + totalFN == 0 ? Double.NaN : (double) totalTP / (totalTP + totalFN);
+        double f1 = precision + recall == 0 ? Double.NaN : 2 * precision * recall / (precision + recall);
+
+        // Accuracy: count all correct predictions
+        int correct = 0;
+        for (int i = 0; i < actual.size(); i++) {
+            if (actual.get(i).equals(predicted.get(i))) {
+                correct++;
+            }
+        }
+        double accuracy = (double) correct / numSamples;
+
+        OverallMetrics metrics = new OverallMetrics(accuracy, precision, recall, f1);
+
+        Map<String, Integer> splitSizes = Map.of("train", trainSize, "test", numSamples);
+
+        return new ModelEvaluationSummary(
+                metrics,
+                classReport,
+                numSamples,
+                numFeatures,
+                classLabels,
+                splitSizes);
     }
 }
