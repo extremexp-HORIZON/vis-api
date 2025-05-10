@@ -29,7 +29,7 @@ public class DataService {
 
     public TabularResponse getTabularData(TabularRequest tabularRequest) {
         String datasetId = tabularRequest.getDatasetId();
-        datasetId = "/I2Cat_phising/dataset/moby.csv";
+        datasetId = "/I2Cat_phising/dataset/I2Cat_phising_dataset.csv";
         tabularRequest.setDatasetId(datasetId);
         SourceType type = tabularRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
@@ -54,7 +54,7 @@ public class DataService {
         LOG.info("Retrieving metadata for datasetId: {}", metadataRequest.getDatasetId());
 
         String datasetId = metadataRequest.getDatasetId();
-        datasetId = "/I2Cat_phising/dataset/moby.csv";
+        datasetId = "/I2Cat_phising/dataset/I2Cat_phising_dataset.csv";
         metadataRequest.setDatasetId(datasetId);
         SourceType type = metadataRequest.getType();
 
