@@ -163,7 +163,7 @@ public class ModelEvaluationService {
         int totalRows = x.rowCount();
 
         int start = offset != null ? Math.max(0, offset) : 0;
-        int end = Math.min(totalRows, start + (limit != null ? Math.min(limit, MAX_PAGE_SIZE) : 100));
+        int end = Math.min(totalRows, start + (limit != null ? Math.min(limit, MAX_PAGE_SIZE) : 10000));
 
         List<Map<String, Object>> rows = new ArrayList<>(end - start);
         for (int i = start; i < end; i++) {
