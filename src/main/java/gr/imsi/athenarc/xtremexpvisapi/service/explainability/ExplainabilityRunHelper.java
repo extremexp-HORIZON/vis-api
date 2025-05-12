@@ -133,13 +133,21 @@ public class ExplainabilityRunHelper {
             Run run = response.getBody();
             List<Run> similarRuns = findSimilarRuns(run);
             log.info("Similar runs: " + similarRuns.size());
+            Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
+            if(requestBuilder.getExplanationMethod().equals("ale")){
+                requestBuilder.setFeature1("gamma");
+            }
+            List<String> model = new ArrayList<>();
+            model.add(dataPaths.get().get("model1").toString());
+            requestBuilder.addAllModel(model);
+            // TODO: In case of counterfactual explanation, each model should have completely different hyperparameters values
             //TODO: Remove this counter when the number of models is not fixed to 3
             int counter = 1;
             for (Run similarRun : similarRuns) {
                 if (counter > 3) {
                     break;
                 }
-                Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
+                dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId());
                 String modelPath = dataPaths.get().get("model" + counter).toString();
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
