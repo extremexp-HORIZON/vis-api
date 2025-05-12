@@ -177,15 +177,15 @@ public class CsvDataSource implements DataSource {
         Table table = readCsvFromFile(path);
         
         
-        Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-                table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+        // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+        //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
         MetadataResponse metadataResponse = new MetadataResponse();
         metadataResponse.setFileNames(Arrays.asList(new String[] { table.name() }));
         metadataResponse
                 .setOriginalColumns(table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
         metadataResponse.setTotalItems(table.rowCount());
-        metadataResponse.setUniqueColumnValues(uniqueColumnValues);
+        metadataResponse.setUniqueColumnValues(null);
         metadataResponse.setDatasetType(datasetTypeDetection(table));
         metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
         List<String> timeColumns = new ArrayList<>();
