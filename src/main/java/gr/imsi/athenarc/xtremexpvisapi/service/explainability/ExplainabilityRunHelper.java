@@ -145,9 +145,9 @@ public class ExplainabilityRunHelper {
             // TODO: Remove this counter when the number of models is not fixed to 3
             int counter = 1;
             for (Run similarRun : similarRuns) {
-                if (counter > 3) {
-                    break;
-                }
+                // if (counter > 3) {
+                //     break;
+                // }
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId());
                 String modelPath = dataPaths.get().get("model" + counter).toString();
