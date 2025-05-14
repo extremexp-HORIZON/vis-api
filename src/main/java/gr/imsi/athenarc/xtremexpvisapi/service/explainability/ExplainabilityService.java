@@ -39,7 +39,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
         FileService fileService;
         ExplainabilityRunHelper explainabilityRunHelper;
 
-        public ExplainabilityService(DataService dataService, FileService fileService, 
+        public ExplainabilityService(DataService dataService, FileService fileService,
                         ExplainabilityRunHelper explainabilityRunHelper) {
                 this.dataService = dataService;
                 this.fileService = fileService;
@@ -50,8 +50,13 @@ public class ExplainabilityService extends ExplanationsImplBase {
                         String experimentId, String runId)
                         throws InvalidProtocolBufferException, JsonProcessingException {
 
-                ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest, experimentId, runId);
-                log.info("Request: \n" + request);
+                ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest,
+                                experimentId, runId);
+                String jsonString;
+                ObjectMapper objectMapper = new ObjectMapper();
+                // print the request as JSON
+                jsonString = JsonFormat.printer().print(request);
+                log.info("Request: \n" + jsonString);
 
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
                                 Integer.parseInt(grpcHostPort))
@@ -61,13 +66,11 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
 
                 ExplanationsResponse response = stub.getExplanation(request);
-                log.info("Response: \n" + response);
+                jsonString = JsonFormat.printer().print(response);
+                log.info("Response: \n" + jsonString);
 
                 channel.shutdown();
 
-                String jsonString = JsonFormat.printer().print(response);
-
-                ObjectMapper objectMapper = new ObjectMapper();
                 return objectMapper.readTree(jsonString);
         }
 

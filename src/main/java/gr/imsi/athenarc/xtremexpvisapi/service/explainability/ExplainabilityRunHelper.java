@@ -72,7 +72,6 @@ public class ExplainabilityRunHelper {
 
         ExperimentService service = experimentServiceFactory.getActiveService();
         ResponseEntity<List<Run>> response = service.getRunsForExperiment(referenceRun.getExperimentId());
-
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             return Collections.emptyList();
         }
@@ -134,17 +133,19 @@ public class ExplainabilityRunHelper {
             List<Run> similarRuns = findSimilarRuns(run);
             log.info("Similar runs: " + similarRuns.size());
             Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
-            if(requestBuilder.getExplanationMethod().equals("ale")){
-                requestBuilder.setFeature1("gamma");
+            if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
+                requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
+                        .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
             }
             List<String> model = new ArrayList<>();
             model.add(dataPaths.get().get("model1").toString());
             requestBuilder.addAllModel(model);
-            // TODO: In case of counterfactual explanation, each model should have completely different hyperparameters values
-            //TODO: Remove this counter when the number of models is not fixed to 3
+            // TODO: In case of counterfactual explanation, each model should have
+            // completely different hyperparameters values
+            // TODO: Remove this counter when the number of models is not fixed to 3
             int counter = 1;
             for (Run similarRun : similarRuns) {
-                if (counter > 3) {
+                if (counter > 15) {
                     break;
                 }
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
@@ -176,6 +177,49 @@ public class ExplainabilityRunHelper {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());
         }
         return requestBuilder.build();
+    }
+
+    /**
+     * Finds the first parameter whose value differs across the given runs.
+     * 
+     * @param runs the list of runs to check for differences in parameter values
+     * @return the name of the first differing parameter, or empty if all parameters
+     *         have identical values
+     */
+    public Optional<String> findFirstDifferingParameter(List<Run> runs) {
+        if (runs == null || runs.size() <= 1) {
+            throw new IllegalArgumentException("Run List is empty");
+            // return Optional.empty();
+        }
+
+        // Get the list of param names from the first run
+        List<Param> firstRunParams = runs.get(0).getParams();
+        if (firstRunParams == null || firstRunParams.isEmpty()) {
+            throw new IllegalArgumentException("First run has no parameters");
+            // return Optional.empty();
+        }
+
+        // Check each parameter across all runs
+        for (Param param : firstRunParams) {
+            String paramName = param.getName();
+            String firstValue = param.getValue();
+
+            // Check if this parameter has different values across runs
+            boolean hasDifferentValues = runs.stream()
+                    .skip(1) // Skip the first run we already got the value from
+                    .map(run -> run.getParams().stream()
+                            .filter(p -> p.getName().equals(paramName))
+                            .findFirst()
+                            .map(Param::getValue)
+                            .orElse(null))
+                    .anyMatch(value -> value == null || !value.equals(firstValue));
+
+            if (hasDifferentValues) {
+                return Optional.of(paramName);
+            }
+        }
+        // If no differing parameters were found, return empty
+        return Optional.empty();
     }
 
     @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
