@@ -288,7 +288,7 @@ public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             List<Object> responseObjects = (List<Object>) response.getBody();
-            List<Run> runs = responseObjects.stream()
+            List<Run> runs = responseObjects.parallelStream()
                     .filter(Map.class::isInstance)
                     .map(run -> runPreparation((Map<String, Object>) run).getBody())
                     .collect(Collectors.toList());
@@ -416,36 +416,21 @@ try {
         System.out.println("Exception while checking/creating rating metric for run: " + runId);
     }
 
-    for (String metricId : metricIds) {
+    ResponseEntity<List<Metric>> response = getAllMetricsLast(experimentId, runId);
+List<Metric> allMetrics = response.getBody();
+Map<String, Metric> lastMetricsByName = new HashMap<>();
 
-        ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId, runId, metricId);
-        System.out.println("metricResponse: " + metricResponse);
-        List<Metric> fetchedMetrics = metricResponse.getBody();
-
-        if (fetchedMetrics == null || fetchedMetrics.isEmpty()) {
-            continue;
-        }
-
-        // Case 1: Single-value metric (step is null)
-        if (fetchedMetrics.size() == 1 && fetchedMetrics.get(0).getStep() == 1) {
-            System.out.println("isws na prepei");
-            finalMetrics.add(fetchedMetrics.get(0));
-        }
-        // Case 2: Multi-step metric - pick the one with the highest step
-        else {
-            System.out.println("isws na mhn prepei");
-            Metric highestStepMetric = fetchedMetrics.stream()
-                    .filter(m -> m.getStep() != null)
-                    .max(Comparator.comparingInt(Metric::getStep))
-                    .orElse(null);
-
-            if (highestStepMetric != null) {
-                finalMetrics.add(highestStepMetric);
-            }
+if (allMetrics != null) {
+    for (Metric m : allMetrics) {
+        String name = m.getName();
+        // Keep only latest step
+        if (!lastMetricsByName.containsKey(name) || m.getStep() > lastMetricsByName.get(name).getStep()) {
+            lastMetricsByName.put(name, m);
         }
     }
+}
 
-    run.setMetrics(finalMetrics);
+    run.setMetrics(lastMetricsByName.values().stream().collect(Collectors.toList()));
 
     List<Task> tasks = new ArrayList<>();
     List<Param> params = new ArrayList<>();
@@ -544,24 +529,7 @@ try {
         // Set only metadata tags to the Run object
         run.setTags(tags);
 
-        List<String> metricIds = new ArrayList<>();
-        Object workflowIdsObj = workflowData.get("metric_ids");
-        if (workflowIdsObj instanceof List<?>) {
-            metricIds = ((List<?>) workflowIdsObj).stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .collect(Collectors.toList());
-        }
-
-        // List<Metric> metrics = new ArrayList<>();
-        // for (String metricId : metricIds) {
-        // ResponseEntity<List<Metric>> metricResponse = getMetricValues(experimentId,
-        // runId, metricId);
-        // if (metricResponse.getBody() != null) {
-        // metrics.addAll(metricResponse.getBody()); // Append all extracted metrics
-        // }
-        // }
-        // run.setMetrics(metrics);
+     
 
         List<Metric> finalMetrics = new ArrayList<>();
 
@@ -570,8 +538,10 @@ try {
             List<Metric> fetchedMetrics = metricResponse.getBody();
 
             if (fetchedMetrics == null || fetchedMetrics.isEmpty()) {
+                
                 return ResponseEntity.badRequest().build();
             }
+
 
             // Case 1: Single-value metric (step is null)
             if (fetchedMetrics.size() == 1 && fetchedMetrics.get(0).getStep() == null) {
