@@ -65,10 +65,10 @@ public class ExplainabilityRunHelper {
     public List<Run> findSimilarRuns(Run referenceRun) {
         Set<String> referenceKeys = getParamNames(referenceRun);
 
-        // if (referenceKeys.isEmpty()) {
-        // log.info("No parameters found for reference run: " + referenceRun.getId());
-        // return Collections.emptyList();
-        // }
+        if (referenceKeys.isEmpty()) {
+        log.info("No parameters found for reference run: " + referenceRun.getId());
+        return Collections.emptyList();
+        }
 
         ExperimentService service = experimentServiceFactory.getActiveService();
         ResponseEntity<List<Run>> response = service.getRunsForExperiment(referenceRun.getExperimentId());
@@ -123,7 +123,7 @@ public class ExplainabilityRunHelper {
 
             // Add the model path to the request
             List<String> model = new ArrayList<>();
-            model.add(dataPaths.get().get("model1").toString());
+            model.add(dataPaths.get().get("model").toString());
             requestBuilder.addAllModel(model);
 
         } else if (requestBuilder.getExplanationType().equals("hyperparameterExplanation")) {
@@ -138,19 +138,13 @@ public class ExplainabilityRunHelper {
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
             }
             List<String> model = new ArrayList<>();
-            model.add(dataPaths.get().get("model1").toString());
+            model.add(dataPaths.get().get("model").toString());
             requestBuilder.addAllModel(model);
-            // TODO: In case of counterfactual explanation, each model should have
-            // completely different hyperparameters values
-            // TODO: Remove this counter when the number of models is not fixed to 3
-            int counter = 1;
+            
             for (Run similarRun : similarRuns) {
-                // if (counter > 3) {
-                //     break;
-                // }
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId());
-                String modelPath = dataPaths.get().get("model" + counter).toString();
+                String modelPath = dataPaths.get().get("model").toString();
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
                 hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
 
@@ -171,7 +165,6 @@ public class ExplainabilityRunHelper {
 
                 Hyperparameters hyperparameters = hyperparametersBuilder.build();
                 requestBuilder.putHyperConfigs(modelPath, hyperparameters);
-                counter++;
             }
         } else {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());
@@ -189,14 +182,12 @@ public class ExplainabilityRunHelper {
     public Optional<String> findFirstDifferingParameter(List<Run> runs) {
         if (runs == null || runs.size() <= 1) {
             throw new IllegalArgumentException("Run List is empty");
-            // return Optional.empty();
         }
 
         // Get the list of param names from the first run
         List<Param> firstRunParams = runs.get(0).getParams();
         if (firstRunParams == null || firstRunParams.isEmpty()) {
             throw new IllegalArgumentException("First run has no parameters");
-            // return Optional.empty();
         }
 
         // Check each parameter across all runs

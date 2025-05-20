@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
@@ -18,13 +19,30 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 @Component
 public class MlAnalysisResourceHelper {
 
-    private static final String ML_ANALYSIS_FOLDER_NAME = "ml_analysis_resources";
+    private static final String ML_ANALYSIS_FOLDER_NAME = "MLAnalysisResources";
+    
+    @Value("${app.real.ml-evaluation.path}")
+    private String mlEvaluationPath;
 
+
+    /**
+     * Returns the path to the ML analysis resources folder for a given run.
+     *
+     * @param run the run to check
+     * @return the path to the ML analysis resources folder, or empty if not found
+     */
     public Optional<Path> getMlResourceFolder(Run run) {
-        return run.getDataAssets().stream()
+        Optional<Path> filesPath = run.getDataAssets().stream()
                 .filter(a -> ML_ANALYSIS_FOLDER_NAME.equals(a.getName()))
                 .map(a -> Paths.get(a.getSource()))
                 .findFirst();
+        if (filesPath.isPresent()) {
+            // Transform the path to the server ml-evaluation folder
+            String pathStr = filesPath.get().toString().replace("workspace", mlEvaluationPath).replace("**", "") + run.getId();
+            return Optional.of(Paths.get(pathStr));
+        } else {
+            return Optional.empty();
+        }
     }
 
     public boolean hasMlAnalysisResources(Run run) {
@@ -51,24 +69,8 @@ public class MlAnalysisResourceHelper {
         return folder.resolve("Y_pred.csv");
     }
 
-    public Path getModelPath1(Path folder) {
-        return folder.resolve("model1.pkl");
-    }
-
-    public Path getModelPath2(Path folder) {
-        return folder.resolve("model2.pkl");
-    }
-
-    public Path getModelPath3(Path folder) {
-        return folder.resolve("model3.pkl");
-    }
-
-    public Path getModelPath4(Path folder) {
-        return folder.resolve("model4.pkl");
-    }
-
-    public Path getModelPath5(Path folder) {
-        return folder.resolve("model5.pkl");
+    public Path getModelPath(Path folder) {
+        return folder.resolve("model.pkl");
     }
 
     public Path getRocCurvePath(Path folder) {
@@ -86,7 +88,9 @@ public class MlAnalysisResourceHelper {
                 Files.exists(getYTestPath(folder)) &&
                 Files.exists(getYPredPath(folder)) &&
                 Files.exists(getXTrainPath(folder)) &&
-                Files.exists(getYTrainPath(folder));
+                Files.exists(getYTrainPath(folder)) &&
+                Files.exists(getModelPath(folder)) &&
+                Files.exists(getRocCurvePath(folder));
     }
 
     /**
@@ -102,11 +106,8 @@ public class MlAnalysisResourceHelper {
         map.put("Y_train", getYTrainPath(folder));
         map.put("X_train", getXTrainPath(folder));
         map.put("Y_pred", getYPredPath(folder));
-        map.put("model1", getModelPath1(folder));
-        map.put("model2", getModelPath2(folder));
-        map.put("model3", getModelPath3(folder));
-        map.put("model4", getModelPath4(folder));
-        map.put("model5", getModelPath5(folder));
+        map.put("model", getModelPath(folder));
+        map.put("roc_curve", getRocCurvePath(folder));
         return map;
     }
 }
