@@ -48,9 +48,21 @@
 			<artifactId>spring-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-config</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
 			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 		<!-- Table Saw Dependancies -->
 		<dependency>
@@ -107,11 +119,6 @@
 			<version>1.0</version>
 		</dependency>
 		<dependency>
-			<groupId>tech.molecules</groupId>
-			<artifactId>external-umap-java</artifactId>
-			<version>1.0</version>
-		</dependency>
-		<dependency>
 			<groupId>gr.imsi.athenarc.visual.middleware</groupId>
 			<artifactId>min-max-cache</artifactId>
 			<version>2.0</version>
@@ -131,9 +138,9 @@
 				<artifactId>protobuf-maven-plugin</artifactId>
 				<version>0.6.1</version>
 				<configuration>
-					<protocArtifact>com.google.protobuf:protoc:3.3.0:exe:${os.detected.classifier}</protocArtifact>
+					<protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
 					<pluginId>grpc-java</pluginId>
-					<pluginArtifact>io.grpc:protoc-gen-grpc-java:1.4.0:exe:${os.detected.classifier}</pluginArtifact>
+					<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
 					<clearOutputDirectory>false</clearOutputDirectory>
 				</configuration>
 				<executions>
@@ -209,7 +216,7 @@
 								<argument>${project.basedir}/.env:/.env</argument>
 								<argument>-v</argument>
 								<!-- change this accordingly for the volume creation -->
-								<argument>/opt/experiments:/opt/experiments</argument>
+								<argument>/opt:/opt</argument>
 								<argument>vis-api</argument>
 							</arguments>
 						</configuration>

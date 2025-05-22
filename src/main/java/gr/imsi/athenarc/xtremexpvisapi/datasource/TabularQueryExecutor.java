@@ -1,4 +1,3 @@
-
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import java.time.Instant;
@@ -14,7 +13,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.QueryResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.EqualsFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.InequalityFilter;
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.StringFilter;
 import tech.tablesaw.aggregate.AggregateFunctions;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
@@ -138,13 +139,9 @@ public class TabularQueryExecutor {
                     LOG.debug("value type is: {}", equalsFilter.getValue().getClass().getName());
                     switch (columnTypeName) {
                         case "BOOLEAN":
-                            if (!(equalsFilter.getValue() instanceof Boolean)) {
-                                throw new IllegalArgumentException(
-                                        "Value must be of type Boolean for column: " + equalsFilter.getColumn());
-                            }
                             LOG.debug("Double equals filtering {}, with value {}", equalsFilter.getColumn(),
                                     equalsFilter.getValue());
-                            boolean booleanValue = Boolean.parseBoolean(equalsFilter.getValue().toString());
+                            boolean booleanValue = Boolean.parseBoolean(equalsFilter.getValue().toString().toLowerCase());
                             if (booleanValue) {
                                 filterSelection = table.booleanColumn(equalsFilter.getColumn()).isTrue();
                             } else {
@@ -236,6 +233,216 @@ public class TabularQueryExecutor {
                         default:
                             throw new IllegalArgumentException(
                                     "Unsupported column type for equals filter: " + columnTypeName);
+                    }
+                } else if (filter instanceof InequalityFilter) {
+                    LOG.debug("InequalityFilter detected: {}", filter);
+                    InequalityFilter<?> inequalityFilter = (InequalityFilter<?>) filter;
+                    Column<?> column = table.column(inequalityFilter.getColumn());
+                    String columnTypeName = column.type().name();
+                    String operator = inequalityFilter.getOperator();
+                    LOG.debug("value type is: {}", inequalityFilter.getValue().getClass().getName());
+                    
+                    switch (columnTypeName) {
+                        case "DOUBLE":
+                            if (!(inequalityFilter.getValue() instanceof Double)) {
+                                try{
+                                    Double.parseDouble(inequalityFilter.getValue().toString());
+                                } catch (NumberFormatException e) {
+                                    throw new IllegalArgumentException(
+                                            "Value must be of type Double for column: " + inequalityFilter.getColumn());
+                                }
+                            }
+                            double doubleValue = Double.parseDouble(inequalityFilter.getValue().toString());
+                            LOG.debug("Double inequality filtering {}, with value {} and operator {}", 
+                                    inequalityFilter.getColumn(), inequalityFilter.getValue(), operator);
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.doubleColumn(inequalityFilter.getColumn()).isGreaterThan(doubleValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.doubleColumn(inequalityFilter.getColumn()).isLessThan(doubleValue);
+                                    break;
+                                case "gte":
+                                    filterSelection = table.doubleColumn(inequalityFilter.getColumn()).isGreaterThanOrEqualTo(doubleValue);
+                                    break;
+                                case "lte":
+                                    filterSelection = table.doubleColumn(inequalityFilter.getColumn()).isLessThanOrEqualTo(doubleValue);
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        case "INTEGER":
+                            if (!(inequalityFilter.getValue() instanceof Integer)) {
+                                try {
+                                    Integer.parseInt(inequalityFilter.getValue().toString());
+                                } catch (NumberFormatException e) {
+                                    throw new IllegalArgumentException(
+                                            "Value must be of type Integer for column: " + inequalityFilter.getColumn()); 
+                                }
+                            }
+                            int intValue = Integer.parseInt(inequalityFilter.getValue().toString());
+                            LOG.debug("Integer inequality filtering {}, with value {} and operator {}", 
+                                    inequalityFilter.getColumn(), inequalityFilter.getValue(), operator);
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.intColumn(inequalityFilter.getColumn()).isGreaterThan(intValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.intColumn(inequalityFilter.getColumn()).isLessThan(intValue);
+                                    break;
+                                case "gte":
+                                    filterSelection = table.intColumn(inequalityFilter.getColumn()).isGreaterThanOrEqualTo(intValue);
+                                    break;
+                                case "lte":
+                                    filterSelection = table.intColumn(inequalityFilter.getColumn()).isLessThanOrEqualTo(intValue);
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        case "LOCAL_DATE_TIME":
+                            LocalDateTime dateTimeValue;
+                            try {
+                                dateTimeValue = LocalDateTime.parse(inequalityFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type LocalDateTime for column: " + inequalityFilter.getColumn());
+                            }
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.dateTimeColumn(inequalityFilter.getColumn()).isAfter(dateTimeValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.dateTimeColumn(inequalityFilter.getColumn()).isBefore(dateTimeValue);
+                                    break;
+                                case "gte":
+                                    filterSelection = table.dateTimeColumn(inequalityFilter.getColumn()).isOnOrAfter(dateTimeValue);
+                                    break;
+                                case "lte":
+                                    filterSelection = table.dateTimeColumn(inequalityFilter.getColumn()).isOnOrBefore(dateTimeValue);
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        case "LOCAL_DATE":
+                            LocalDate dateValue;
+                            try {
+                                dateValue = LocalDate.parse(inequalityFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type LocalDate for column: " + inequalityFilter.getColumn());
+                            }
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.dateColumn(inequalityFilter.getColumn()).isAfter(dateValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.dateColumn(inequalityFilter.getColumn()).isBefore(dateValue);
+                                    break;
+                                case "gte":
+                                    filterSelection = table.dateColumn(inequalityFilter.getColumn()).isOnOrAfter(dateValue);
+                                    break;
+                                case "lte":
+                                    filterSelection = table.dateColumn(inequalityFilter.getColumn()).isOnOrBefore(dateValue);
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        case "LOCAL_TIME":
+                            LocalTime timeValue;
+                            try {
+                                timeValue = LocalTime.parse(inequalityFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type LocalTime for column: " + inequalityFilter.getColumn());
+                            }
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.timeColumn(inequalityFilter.getColumn()).isAfter(timeValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.timeColumn(inequalityFilter.getColumn()).isBefore(timeValue);
+                                    break;
+                                case "gte":
+                                    filterSelection = table.timeColumn(inequalityFilter.getColumn()).isOnOrAfter(timeValue);
+                                    break;
+                                case "lte":
+                                    filterSelection = table.timeColumn(inequalityFilter.getColumn()).isOnOrBefore(timeValue);
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        case "INSTANT":
+                            Instant instantValue;
+                            try {
+                                instantValue = Instant.parse(inequalityFilter.getValue().toString());
+                            } catch (Exception e) {
+                                throw new IllegalArgumentException(
+                                        "Value must be of type Instant for column: " + inequalityFilter.getColumn());
+                            }
+                            
+                            switch(operator) {
+                                case "gt":
+                                    filterSelection = table.instantColumn(inequalityFilter.getColumn()).isAfter(instantValue);
+                                    break;
+                                case "lt":
+                                    filterSelection = table.instantColumn(inequalityFilter.getColumn()).isBefore(instantValue);
+                                    break;
+                                case "gte":
+                                    // There's no direct isOnOrAfter for Instant, so we combine isEqual and isAfter
+                                    filterSelection = table.instantColumn(inequalityFilter.getColumn()).isEqualTo(instantValue)
+                                            .or(table.instantColumn(inequalityFilter.getColumn()).isAfter(instantValue));
+                                    break;
+                                case "lte":
+                                    // There's no direct isOnOrBefore for Instant, so we combine isEqual and isBefore
+                                    filterSelection = table.instantColumn(inequalityFilter.getColumn()).isEqualTo(instantValue)
+                                            .or(table.instantColumn(inequalityFilter.getColumn()).isBefore(instantValue));
+                                    break;
+                                default:
+                                    throw new IllegalArgumentException("Unsupported operator: " + operator);
+                            }
+                            break;
+                        default:
+                            throw new IllegalArgumentException(
+                                    "Unsupported column type for inequality filter: " + columnTypeName);
+                    }
+                } else if (filter instanceof StringFilter) {
+                    LOG.debug("StringFilter detected: {}", filter);
+                    StringFilter stringFilter = (StringFilter) filter;
+                    Column<?> column = table.column(stringFilter.getColumn());
+                    String columnTypeName = column.type().name();
+                    
+                    if (!columnTypeName.equals("STRING")) {
+                        throw new IllegalArgumentException(
+                                "String filter can only be applied to STRING columns, but column type is: " + columnTypeName);
+                    }
+                    
+                    String value = stringFilter.getValue();
+                    String operator = stringFilter.getOperator();
+                    LOG.debug("String filtering {}, with value {} and operator {}", 
+                            stringFilter.getColumn(), value, operator);
+                    
+                    switch (operator) {
+                        case "contains":
+                            filterSelection = table.stringColumn(stringFilter.getColumn()).containsString(value);
+                            break;
+                        case "startsWith":
+                            filterSelection = table.stringColumn(stringFilter.getColumn()).startsWith(value);
+                            break;
+                        case "endsWith":
+                            filterSelection = table.stringColumn(stringFilter.getColumn()).endsWith(value);
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unsupported string operator: " + operator);
                     }
                 }
 

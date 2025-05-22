@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 
-import gr.imsi.athenarc.visual.middleware.domain.TimeInterval;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
@@ -40,8 +39,6 @@ public class CsvDataSource implements DataSource {
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
     private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
     private String source;
-
-    private Map<String, TimeInterval> fileTimeRangeMap = null;
 
     @Autowired
     @Value("${app.working.directory}")
@@ -83,6 +80,18 @@ public class CsvDataSource implements DataSource {
 
     }
 
+    public boolean hasLatLonColumns(Table table) {
+        Set<String> lowerColNames = table.columnNames()
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+    
+        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
+        boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long") || lowerColNames.contains("longitude");
+    
+        return hasLat && hasLon;
+    }
+    
     @Override
     public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
         TabularResponse tabularResults = new TabularResponse();
@@ -102,9 +111,9 @@ public class CsvDataSource implements DataSource {
                 }
             }
             LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
-            tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
+            // tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
-            tabularResults.setColumns(columns);
+            // tabularResults.setColumns(columns);
         } else {
             if (tabularRequest.getDatasetId().endsWith(".json")) {
                 String json = readJsonFromFile(path);
@@ -113,17 +122,18 @@ public class CsvDataSource implements DataSource {
                 Table table = readCsvFromFile(path);
                 QueryResult queryResult = tabularQueryExecutor.queryTabularData(table, tabularRequest);
                 Table resultsTable = queryResult.getResultTable();
-                Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
-                tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
                 tabularResults.setData(getJsonDataFromTableSawTable(resultsTable));
-                tabularResults.setColumns(
-                        resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
-                tabularResults.setOriginalColumns(
-                        table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
                 tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
-                tabularResults.setUniqueColumnValues(uniqueColumnValues);
+                // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
+                tabularResults.setColumns(
+                        resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // tabularResults.setOriginalColumns(
+                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+               
+                // tabularResults.setUniqueColumnValues(uniqueColumnValues);
             }
         }
         return tabularResults;
@@ -165,16 +175,34 @@ public class CsvDataSource implements DataSource {
     public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
         Path path = Paths.get(workingDirectory, source);
         Table table = readCsvFromFile(path);
-        Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-                table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+        
+        
+        // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
+        //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
         MetadataResponse metadataResponse = new MetadataResponse();
         metadataResponse.setFileNames(Arrays.asList(new String[] { table.name() }));
         metadataResponse
                 .setOriginalColumns(table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
         metadataResponse.setTotalItems(table.rowCount());
-        metadataResponse.setUniqueColumnValues(uniqueColumnValues);
+        metadataResponse.setUniqueColumnValues(null);
         metadataResponse.setDatasetType(datasetTypeDetection(table));
+        metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
+        List<String> timeColumns = new ArrayList<>();
+    for (Column<?> column : table.columns()) {
+        ColumnType type = column.type();
+        if (type.name().equals("LOCAL_DATE_TIME") || 
+            type.name().equals("LOCAL_DATE") || 
+            type.name().equals("INSTANT")) {
+            timeColumns.add(column.name());
+        }
+    }
+
+    // Set the timeColumn field based on results
+    if (!timeColumns.isEmpty()) {
+        metadataResponse.setTimeColumn(timeColumns.size() == 1 ? Collections.singletonList(timeColumns.get(0)) : timeColumns);
+    }
+
         return metadataResponse;
     }
 
@@ -266,21 +294,34 @@ public class CsvDataSource implements DataSource {
         return new String(jsonData);
     }
 
-    private Table readCsvFromFile(Path filePath) {
+    public Table readCsvFromFile(Path filePath) {
         String fileName = filePath.getFileName().toString();
-        // Check if the table is already cached
-        if (tableCache.containsKey(fileName)) {
-            return tableCache.get(fileName);
-        }
-        try (InputStream inputStream = Files.newInputStream(filePath)) {
-            CsvReadOptions csvReadOptions = createCsvReadOptions(inputStream);
-            Table table = Table.read().usingOptions(csvReadOptions).setName(filePath.getFileName().toString());
-            tableCache.put(fileName, table);
-            return table;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read CSV file", e);
+        LOG.info("Reading CSV file: {}", fileName);
+    
+        // Attempt 1: with sample-based type inference
+        try (InputStream stream = Files.newInputStream(filePath)) {
+            CsvReadOptions options = CsvReadOptions.builder(stream)
+                .header(true)
+                .sample(true)
+                .build();
+            return Table.read().usingOptions(options).setName(fileName);
+    
+        } catch (Exception firstException) {
+            LOG.warn("Initial type inference failed for '{}'. Retrying with full parsing (sample=false)", fileName);
+    
+            // Attempt 2: fallback to more conservative parsing
+            try (InputStream retryStream = Files.newInputStream(filePath)) {
+                CsvReadOptions fallbackOptions = CsvReadOptions.builder(retryStream)
+                    .header(true)
+                    .sample(false)
+                    .build();
+                return Table.read().usingOptions(fallbackOptions).setName(fileName);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to read CSV file (even with fallback): " + fileName, e);
+            }
         }
     }
+    
 
     public void setSource(String source) {
         this.source = source;
@@ -330,10 +371,6 @@ public class CsvDataSource implements DataSource {
         }
 
         return uniqueValues;
-    }
-
-    public Map<String, TimeInterval> getFileTimeRange() {
-        return fileTimeRangeMap;
     }
 
 }

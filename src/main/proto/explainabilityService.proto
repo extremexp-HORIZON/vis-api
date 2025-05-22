@@ -16,9 +16,17 @@ message HyperparameterList {
     string type = 2; // Type of the hyperparameter: "categorical", "numeric", etc.
 }
 
-message hyperparameters {
+message Hyperparameters {
     map<string, HyperparameterList> hyperparameter = 1; // Map of hyperparameter name to details
     float metric_value = 2;
+}
+
+message DataPaths {
+    string X_train = 1;
+    string X_test = 2;
+    string Y_train = 3;
+    string Y_test = 4;
+    string Y_pred = 5;
 }
 
 message ExplanationsRequest {
@@ -27,21 +35,19 @@ message ExplanationsRequest {
     string explanation_method = 2;
 
     repeated string model = 3; //different paths for the selected workflows
-    string data = 4; //path to dataset file, contains whole dataset 
-    repeated int32 train_index = 5; // list that contains indexes of dataset to create the train data
-    repeated int32 test_index = 6; // list that contains indexes of dataset to create the test data
-    string target_column = 7; // target variable of dataset
-    map<string, hyperparameters> hyper_configs = 8; // dictionaire with hyperparameters configs and respected metrics
-    string feature1 = 9;
-    string feature2 = 10;
+    DataPaths data = 4; //path to dataset file, contains whole dataset 
+    string target_column = 5; // target variable of dataset
+    map<string, Hyperparameters> hyper_configs = 6; // dictionaire with hyperparameters configs and respected metrics
+    string feature1 = 7;
+    string feature2 = 8;
 
     // -----Local/Global Counterfactual Explanation Fields -----
-    string query = 11;
+    string query = 9;
 
     // same as Model explainability plus target target label 
-    int32 gcf_size = 12;  // Global Counterfactual (GCF) size
-    string cf_generator = 13;  // Counterfactual generator method
-    string cluster_action_choice_algo = 14;  // Algorithm for choosing clusters' actions
+    int32 gcf_size = 10;  // Global Counterfactual (GCF) size
+    string cf_generator = 11;  // Counterfactual generator method
+    string cluster_action_choice_algo = 12;  // Algorithm for choosing clusters' actions
 
 }
 

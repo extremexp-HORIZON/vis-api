@@ -1,0 +1,13 @@
+version: '3.8'
+name: visualization
+services:
+  vis-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8080"
+    volumes:
+      - .env:/app/.env
+      - ${OUTPUT_DATA_PATH}:/app/output
+    restart: unless-stopped
