@@ -21,7 +21,7 @@ public class MlAnalysisResourceHelper {
 
     private static final String ML_ANALYSIS_FOLDER_NAME = "MLAnalysisResources";
     
-    @Value("${app.real.ml-evaluation.path}")
+    @Value("${app.working.directory}")
     private String mlEvaluationPath;
 
 
@@ -38,7 +38,7 @@ public class MlAnalysisResourceHelper {
                 .findFirst();
         if (filesPath.isPresent()) {
             // Transform the path to the server ml-evaluation folder
-            String pathStr = filesPath.get().toString().replace("workspace", mlEvaluationPath).replace("**", "") + run.getId();
+            String pathStr = filesPath.get().toString().replace("workspace/datasets/output", mlEvaluationPath).replace("**", "") + run.getId();
             return Optional.of(Paths.get(pathStr));
         } else {
             return Optional.empty();

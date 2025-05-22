@@ -43,8 +43,6 @@ public class ExplainabilityRunHelper {
 
     private final ExperimentServiceFactory experimentServiceFactory;
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
-    @Value("${app.mock.ml-evaluation.path:}")
-    private String mockEvaluationPath;
 
     public ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
             MlAnalysisResourceHelper mlAnalysisResourceHelper) {
@@ -131,6 +129,7 @@ public class ExplainabilityRunHelper {
             ResponseEntity<Run> response = service.getRunById(experimentId, runId);
             Run run = response.getBody();
             List<Run> similarRuns = findSimilarRuns(run);
+            similarRuns.add(run);
             log.info("Similar runs: " + similarRuns.size());
             Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
             if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
@@ -226,13 +225,9 @@ public class ExplainabilityRunHelper {
         Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
         log.info(" folderOpt: " + folderOpt);
         // Fallback to mock path if no folder found and mock path is configured
-        if (folderOpt.isEmpty() && !mockEvaluationPath.isBlank()) {
-            log.warning("No analysis folder found in run metadata. Falling back to mock path: " +
-                    mockEvaluationPath);
-            folderOpt = Optional.of(Paths.get(mockEvaluationPath));
+        if (folderOpt.isEmpty()) {
+            throw new RuntimeException("Explainability folder not found or empty");
         }
-        if (folderOpt.isEmpty())
-            return Optional.empty();
 
         Path folder = folderOpt.get();
 
