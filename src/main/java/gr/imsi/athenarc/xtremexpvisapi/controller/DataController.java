@@ -101,6 +101,7 @@ public class DataController {
                 tags.put("created", fileNode.path("created").asText(""));
                 tags.put("projectId", fileNode.path("project_id").asText(""));
                 tags.put("id", fileNode.path("id").asText(""));
+                tags.put("file_size", fileNode.path("file_size").asText(""));
                 asset.setTags(tags);
 
                 dataAssets.add(asset);
