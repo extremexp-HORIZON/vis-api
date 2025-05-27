@@ -77,6 +77,7 @@ public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
         @RequestParam(defaultValue = "10") int perPage,
         @RequestParam(defaultValue = "created,desc") String sort,
         @RequestParam(required = false) String project_id,
+        @RequestParam(required = false) String run_id
 
 ) {
     LOG.info("Fetching remote data assets from external catalog");
@@ -91,7 +92,9 @@ public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
         uriBuilder.queryParam("project_id", project_id);
     }
 
-   
+    if (run_id != null) {
+        uriBuilder.queryParam("run_id", run_id);
+    }
 
     String remoteUrl = uriBuilder.toUriString();
     LOG.info("Remote URL: {}", remoteUrl);
