@@ -76,7 +76,7 @@ public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "10") int perPage,
         @RequestParam(defaultValue = "created,desc") String sort,
-        @RequestParam(required = false) String experiment_id,
+        @RequestParam(required = false) String project_id,
         @RequestParam(required = false) String run_id
 
 ) {
@@ -88,8 +88,8 @@ public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
             .queryParam("perPage", perPage)
             .queryParam("sort", sort);
 
-    if (experiment_id != null) {
-        uriBuilder.queryParam("experiment_id", experiment_id);
+    if (project_id != null) {
+        uriBuilder.queryParam("project_id", project_id);
     }
 
     if (run_id != null) {
