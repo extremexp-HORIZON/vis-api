@@ -14,8 +14,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -69,50 +71,75 @@ public class DataController {
         return dataService.getFileMetadata(metadataRequest);
     }
 
-    @GetMapping("/catalog-assets")
-    public ResponseEntity<List<DataAsset>> fetchRemoteAssets() {
-        LOG.info("Fetching remote data assets from external catalog");
-        String remoteUrl = "http://146.124.106.200/api/catalog/";
+   @GetMapping("/catalog-assets")
+public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
+        @RequestParam(defaultValue = "1") int page,
+        @RequestParam(defaultValue = "10") int perPage,
+        @RequestParam(defaultValue = "created,desc") String sort,
+        @RequestParam(required = false) String project_id,
+        @RequestParam(required = false) String run_id
 
-        RestTemplate restTemplate = new RestTemplate();
-        ResponseEntity<String> response = restTemplate.getForEntity(remoteUrl, String.class);
+) {
+    LOG.info("Fetching remote data assets from external catalog");
 
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            LOG.error("Failed to fetch remote assets: HTTP {}", response.getStatusCode());
-            return ResponseEntity.status(response.getStatusCode()).build();
-        }
+    // Build the URL with query parameters
+    UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl("http://146.124.106.200/api/catalog/my-catalog")
+            .queryParam("page", page)
+            .queryParam("perPage", perPage)
+            .queryParam("sort", sort);
 
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(response.getBody());
-            JsonNode dataArray = root.path("data");
-
-            List<DataAsset> dataAssets = new ArrayList<>();
-            for (JsonNode fileNode : dataArray) {
-                DataAsset asset = new DataAsset();
-                asset.setName(fileNode.path("upload_filename").asText(""));
-                asset.setSourceType("http");
-                asset.setSource("http://146.124.106.200/" + fileNode.path("path").asText());
-                asset.setFormat(fileNode.path("file_type").asText(""));
-                asset.setRole(DataAsset.Role.INPUT); // Adjust as needed
-                asset.setTask(fileNode.path("description").asText(""));
-
-                Map<String, String> tags = new HashMap<>();
-                tags.put("created", fileNode.path("created").asText(""));
-                tags.put("projectId", fileNode.path("project_id").asText(""));
-                tags.put("id", fileNode.path("id").asText(""));
-                tags.put("file_size", fileNode.path("file_size").asText(""));
-                asset.setTags(tags);
-
-                dataAssets.add(asset);
-            }
-
-            LOG.info("Fetched {} data assets", dataAssets.size());
-            return ResponseEntity.ok(dataAssets);
-
-        } catch (Exception e) {
-            LOG.error("Error processing data assets", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    if (project_id != null) {
+        uriBuilder.queryParam("project_id", project_id);
     }
+
+    if (run_id != null) {
+        uriBuilder.queryParam("run_id", run_id);
+    }
+
+    String remoteUrl = uriBuilder.toUriString();
+    LOG.info("Remote URL: {}", remoteUrl);
+
+    // Make the HTTP GET request
+    RestTemplate restTemplate = new RestTemplate();
+    ResponseEntity<String> response = restTemplate.getForEntity(remoteUrl, String.class);
+
+    if (!response.getStatusCode().is2xxSuccessful()) {
+        LOG.error("Failed to fetch remote assets: HTTP {}", response.getStatusCode());
+        return ResponseEntity.status(response.getStatusCode()).build();
+    }
+
+    try {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response.getBody());
+        JsonNode dataArray = root.path("data");
+
+        List<DataAsset> dataAssets = new ArrayList<>();
+        for (JsonNode fileNode : dataArray) {
+            DataAsset asset = new DataAsset();
+            asset.setName(fileNode.path("upload_filename").asText(""));
+            asset.setSourceType("http");
+            asset.setSource("http://146.124.106.200/" + fileNode.path("path").asText());
+            asset.setFormat(fileNode.path("file_type").asText(""));
+            asset.setRole(DataAsset.Role.INPUT);
+            asset.setTask(fileNode.path("description").asText(""));
+
+            Map<String, String> tags = new HashMap<>();
+            tags.put("created", fileNode.path("created").asText(""));
+            tags.put("projectId", fileNode.path("project_id").asText(""));
+            tags.put("id", fileNode.path("id").asText(""));
+            tags.put("file_size", fileNode.path("file_size").asText(""));
+            asset.setTags(tags);
+
+            dataAssets.add(asset);
+        }
+
+        LOG.info("Fetched {} data assets", dataAssets.size());
+        return ResponseEntity.ok(dataAssets);
+
+    } catch (Exception e) {
+        LOG.error("Error processing data assets", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+}
+
 }
