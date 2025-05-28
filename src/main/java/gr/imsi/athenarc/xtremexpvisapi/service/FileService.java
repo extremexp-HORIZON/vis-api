@@ -47,34 +47,34 @@ public class FileService {
      * @throws Exception if an error occurs
      */
     public void downloadFileFromZenoh(String uri) throws Exception {
-        // Check if uri has the correct form
-        if (uri.chars().filter(ch -> ch == '/').count() < 3) {
-            throw new IllegalArgumentException("Error: uri should have this form: \"UseCase/Folder/Subfolder/Filename\"");
-        }
-        // Extract UseCase, Folder, Subfolder, Filename from uri
-        String[] uriParts = uri.split("/");
-        String useCase = uriParts[0];
-        String folder = uriParts[1];
-        String subFolder = uriParts[2];
-        String fileName = uriParts[uriParts.length - 1];
-        if (fileCache.containsKey(fileName)) {
-            log.info(fileName + " already exists in the cache");
-            resetFileDeletion(fileName);
-        } else {
-            log.fine("Downloading " + fileName + " from " + uri);
-            Path targetPath = Paths.get(applicationFileProperties.getDirectory(), uri);
-            HttpResponse<InputStream> zenohResponse = zenohService.getSingleFile(useCase, folder, subFolder, fileName);
-            log.fine("Download successful");
+        // // Check if uri has the correct form
+        // if (uri.chars().filter(ch -> ch == '/').count() < 3) {
+        //     throw new IllegalArgumentException("Error: uri should have this form: \"UseCase/Folder/Subfolder/Filename\"");
+        // }
+        // // Extract UseCase, Folder, Subfolder, Filename from uri
+        // String[] uriParts = uri.split("/");
+        // String useCase = uriParts[0];
+        // String folder = uriParts[1];
+        // String subFolder = uriParts[2];
+        // String fileName = uriParts[uriParts.length - 1];
+        // if (fileCache.containsKey(fileName)) {
+        //     log.info(fileName + " already exists in the cache");
+        //     resetFileDeletion(fileName);
+        // } else {
+        //     log.fine("Downloading " + fileName + " from " + uri);
+        //     Path targetPath = Paths.get(applicationFileProperties.getDirectory(), uri);
+        //     HttpResponse<InputStream> zenohResponse = zenohService.getSingleFile(useCase, folder, subFolder, fileName);
+        //     log.fine("Download successful");
             
-            // Get file from response body
-            InputStream fileStream = zenohResponse.body();
-            // Get file size from response headers
-            long fileSize = zenohResponse.headers().firstValue("Content-Length").map(Long::parseLong).orElse(-1L);
+        //     // Get file from response body
+        //     InputStream fileStream = zenohResponse.body();
+        //     // Get file size from response headers
+        //     long fileSize = zenohResponse.headers().firstValue("Content-Length").map(Long::parseLong).orElse(-1L);
 
-            fileInsertionHandler(fileStream, fileSize, targetPath);
-            fileCache.put(fileName, targetPath.toString());
-            scheduleFileDeletion(targetPath);
-        }
+        //     fileInsertionHandler(fileStream, fileSize, targetPath);
+        //     fileCache.put(fileName, targetPath.toString());
+        //     scheduleFileDeletion(targetPath);
+        // }
     }
 
     /**
