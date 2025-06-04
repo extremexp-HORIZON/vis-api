@@ -4,10 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.http.*;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
@@ -234,7 +234,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     entity,
                     List.class);
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().size() > 0) {
                 List<Object> responseObjects = (List<Object>) response.getBody();
                 List<Run> runs = responseObjects.parallelStream()
                         .filter(Map.class::isInstance)
@@ -243,11 +243,10 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
                 return ResponseEntity.ok(runs);
             } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
+                throw new RuntimeException("Failed to fetch runs for experiment: " + experimentId);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (HttpClientErrorException | HttpServerErrorException | ResourceAccessException e) {
+            throw new RuntimeException("Failed to communicate with the server: ");
         }
     }
 
@@ -529,6 +528,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 Object metadataObj = taskObj.get("metadata");
                 if (metadataObj instanceof Map<?, ?>) {
                     Map<String, Object> metadataMap = (Map<String, Object>) metadataObj;
+                    metadataMap.forEach((key, value) -> {
+                            taskTags.put(key, value.toString());
+                    });
                     variant = (String) metadataMap.get("prototypical_name");
                 }
                 // Extract parameters for this task

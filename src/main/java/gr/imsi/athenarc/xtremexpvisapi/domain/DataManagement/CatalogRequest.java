@@ -22,6 +22,11 @@ public class CatalogRequest {
     private String page = "1";
     private String perPage = "1000";
 
+    public CatalogRequest(List<String> project_id, String filename) {
+        this.project_id = project_id;
+        this.filename = filename;
+    }
+
     public Map<String, String> toMap() {
         Map<String, String> params = new HashMap<>();
 

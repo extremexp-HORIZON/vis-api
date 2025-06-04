@@ -6,10 +6,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
+import javax.xml.catalog.Catalog;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -21,6 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 
 @Service
 @Log
@@ -110,7 +116,7 @@ public class ZenohService {
 
     @Async
     @Cacheable(value = "experimentFiles", key = "#catalogRequest.toMap().toString()")
-    public CompletableFuture<CatalogResponse> getExperimentFilesInformation(CatalogRequest catalogRequest) throws Exception {
+    public CompletableFuture<CatalogResponse> getCatalogInfo(CatalogRequest catalogRequest) throws Exception {
         Map<String, String> params = new HashMap<>();
         HttpRequest request = requestBuilder("/catalog" + buildQueryString(catalogRequest.toMap()))
                 .GET()
@@ -134,4 +140,52 @@ public class ZenohService {
             throw new RuntimeException("Failed to parse response", e);
         }
     }
+
+    /**
+     * Downloads a single file from the Zenoh catalog.
+     *
+     * @param filePath The file path to download.
+     * @return A CompletableFuture containing the CatalogResponse with the file
+     *         data.
+     * @throws Exception If an error occurs during the download.
+     */
+    // @Async
+    // public Path downloadSingleFile(String filePath) throws Exception {
+
+    //     String directoryPath = filePath.substring(0, filePath.lastIndexOf("/") + 1);
+    //     String filenameWithExt = filePath.substring(filePath.lastIndexOf("/") + 1);
+    //     String filenameNoExt = filenameWithExt.substring(0, filenameWithExt.lastIndexOf("."));
+
+    //     CatalogRequest catalogRequest = new CatalogRequest(List.of(directoryPath), filenameNoExt);
+
+    //     getCatalogInfo(catalogRequest).<Path>thenApply(catalogResponse -> {
+
+    //         List<CatalogResponse.DataItem> files = catalogResponse.getData();
+    //         if (files.isEmpty()) {
+    //             throw new RuntimeException("No files found for the given path: " + filePath);
+    //         } else if (files.size() > 1) {
+    //             throw new RuntimeException("More that 1 files with the same name in the path : " + directoryPath);
+    //         }
+    //         String fileId = files.get(0).getId();
+
+    //         try {
+    //             HttpRequest request = requestBuilder("/file/" + fileId)
+    //                     .GET()
+    //                     .build();
+
+    //             HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+    //             if (response.statusCode() >= 300) {
+    //                 log.severe("Error fetching catalog data: " + response.statusCode() + " - " + response.body());
+    //                 throw new RuntimeException("Failed to fetch catalog data: " + response.statusCode());
+    //             }
+
+    //         } catch (HttpServerErrorException | HttpClientErrorException e) {
+    //             throw new RuntimeException("Error downloading file: " + filePath + " - " + e.getMessage());
+    //         }
+    //     }).exceptionally(e -> {
+    //         log.severe("Error retrieving catalog data for file: " + filePath);
+    //         throw new RuntimeException("Error retrieving catalog data for file: " + filePath);
+    //     });
+    // }
 }

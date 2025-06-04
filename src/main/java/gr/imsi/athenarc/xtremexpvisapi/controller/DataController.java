@@ -70,7 +70,7 @@ public class DataController {
     @GetMapping("/get-catalog")
     public CompletableFuture<ResponseEntity<?>> getZenohCatalog(@RequestBody CatalogRequest catalogRequest) throws Exception {
         LOG.info("Received request for getting Zenoh catalog with search params: {}", catalogRequest.toString());
-        return zenohService.getExperimentFilesInformation(catalogRequest)
+        return zenohService.getCatalogInfo(catalogRequest)
                 .<ResponseEntity<?>>thenApply(catalogResponse -> {
                     LOG.info("Successfully retrieved Zenoh catalog");
                     return ResponseEntity.ok(catalogResponse);
