@@ -9,6 +9,8 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
@@ -44,6 +46,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     @Value("${extremexp.workflowsApi.key}")
     private String workflowsApiKey;
+
+    @Value("${extremexp.experimentationEngineApi.url}")
+    private String experimentationEngineApiUrl;
 
     private final RestTemplate restTemplate;
 
@@ -439,6 +444,26 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 }
             }
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @Override
+    public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
+        String baseUrl = experimentationEngineApiUrl + "/exp/";
+        String entityType = (controlRequest.getExperimentId() != null) ? "experiment/" : "workflow/";
+        String entityId = (controlRequest.getExperimentId() != null) ? controlRequest.getExperimentId() : controlRequest.getRunId();
+        String requestUrl = baseUrl + entityType + controlRequest.getAction() + "/" + entityId;
+
+        try {
+            ResponseEntity<ControlResponse> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headersInitializer()),
+                    ControlResponse.class);
+            return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

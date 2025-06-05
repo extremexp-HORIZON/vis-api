@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
@@ -136,6 +138,11 @@ public class ExperimentController {
             @PathVariable String runId,
             @RequestBody UserEvaluation userEvaluation) {
         return experimentServiceFactory.getActiveService().submitUserEvaluation(experimentId, runId, userEvaluation);
+    }
+
+    @PostMapping("/life-cycle")
+    public ResponseEntity<ControlResponse> getExperimentControl(@RequestBody ControlRequest controlRequest) {
+        return experimentServiceFactory.getActiveService().controlLifeCycle(controlRequest);
     }
 
 }
