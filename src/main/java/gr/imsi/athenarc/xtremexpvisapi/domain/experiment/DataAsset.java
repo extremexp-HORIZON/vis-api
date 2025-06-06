@@ -52,6 +52,16 @@ public class DataAsset {
     private String task;
 
     /**
+     * Logical folder or catalog this data asset belongs to.
+     * This field is used to group multiple file-level assets under a virtual
+     * folder.
+     * This does not imply that the data asset is a folder itself. If the asset
+     * represents a real folder (e.g., a directory on the file system), this field
+     * should be {@code null}.
+     */
+    private String folder;
+
+    /**
      * Additional metadata related to the data asset, stored as key-value pairs.
      * This field is optional.
      */
@@ -123,6 +133,14 @@ public class DataAsset {
         this.task = task;
     }
 
+    public String getFolder() {
+        return folder;
+    }
+
+    public void setFolder(String folder) {
+        this.folder = folder;
+    }
+
     public Map<String, String> getTags() {
         return tags;
     }
@@ -143,4 +161,5 @@ public class DataAsset {
                 ", tags=" + tags +
                 '}';
     }
+
 }
