@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
@@ -90,7 +91,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     requestBody.put("experimentId", experiment.getId());
 
                     // Create a new HttpEntity with the body for the metrics query request
-                    HttpEntity<Map<String, Object>> entityForMetrics = new HttpEntity<>(requestBody, headersInitializer());
+                    HttpEntity<Map<String, Object>> entityForMetrics = new HttpEntity<>(requestBody,
+                            headersInitializer());
 
                     // Second API call to fetch metrics data
                     ResponseEntity<List> responseMetrics = restTemplate.exchange(
@@ -143,6 +145,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
+    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null")
     public ResponseEntity<Experiment> getExperimentById(String experimentId) {
         String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
 
@@ -239,7 +242,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     entity,
                     List.class);
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null && response.getBody().size() > 0) {
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null
+                    && response.getBody().size() > 0) {
                 List<Object> responseObjects = (List<Object>) response.getBody();
                 List<Run> runs = responseObjects.parallelStream()
                         .filter(Map.class::isInstance)
@@ -454,7 +458,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
     public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
         String baseUrl = experimentationEngineApiUrl + "/exp/";
         String entityType = (controlRequest.getExperimentId() != null) ? "experiment/" : "workflow/";
-        String entityId = (controlRequest.getExperimentId() != null) ? controlRequest.getExperimentId() : controlRequest.getRunId();
+        String entityId = (controlRequest.getExperimentId() != null) ? controlRequest.getExperimentId()
+                : controlRequest.getRunId();
         String requestUrl = baseUrl + entityType + controlRequest.getAction() + "/" + entityId;
 
         try {
@@ -518,16 +523,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
         run.setTags(tags);
 
-        // Metrics Handling (Create "rating" metric if not exist)
+        // Handle metrics
         List<Map<String, Object>> metricsList = (List<Map<String, Object>>) responseObject.get("metrics");
         List<Metric> parsedMetrics = mapToMetricsNested(metricsList);
-        if (parsedMetrics.stream()
-                .noneMatch(metric -> "rating".equals(metric.getName()))) {
-            Metric ratingMetric = createRatingMetric(run.getId());
-            parsedMetrics.add(ratingMetric);
-        } else {
-            log.info("Rating metric already exists for run: " + run.getId());
-        }
 
         run.setMetrics(parsedMetrics);
 
@@ -554,7 +552,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 if (metadataObj instanceof Map<?, ?>) {
                     Map<String, Object> metadataMap = (Map<String, Object>) metadataObj;
                     metadataMap.forEach((key, value) -> {
-                            taskTags.put(key, value.toString());
+                        taskTags.put(key, value.toString());
                     });
                     variant = (String) metadataMap.get("prototypical_name");
                 }
@@ -589,8 +587,10 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     public List<Metric> mapToMetricsNested(List<Map<String, Object>> input) {
+        if (input == null || input.isEmpty()) {
+            return Collections.emptyList();
+        }
         List<Metric> allMetrics = new ArrayList<>();
-
         for (Map<String, Object> item : input) {
             for (Map.Entry<String, Object> entry : item.entrySet()) {
                 Map<String, Object> data = (Map<String, Object>) entry.getValue();
@@ -683,13 +683,36 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 String name = (String) dataset.get("name");
                 String uri = (String) dataset.get("uri");
                 Map<String, String> tags = new HashMap<>();
+                String folder = null;
+                DataAsset.Type type = DataAsset.Type.INTERNAL;
 
                 if (dataset.containsKey("metadata")) {
-                    Map<String, Object> metadata = (Map<String, Object>) dataset.get("metadata");
+                    Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
+                    if (metadata.containsKey("project_id") || metadata.containsKey("file_name")
+                            || metadata.containsKey("file_type")) {
+                        type = DataAsset.Type.EXTERNAL;
+                    }
                     metadata.forEach((metaKey, metaValue) -> tags.put(metaKey, metaValue.toString()));
+                    // Check if other datasets with the same name_in_experiment exist then put them
+                    // under a folder
+                    if (datasetList.stream().filter(d -> {
+                        Map<String, String> dMetadata = (Map<String, String>) d.get("metadata");
+                        return dMetadata.containsKey("file_name")
+                                && !dMetadata.get("file_name").equals(metadata.get("file_name"));
+                    }).anyMatch(dt -> {
+                        Map<String, String> datasetMetadataMap = (Map<String, String>) dt.get("metadata");
+                        if (datasetMetadataMap != null && datasetMetadataMap instanceof Map) {
+                            log.info("datasetMetadataMap: " + datasetMetadataMap);
+                            return datasetMetadataMap.get("name_in_experiment")
+                                    .equals(metadata.get("name_in_experiment"));
+                        }
+                        return false;
+                    })) {
+                        folder = tags.get("name_in_experiment");
+                    }
                 }
 
-                dataAssets.add(new DataAsset(name, "unknown", uri, "unknown", role, taskName, tags));
+                dataAssets.add(new DataAsset(name, "unknown", uri, "unknown", role, taskName, tags, folder, type));
             }
         }
     }

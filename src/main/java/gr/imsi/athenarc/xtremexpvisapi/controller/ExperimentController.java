@@ -140,6 +140,18 @@ public class ExperimentController {
         return experimentServiceFactory.getActiveService().submitUserEvaluation(experimentId, runId, userEvaluation);
     }
 
+    /**
+     * Controls the experiment's lifecycle through state transitions.
+     * This endpoint allows managing the experiment workflow by submitting control
+     * requests that trigger state changes (e.g., start, pause, resume, stop).
+     * <p>
+     * The implementation handles the transition logic according to the experiment
+     * engine's capabilities.
+     *
+     * @param controlRequest The control request containing the desired action and
+     *                       target experiment/run identifiers
+     * @return A ResponseEntity containing the result of the lifecycle control operation
+     */
     @PostMapping("/life-cycle")
     public ResponseEntity<ControlResponse> getExperimentControl(@RequestBody ControlRequest controlRequest) {
         return experimentServiceFactory.getActiveService().controlLifeCycle(controlRequest);
