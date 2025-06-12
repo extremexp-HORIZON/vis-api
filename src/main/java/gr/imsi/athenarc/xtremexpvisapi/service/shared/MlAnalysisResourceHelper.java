@@ -70,7 +70,7 @@ public class MlAnalysisResourceHelper {
     }
 
     public Path getModelPath(Path folder) {
-        return folder.resolve("model.pkl");
+        return folder.resolve("model1.pkl");
     }
 
     public Path getRocCurvePath(Path folder) {
