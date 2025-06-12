@@ -10,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Paths;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
@@ -36,6 +37,8 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Value("${mlflow.tracking.url}")
     private String mlflowTrackingUrl;
+    @Value("${app.working.directory}")
+    private String workingDirectory;
 
     private final RestTemplate restTemplate;
 
@@ -406,6 +409,8 @@ public class MLflowExperimentService implements ExperimentService {
         run.setName((String) info.get("run_name"));
         run.setExperimentId((String) info.get("experiment_id"));
         run.setStatus(mapStatus((String) info.get("status")));
+        String experimentId = (String) info.get("experiment_id");
+        String runId = (String) info.get("run_id");
         
         // Timestamps are already in milliseconds
         Object startTime = info.get("start_time");
@@ -449,10 +454,11 @@ public class MLflowExperimentService implements ExperimentService {
             if (inputs.get("dataset_inputs") instanceof List) {
                 List<Map<String, Object>> datasetInputs = (List<Map<String, Object>>) inputs.get("dataset_inputs");
                 run.setDataAssets(
-                    datasetInputs.stream()
-                    .map(this::mapToDataAsset)
-                    .collect(Collectors.toList())
-                );
+    datasetInputs.stream()
+        .map(input -> mapToDataAsset(input, experimentId, runId))
+        .collect(Collectors.toList())
+);
+
             }
         }
         
@@ -468,7 +474,8 @@ public class MLflowExperimentService implements ExperimentService {
         return run;
     }
 
-    private DataAsset mapToDataAsset(Map<String, Object> datasetInput) {
+private DataAsset mapToDataAsset(Map<String, Object> datasetInput, String experimentId, String runId){
+    LOG.info("Mapping dataset input: {}", experimentId + " - " + runId);
         Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
         List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
         
@@ -477,36 +484,48 @@ public class MLflowExperimentService implements ExperimentService {
         asset.setSourceType((String) dataset.get("source_type"));
 
         Object source = dataset.get("source");
+        LOG.info("Dataset source: {}", source);
         if (! (source instanceof String)) {
             throw new RuntimeException("Dataset source is not a string as specified in MLflow API: " + source);
         }
         String source_str = (String) source;
         ObjectMapper objectMapper = new ObjectMapper();
         String asset_source;
-        try {
-            JsonNode jsonNode = objectMapper.readTree(source_str);
-            // read source, which lies in either "uri" or "url" field
-            // depending on the source type
-            if (jsonNode.get("uri") != null) {
-                asset_source = jsonNode.get("uri").asText();
-            } else if (jsonNode.get("url") != null) {
-                asset_source = jsonNode.get("url").asText();
-            } else {
-                throw new RuntimeException("Dataset source does not contain 'uri' or 'url' field: " + source_str);
-            }
-        } catch (JsonProcessingException e) {
-            // If the source is not a valid JSON string, we use it as is
-            LOG.warn(source_str + " is not a valid JSON string. It will be used as is.");
-            e.printStackTrace();
-            asset_source = source_str;
-        } catch (Exception e) {
-            // If the source IS a valid JSON string, but it does not contain "uri" or "url" field
-            // we again use the source as is (because a string is required) and log a warning
-            LOG.warn(source_str + " does not contain 'uri' or 'url' field. It will be used as is.");
-            e.printStackTrace();
-            asset_source = source_str;
+try {
+    JsonNode jsonNode = objectMapper.readTree(source_str);
+    String urlPath = null;
+
+    if (jsonNode.has("uri")) {
+        urlPath = jsonNode.get("uri").asText();
+    } else if (jsonNode.has("url")) {
+        urlPath = jsonNode.get("url").asText();
+    }
+
+    if (urlPath != null && urlPath.contains("path=")) {
+        // Extract 'path' parameter from the URL
+        String[] split = urlPath.split("path=");
+        if (split.length > 1) {
+            String relativePath = split[1];
+            // Construct the new local file path
+            asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
+        } else {
+            throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
         }
-        asset.setSource(asset_source);
+    } else {
+        LOG.warn("Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
+        asset_source = source_str;
+    }
+} catch (JsonProcessingException e) {
+    LOG.warn("Invalid JSON string for source: {}. Using as-is.", source_str);
+    e.printStackTrace();
+    asset_source = source_str;
+} catch (Exception e) {
+    LOG.warn("Failed to parse or extract path from source: {}. Using as-is.", source_str);
+    e.printStackTrace();
+    asset_source = source_str;
+}
+asset.setSource(asset_source);
+
         
         // Map tags from both dataset metadata and input tags
         Map<String, String> tags = new HashMap<>();
