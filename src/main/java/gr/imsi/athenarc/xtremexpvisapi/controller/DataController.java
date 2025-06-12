@@ -26,6 +26,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
@@ -69,6 +71,12 @@ public class DataController {
     public MetadataResponse getFileMetadata(@RequestBody MetadataRequest metadataRequest) {
         LOG.info("Getting metadata for file {}", metadataRequest.getDatasetId());
         return dataService.getFileMetadata(metadataRequest);
+    }
+
+    @PostMapping("/map")
+    public MapDataResponse getMapData(@RequestBody MapDataRequest mapDataRequest) {
+        LOG.info("Getting map data {}", mapDataRequest);
+        return dataService.getMapData(mapDataRequest);
     }
 
    @GetMapping("/catalog-assets")

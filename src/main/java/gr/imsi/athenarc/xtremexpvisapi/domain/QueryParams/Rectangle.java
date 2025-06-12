@@ -3,14 +3,29 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.collect.Range;
 
+import gr.imsi.athenarc.xtremexpvisapi.service.shared.FloatRangeDeserializer;
 import lombok.Data;
 
 @Data
 public class Rectangle {
+    @JsonDeserialize(using = FloatRangeDeserializer.class)
     private final Range<Float> xRange;
+    @JsonDeserialize(using = FloatRangeDeserializer.class)
     private final Range<Float> yRange;
+
+    @JsonCreator
+    public Rectangle(
+        @JsonProperty("xRange") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> xRange,
+        @JsonProperty("yRange") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> yRange
+    ) {
+        this.xRange = xRange;
+        this.yRange = yRange;
+    }
 
     public boolean contains(float x, float y) {
         return xRange.contains(x) && yRange.contains(y);
