@@ -70,7 +70,7 @@ public class MlAnalysisResourceHelper {
     }
 
     public Path getModelPath(Path folder) {
-        return folder.resolve("model1.pkl");
+        return folder.resolve("model.pkl");
     }
 
     public Path getRocCurvePath(Path folder) {
@@ -84,14 +84,14 @@ public class MlAnalysisResourceHelper {
      * @return true if all required files are present
      */
     public boolean hasRequiredFiles(Path folder) {
-        return Files.exists(getXTestPath(folder)) &&
-                Files.exists(getYTestPath(folder)) &&
-                Files.exists(getYPredPath(folder)) &&
-                Files.exists(getXTrainPath(folder)) &&
-                Files.exists(getYTrainPath(folder)) &&
-                Files.exists(getModelPath(folder)) &&
-                Files.exists(getRocCurvePath(folder));
-    }
+    return findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
+           findFileIgnoreCase(folder, "Y_test.csv").isPresent() &&
+           findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
+           findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
+           findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
+           findFileIgnoreCase(folder, "model.pkl").isPresent() ;
+        //    findFileIgnoreCase(folder, "roc_data.json").isPresent();
+}
 
     /**
      * Returns a map of named required resources and their paths.
@@ -100,14 +100,27 @@ public class MlAnalysisResourceHelper {
      * @return map of logical names to resolved paths
      */
     public Map<String, Path> getRequiredFilePaths(Path folder) {
-        Map<String, Path> map = new LinkedHashMap<>();
-        map.put("X_test", getXTestPath(folder));
-        map.put("Y_test", getYTestPath(folder));
-        map.put("Y_train", getYTrainPath(folder));
-        map.put("X_train", getXTrainPath(folder));
-        map.put("Y_pred", getYPredPath(folder));
-        map.put("model", getModelPath(folder));
-        map.put("roc_curve", getRocCurvePath(folder));
-        return map;
+    Map<String, Path> map = new LinkedHashMap<>();
+    map.put("X_test", findFileIgnoreCase(folder, "X_test.csv").orElse(null));
+    map.put("Y_test", findFileIgnoreCase(folder, "Y_test.csv").orElse(null));
+    map.put("Y_train", findFileIgnoreCase(folder, "Y_train.csv").orElse(null));
+    map.put("X_train", findFileIgnoreCase(folder, "X_train.csv").orElse(null));
+    map.put("Y_pred", findFileIgnoreCase(folder, "Y_pred.csv").orElse(null));
+    map.put("model", findFileIgnoreCase(folder, "model.pkl").orElse(null));
+    // map.put("roc_curve", findFileIgnoreCase(folder, "roc_data.json").orElse(null));
+    return map;
+}
+
+
+
+
+private Optional<Path> findFileIgnoreCase(Path folder, String fileName) {
+    try {
+        return Files.list(folder)
+                .filter(p -> p.getFileName().toString().equalsIgnoreCase(fileName))
+                .findFirst();
+    } catch (Exception e) {
+        return Optional.empty();
     }
+}
 }
