@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.explainability;
 
+import gr.imsi.athenarc.xtremexpvisapi.controller.DataController;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
@@ -7,6 +8,8 @@ import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import lombok.extern.java.Log;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,7 @@ import explainabilityService.HyperparameterList;
 import explainabilityService.Hyperparameters;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,9 +43,12 @@ import java.util.stream.Collectors;
 @Component
 @Log
 public class ExplainabilityRunHelper {
+    private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
+
 
     private final ExperimentServiceFactory experimentServiceFactory;
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
+
 
     public ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
             MlAnalysisResourceHelper mlAnalysisResourceHelper) {
@@ -129,7 +136,7 @@ public class ExplainabilityRunHelper {
             Run run = response.getBody();
             List<Run> similarRuns = findSimilarRuns(run);
             similarRuns.add(run);
-            log.info("Similar runs: " + similarRuns.size());
+            
             Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
             if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
                 requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
@@ -164,6 +171,8 @@ public class ExplainabilityRunHelper {
                 Hyperparameters hyperparameters = hyperparametersBuilder.build();
                 requestBuilder.putHyperConfigs(modelPath, hyperparameters);
             }
+                        LOG.info("Similar runs: " + similarRuns.size());
+
         } else {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());
         }
@@ -221,14 +230,18 @@ public class ExplainabilityRunHelper {
         }
 
         Run run = response.getBody();
-        Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
-        log.info(" folderOpt: " + folderOpt);
-        // Fallback to mock path if no folder found and mock path is configured
-        if (folderOpt.isEmpty()) {
-            throw new RuntimeException("Explainability folder not found or empty");
-        }
+        // Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
+        Path folderOpt = Paths.get("/data/xtreme/mlflow/mlartifacts", experimentId, runId, "artifacts", "explainability");
 
-        Path folder = folderOpt.get();
+        log.info(" folderOpt: " + folderOpt);
+        // // Fallback to mock path if no folder found and mock path is configured
+        // if (folderOpt.isEmpty()) {
+        //     throw new RuntimeException("Explainability folder not found or empty");
+        // }
+
+        // Path folder = folderOpt.get();
+            Path folder = folderOpt;
+
 
         if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
             log.warning("Analysis folder exists but is missing one or more required files.");
