@@ -39,6 +39,8 @@ public class MLflowExperimentService implements ExperimentService {
     private String mlflowTrackingUrl;
     @Value("${app.working.directory}")
     private String workingDirectory;
+    @Value("${app.working.directory.mlflow}")
+    private String mlflowWorkingDirectory;
 
     private final RestTemplate restTemplate;
 
@@ -448,20 +450,25 @@ public class MLflowExperimentService implements ExperimentService {
                 .collect(Collectors.toList()));
         }
 
-        // Map inputs
+        // Get existing input datasets
+        List<DataAsset> allAssets = new ArrayList<>();
         if (data.get("inputs") != null) {
             Map<String, Object> inputs = (Map<String, Object>) data.get("inputs");
             if (inputs.get("dataset_inputs") instanceof List) {
                 List<Map<String, Object>> datasetInputs = (List<Map<String, Object>>) inputs.get("dataset_inputs");
-                run.setDataAssets(
-    datasetInputs.stream()
-        .map(input -> mapToDataAsset(input, experimentId, runId))
-        .collect(Collectors.toList())
-);
-
+                allAssets.addAll(
+                    datasetInputs.stream()
+                    .map(input -> mapToDataAsset(input, experimentId, runId))
+                    .collect(Collectors.toList())
+                );
             }
         }
+
+        // Get artifacts as additional assets
+        allAssets.addAll(getArtifactsAsDataAssets(runId));
         
+        run.setDataAssets(allAssets);
+
         // Map tags
         Map<String, String> tags = new HashMap<>();
         if (data2.get("tags") instanceof List) {
@@ -474,8 +481,8 @@ public class MLflowExperimentService implements ExperimentService {
         return run;
     }
 
-private DataAsset mapToDataAsset(Map<String, Object> datasetInput, String experimentId, String runId){
-    LOG.info("Mapping dataset input: {}", experimentId + " - " + runId);
+    private DataAsset mapToDataAsset(Map<String, Object> datasetInput, String experimentId, String runId) {
+        LOG.info("Mapping dataset input: {}", experimentId + " - " + runId);
         Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
         List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
         
@@ -491,40 +498,40 @@ private DataAsset mapToDataAsset(Map<String, Object> datasetInput, String experi
         String source_str = (String) source;
         ObjectMapper objectMapper = new ObjectMapper();
         String asset_source;
-try {
-    JsonNode jsonNode = objectMapper.readTree(source_str);
-    String urlPath = null;
+        try {
+            JsonNode jsonNode = objectMapper.readTree(source_str);
+            String urlPath = null;
 
-    if (jsonNode.has("uri")) {
-        urlPath = jsonNode.get("uri").asText();
-    } else if (jsonNode.has("url")) {
-        urlPath = jsonNode.get("url").asText();
-    }
+            if (jsonNode.has("uri")) {
+                urlPath = jsonNode.get("uri").asText();
+            } else if (jsonNode.has("url")) {
+                urlPath = jsonNode.get("url").asText();
+            }
 
-    if (urlPath != null && urlPath.contains("path=")) {
-        // Extract 'path' parameter from the URL
-        String[] split = urlPath.split("path=");
-        if (split.length > 1) {
-            String relativePath = split[1];
-            // Construct the new local file path
-            asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
-        } else {
-            throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
+            if (urlPath != null && urlPath.contains("path=")) {
+                // Extract 'path' parameter from the URL
+                String[] split = urlPath.split("path=");
+                if (split.length > 1) {
+                    String relativePath = split[1];
+                    // Construct the new local file path
+                    asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
+                } else {
+                    throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
+                }
+            } else {
+                LOG.warn("Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
+                asset_source = source_str;
+            }
+        } catch (JsonProcessingException e) {
+            LOG.warn("Invalid JSON string for source: {}. Using as-is.", source_str);
+            e.printStackTrace();
+            asset_source = source_str;
+        } catch (Exception e) {
+            LOG.warn("Failed to parse or extract path from source: {}. Using as-is.", source_str);
+            e.printStackTrace();
+            asset_source = source_str;
         }
-    } else {
-        LOG.warn("Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
-        asset_source = source_str;
-    }
-} catch (JsonProcessingException e) {
-    LOG.warn("Invalid JSON string for source: {}. Using as-is.", source_str);
-    e.printStackTrace();
-    asset_source = source_str;
-} catch (Exception e) {
-    LOG.warn("Failed to parse or extract path from source: {}. Using as-is.", source_str);
-    e.printStackTrace();
-    asset_source = source_str;
-}
-asset.setSource(asset_source);
+        asset.setSource(asset_source);
 
         
         // Map tags from both dataset metadata and input tags
@@ -552,6 +559,40 @@ asset.setSource(asset_source);
         asset.setRole(DataAsset.Role.INPUT); // These are always input datasets from MLflow
         
         return asset;
+    }
+
+    private List<DataAsset> getArtifactsAsDataAssets(String runId) {
+        return getArtifactsRecursively(runId, "");
+    }
+
+    private String getRunArtifactUri(String runId) {
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> run = (Map<String, Object>) response.getBody().get("run");
+                Map<String, Object> info = (Map<String, Object>) run.get("info");
+                return (String) info.get("artifact_uri");
+            }
+        } catch (Exception e) {
+            LOG.error("Error getting artifact URI for run {}", runId, e);
+        }
+        return null;
+    }
+
+    private String getFileName(String path) {
+        int lastSlash = path.lastIndexOf('/');
+        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
     }
 
     private Run.Status mapStatus(String mlflowStatus) {
@@ -592,5 +633,96 @@ asset.setSource(asset_source);
     @Override
     public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
        throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
+    }
+
+    private String getFullArtifactPath(String artifactUri, String relativePath) {
+        if (artifactUri == null || artifactUri.isEmpty()) {
+            return null;
+        }
+        
+        // Extract the exp/run/artifacts part from mlflow-artifacts:/exp/run/...
+        String path = artifactUri.replace("mlflow-artifacts:/", "");
+        
+        // Combine working directory with MLflow path and relative file path
+        return Paths.get(mlflowWorkingDirectory)
+                   .resolve(path)
+                   .resolve(relativePath)
+                   .toString()
+                   .replace('\\', '/'); // Ensure forward slashes for consistency
+    }
+
+    private List<DataAsset> getArtifactsRecursively(String runId, String path) {
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/artifacts/list";
+        if (!path.isEmpty()) {
+            requestUrl += "?run_id=" + runId + "&path=" + path;
+        } else {
+            requestUrl += "?run_id=" + runId;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            LOG.info("Fetching artifacts for run {} at path {}", runId, path);
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class);
+
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                LOG.error("Failed to fetch artifacts for run {} at path {}", runId, path);
+                return new ArrayList<>();
+            }
+
+            List<Map<String, Object>> files = (List<Map<String, Object>>) response.getBody().get("files");
+            if (files == null) return new ArrayList<>();
+
+            List<DataAsset> assets = new ArrayList<>();
+            String artifactUri = getRunArtifactUri(runId);
+            
+            for (Map<String, Object> file : files) {
+                boolean isDir = (boolean) file.get("is_dir");
+                String filePath = (String) file.get("path");
+                
+                if (isDir) {
+                    // Recursively get assets from this directory
+                    assets.addAll(getArtifactsRecursively(runId, filePath));
+                } else {
+                    // Create asset for this file
+                    DataAsset asset = new DataAsset();
+                    asset.setName(getFileName(filePath));
+                    asset.setSourceType("mlflow");
+                    
+                    String fullPath = getFullArtifactPath(artifactUri, filePath);
+                    asset.setSource(fullPath != null ? fullPath : artifactUri + "/" + filePath);
+                    asset.setRole(DataAsset.Role.OUTPUT);
+                    
+                    // Set folder as the directory path
+                    int lastSlash = filePath.lastIndexOf('/');
+                    if (lastSlash > 0) {
+                        asset.setFolder(filePath.substring(0, lastSlash));
+                    }
+                    
+                    // Set format from extension
+                    String extension = "";
+                    int lastDot = filePath.lastIndexOf('.');
+                    if (lastDot > 0) {
+                        extension = filePath.substring(lastDot + 1);
+                        asset.setFormat(extension.toLowerCase());
+                    }
+                    
+                    asset.setType(DataAsset.Type.INTERNAL);
+                    assets.add(asset);
+                }
+            }
+
+            return assets;
+
+        } catch (Exception e) {
+            LOG.error("Error fetching artifacts for run {} at path {}", runId, path, e);
+            return new ArrayList<>();
+        }
     }
 }
