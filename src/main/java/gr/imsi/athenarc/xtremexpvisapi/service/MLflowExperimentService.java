@@ -465,7 +465,7 @@ public class MLflowExperimentService implements ExperimentService {
         }
 
         // Get artifacts as additional assets
-        allAssets.addAll(getArtifactsAsDataAssets(runId));
+        allAssets.addAll(getArtifactsAsDataAssets(runId, info));
         
         run.setDataAssets(allAssets);
 
@@ -561,8 +561,9 @@ public class MLflowExperimentService implements ExperimentService {
         return asset;
     }
 
-    private List<DataAsset> getArtifactsAsDataAssets(String runId) {
-        return getArtifactsRecursively(runId, "");
+    private List<DataAsset> getArtifactsAsDataAssets(String runId, Map<String, Object> info) {
+        String artifactUri = (String) info.get("artifact_uri");
+        return getArtifactsRecursively(runId, "", artifactUri);
     }
 
     private String getRunArtifactUri(String runId) {
@@ -651,7 +652,7 @@ public class MLflowExperimentService implements ExperimentService {
                    .replace('\\', '/'); // Ensure forward slashes for consistency
     }
 
-    private List<DataAsset> getArtifactsRecursively(String runId, String path) {
+    private List<DataAsset> getArtifactsRecursively(String runId, String path, String artifactUri) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/artifacts/list";
         if (!path.isEmpty()) {
             requestUrl += "?run_id=" + runId + "&path=" + path;
@@ -662,6 +663,7 @@ public class MLflowExperimentService implements ExperimentService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> entity = new HttpEntity<>(headers);
+        List<DataAsset> assets = new ArrayList<>();
 
         try {
             LOG.info("Fetching artifacts for run {} at path {}", runId, path);
@@ -673,14 +675,11 @@ public class MLflowExperimentService implements ExperimentService {
 
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
                 LOG.error("Failed to fetch artifacts for run {} at path {}", runId, path);
-                return new ArrayList<>();
+                return assets;
             }
 
             List<Map<String, Object>> files = (List<Map<String, Object>>) response.getBody().get("files");
-            if (files == null) return new ArrayList<>();
-
-            List<DataAsset> assets = new ArrayList<>();
-            String artifactUri = getRunArtifactUri(runId);
+            if (files == null) return assets;
             
             for (Map<String, Object> file : files) {
                 boolean isDir = (boolean) file.get("is_dir");
@@ -688,15 +687,21 @@ public class MLflowExperimentService implements ExperimentService {
                 
                 if (isDir) {
                     // Recursively get assets from this directory
-                    assets.addAll(getArtifactsRecursively(runId, filePath));
+                    assets.addAll(getArtifactsRecursively(runId, filePath, artifactUri));
                 } else {
                     // Create asset for this file
                     DataAsset asset = new DataAsset();
                     asset.setName(getFileName(filePath));
                     asset.setSourceType("mlflow");
                     
+                    // Construct full path using the cached artifactUri
                     String fullPath = getFullArtifactPath(artifactUri, filePath);
-                    asset.setSource(fullPath != null ? fullPath : artifactUri + "/" + filePath);
+                    if (fullPath == null) {
+                        LOG.warn("Artifact URI is null for run {} at path {}", runId, path);
+                        continue;
+                    }
+                    
+                    asset.setSource(fullPath);
                     asset.setRole(DataAsset.Role.OUTPUT);
                     
                     // Set folder as the directory path
@@ -706,11 +711,9 @@ public class MLflowExperimentService implements ExperimentService {
                     }
                     
                     // Set format from extension
-                    String extension = "";
                     int lastDot = filePath.lastIndexOf('.');
                     if (lastDot > 0) {
-                        extension = filePath.substring(lastDot + 1);
-                        asset.setFormat(extension.toLowerCase());
+                        asset.setFormat(filePath.substring(lastDot + 1).toLowerCase());
                     }
                     
                     asset.setType(DataAsset.Type.INTERNAL);
@@ -722,7 +725,7 @@ public class MLflowExperimentService implements ExperimentService {
 
         } catch (Exception e) {
             LOG.error("Error fetching artifacts for run {} at path {}", runId, path, e);
-            return new ArrayList<>();
+            return assets;
         }
     }
 }
