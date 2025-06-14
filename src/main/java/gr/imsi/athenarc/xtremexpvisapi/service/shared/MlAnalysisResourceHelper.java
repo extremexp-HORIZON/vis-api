@@ -89,8 +89,8 @@ public class MlAnalysisResourceHelper {
            findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
            findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
            findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
-           findFileIgnoreCase(folder, "model.pkl").isPresent() ;
-        //    findFileIgnoreCase(folder, "roc_data.json").isPresent();
+           findFileIgnoreCase(folder, "model.pkl").isPresent() &&
+           findFileIgnoreCase(folder, "roc_data.json").isPresent();
 }
 
     /**
@@ -107,7 +107,7 @@ public class MlAnalysisResourceHelper {
     map.put("X_train", findFileIgnoreCase(folder, "X_train.csv").orElse(null));
     map.put("Y_pred", findFileIgnoreCase(folder, "Y_pred.csv").orElse(null));
     map.put("model", findFileIgnoreCase(folder, "model.pkl").orElse(null));
-    // map.put("roc_curve", findFileIgnoreCase(folder, "roc_data.json").orElse(null));
+    map.put("roc_curve", findFileIgnoreCase(folder, "roc_data.json").orElse(null));
     return map;
 }
 
