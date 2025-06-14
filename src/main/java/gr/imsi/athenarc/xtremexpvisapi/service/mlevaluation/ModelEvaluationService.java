@@ -56,35 +56,53 @@ public class ModelEvaluationService {
     }
 
     @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
+    // public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
+    //     LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+    //     ExperimentService service = experimentServiceFactory.getActiveService();
+    //     ResponseEntity<Run> response = service.getRunById(experimentId, runId);
+    //     if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+    //         return Optional.empty();
+    //     }
+
+    //     Run run = response.getBody();
+
+    //     Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
+    //     if (folderOpt.isEmpty()) {
+    //         return Optional.empty();
+    //     }
+
+    //     Path folder = folderOpt.get();
+    //     if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+    //         LOG.warn("Analysis folder exists but is missing one or more required files.");
+    //         return Optional.empty();
+    //     }
+    //     Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+    //     Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+    //     Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
+    //     Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
+    //     Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+
+    //     validateAlignment(xTest, yTest, yPred);
+    //     return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+    // }
     public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
-        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
-        ExperimentService service = experimentServiceFactory.getActiveService();
-        ResponseEntity<Run> response = service.getRunById(experimentId, runId);
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            return Optional.empty();
-        }
+    LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-        Run run = response.getBody();
-
-        Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
-        if (folderOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Path folder = folderOpt.get();
-        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-            LOG.warn("Analysis folder exists but is missing one or more required files.");
-            return Optional.empty();
-        }
-        Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-        Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
-        Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-        Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
-        Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
-
-        validateAlignment(xTest, yTest, yPred);
-        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+    Path folder = Paths.get(mockEvaluationPath);
+    if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+        LOG.warn("Analysis folder exists but is missing one or more required files.");
+        return Optional.empty();
     }
+
+    Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+    Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+    Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
+    Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
+    Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+
+    validateAlignment(xTest, yTest, yPred);
+    return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+}
 
     private Table loadTable(Path path) {
         SourceType type = SourceType.csv;
