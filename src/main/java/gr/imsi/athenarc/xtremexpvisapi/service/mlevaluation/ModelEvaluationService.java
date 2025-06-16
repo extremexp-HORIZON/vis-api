@@ -91,7 +91,11 @@ private String mockEvaluationPathTemplate;
     public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
     LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-    Path folder = Paths.get(mockEvaluationPathTemplate);
+String resolvedPath = mockEvaluationPathTemplate
+        .replace("{experimentId}", experimentId)
+        .replace("{runId}", runId);
+
+Path folder = Paths.get(resolvedPath);
     if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
         LOG.warn("Analysis folder exists but is missing one or more required files.");
         return Optional.empty();
