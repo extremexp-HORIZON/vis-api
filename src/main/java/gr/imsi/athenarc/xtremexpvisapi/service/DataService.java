@@ -71,14 +71,14 @@ public class DataService {
 
     public MapDataResponse getMapData(MapDataRequest mapDataRequest) {
         String datasetId = mapDataRequest.getDatasetId();
+        LOG.info("Retrieving map data for datasetId: {}", datasetId);
         // expect to find the CSV data in the following path inside /opt/experiments folder.
         datasetId = String.format("%1$s/dataset/%1$s.csv", datasetId);
 
-        mapDataRequest.setDatasetId(datasetId);
+        // mapDataRequest.setDatasetId(datasetId);
         SourceType type = mapDataRequest.getType();
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
         
-        LOG.info("Retrieving map data for datasetId: {}", datasetId);
         MapDataResponse response = dataSource.fetchMapData(mapDataRequest);
         return response;
     }

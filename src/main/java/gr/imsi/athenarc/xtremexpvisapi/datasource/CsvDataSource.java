@@ -39,6 +39,7 @@ public class CsvDataSource implements DataSource {
 
     private final TabularQueryExecutor tabularQueryExecutor;
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
+    private final MapQueryExecutor mapQueryExecutor;
     private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
     private String source;
 
@@ -49,6 +50,7 @@ public class CsvDataSource implements DataSource {
     public CsvDataSource() {
         this.tabularQueryExecutor = new TabularQueryExecutor();
         this.timeSeriesQueryExecutor = new TimeSeriesQueryExecutor();
+        this.mapQueryExecutor = new MapQueryExecutor();
     }
 
     @PostConstruct
@@ -154,8 +156,7 @@ public class CsvDataSource implements DataSource {
                 // TODO: Implement JSON logic
             } else {
                 Table table = readCsvFromFile(path);
-                // TODO: Implement queryMapData in MapQueryExecutor class
-                LOG.info(table.first(5).print());
+                mapDataResponse = mapQueryExecutor.queryMapData(path, table, mapDataRequest);
             }
         }
         return mapDataResponse;

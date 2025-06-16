@@ -24,9 +24,9 @@ public class RectStats {
     private Double covariance;
 
 
-    public RectStats(PairedStats pairedStats, long count) {
+    public RectStats(PairedStats pairedStats) {
 
-        this.count = count;
+        count = pairedStats.count();
         if (count != 0) {
             mean0 = pairedStats.xStats().mean();
             min0 = pairedStats.xStats().min();
