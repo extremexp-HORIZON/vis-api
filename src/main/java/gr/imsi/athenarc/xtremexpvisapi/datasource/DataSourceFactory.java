@@ -5,7 +5,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
+// import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
 import lombok.extern.java.Log;
 
 @Component
@@ -13,11 +13,11 @@ import lombok.extern.java.Log;
 public class DataSourceFactory {
 
     private final ApplicationContext applicationContext;
-    private final FileService fileService;
+    // private final FileService fileService;
 
-    public DataSourceFactory(ApplicationContext applicationContext, FileService fileService) {
+    public DataSourceFactory(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
-        this.fileService = fileService;
+        // this.fileService = fileService;
     }
 
     public DataSource createDataSource(SourceType type, String source) {
@@ -27,11 +27,11 @@ public class DataSourceFactory {
         boolean isFileInCache = csvDataSource.getTableCache().containsKey(fileName);
         
         if (type == SourceType.zenoh && !isFileInCache) {
-            try {
-                fileService.downloadFileFromZenoh(source);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            // try {
+            //     fileService.downloadFileFromZenoh(source);
+            // } catch (Exception e) {
+            //     e.printStackTrace();
+            // }
             csvDataSource.setSource(fileName);
         }else{
             csvDataSource.setSource(source);
