@@ -43,8 +43,11 @@ public class ModelEvaluationService {
     // Maximum number of rows to return for labeled test instances
     private static final int MAX_PAGE_SIZE = 10000;
 
-    @Value("${app.mock.ml-evaluation.path:}")
-    private String mockEvaluationPath;
+    // @Value("${app.mock.ml-evaluation.path:}")
+    // private String mockEvaluationPath;
+    @Value("${app.mock.ml-evaluation.path-template:}")
+private String mockEvaluationPathTemplate;
+
 
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
 
@@ -88,7 +91,7 @@ public class ModelEvaluationService {
     public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
     LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-    Path folder = Paths.get(mockEvaluationPath);
+    Path folder = Paths.get(mockEvaluationPathTemplate);
     if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
         LOG.warn("Analysis folder exists but is missing one or more required files.");
         return Optional.empty();
@@ -362,9 +365,16 @@ public class ModelEvaluationService {
                 splitSizes);
     }
 
+    // private Optional<Path> resolveMlAnalysisFolderPath(Run run) {
+    //     // return mlAnalysisResourceHelper.getMlResourceFolder(run);
+    //     return Optional.of(Paths.get(mockEvaluationPath));
+    // }
     private Optional<Path> resolveMlAnalysisFolderPath(Run run) {
-        // return mlAnalysisResourceHelper.getMlResourceFolder(run);
-        return Optional.of(Paths.get(mockEvaluationPath));
-    }
+    String pathStr = mockEvaluationPathTemplate
+        .replace("{experimentId}", run.getExperimentId())
+        .replace("{runId}", run.getId());
+    return Optional.of(Paths.get(pathStr));
+}
+
 
 }
