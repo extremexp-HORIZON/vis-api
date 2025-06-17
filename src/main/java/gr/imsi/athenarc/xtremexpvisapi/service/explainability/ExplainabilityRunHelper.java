@@ -7,7 +7,6 @@ import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import lombok.extern.java.Log;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;

@@ -118,6 +118,12 @@
 			<artifactId>external-umap-java</artifactId>
 			<version>1.0</version>
 		</dependency>
+		<!-- DuckDB JDBC Driver -->
+		<dependency>
+			<groupId>org.duckdb</groupId>
+			<artifactId>duckdb_jdbc</artifactId>
+			<version>0.10.2</version>
+		</dependency>
 		<!-- <dependency>
 			<groupId>gr.imsi.athenarc.visual.middleware</groupId>
 			<artifactId>min-max-cache</artifactId>

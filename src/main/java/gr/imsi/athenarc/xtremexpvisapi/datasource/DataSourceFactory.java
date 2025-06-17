@@ -26,16 +26,16 @@ public class DataSourceFactory {
         String fileName = source.substring(source.lastIndexOf("/") + 1).trim();
         boolean isFileInCache = csvDataSource.getTableCache().containsKey(fileName);
         
-        if (type == SourceType.zenoh && !isFileInCache) {
-            try {
-                fileService.downloadFileFromZenoh(source);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            csvDataSource.setSource(fileName);
-        }else{
-            csvDataSource.setSource(source);
-        }
+        // if (type == SourceType.zenoh && !isFileInCache) {
+        //     try {
+        //         fileService.downloadFileFromZenoh(source);
+        //     } catch (Exception e) {
+        //         e.printStackTrace();
+        //     }
+        //     csvDataSource.setSource(fileName);
+        // }else{
+        //     csvDataSource.setSource(source);
+        // }
         return csvDataSource;
     }
 }

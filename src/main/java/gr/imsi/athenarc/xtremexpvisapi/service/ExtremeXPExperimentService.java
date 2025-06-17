@@ -11,7 +11,6 @@ import org.springframework.web.client.RestTemplate;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
@@ -28,7 +27,6 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

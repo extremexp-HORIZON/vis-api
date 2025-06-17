@@ -1,5 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.controller;
 
+import java.sql.SQLException;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.slf4j.Logger;
@@ -7,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,15 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement.CatalogRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.service.ZenohService;
+import gr.imsi.athenarc.xtremexpvisapi.service.TabularQueryService;
 import jakarta.validation.Valid;
 
 @RestController
@@ -35,11 +36,12 @@ public class DataController {
     private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
 
     private final DataService dataService;
-    private final ZenohService zenohService;
+    private final TabularQueryService tabularQueryService;
 
-    public DataController(DataService dataService, ZenohService zenohService) {
-        this.zenohService = zenohService;
+    public DataController(DataService dataService,
+            TabularQueryService tabularQueryService) {
         this.dataService = dataService;
+        this.tabularQueryService = tabularQueryService;
     }
 
     @PostMapping("/umap")
@@ -67,18 +69,53 @@ public class DataController {
         return dataService.getFileMetadata(metadataRequest);
     }
 
-    @GetMapping("/get-catalog")
-    public CompletableFuture<ResponseEntity<?>> getZenohCatalog(@RequestBody CatalogRequest catalogRequest) throws Exception {
-        LOG.info("Received request for getting Zenoh catalog with search params: {}", catalogRequest.toString());
-        return zenohService.getCatalogInfo(catalogRequest)
-                .<ResponseEntity<?>>thenApply(catalogResponse -> {
-                    LOG.info("Successfully retrieved Zenoh catalog");
-                    return ResponseEntity.ok(catalogResponse);
+    @PostMapping("/tabular/duckdb-test")
+    public CompletableFuture<ResponseEntity<Object>> testDuckDbTabularQuery(@Valid @RequestBody DataRequest dataRequest) throws SQLException, Exception {
+        LOG.info("Testing DuckDB tabular query with request: {}", dataRequest);
+
+        return tabularQueryService.executeDataRequest(dataRequest)
+                .thenApply(response -> {
+                    LOG.info("DuckDB query executed successfully. Returned {} rows", response.getQuerySize());
+                    return ResponseEntity.ok((Object) response);
                 })
-                .exceptionally(e -> {
-                    LOG.error("Error retrieving Zenoh catalog", e);
+                .exceptionally(throwable -> {
+                    if (throwable.getCause() instanceof SQLException) {
+                        SQLException e = (SQLException) throwable.getCause();
+                        LOG.error("SQL error executing DuckDB query", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                        "error", "SQL Error",
+                                        "message", e.getMessage(),
+                                        "sqlState", e.getSQLState() != null ? e.getSQLState() : "Unknown"));
+                    } else {
+                        LOG.error("Error executing DuckDB tabular query", throwable);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(Map.of(
+                                        "error", "Internal Server Error",
+                                        "message", throwable.getMessage()));
+                    }
+                });
+    }
+
+    @PostMapping("/tabular/duckdb-sql")
+    public CompletableFuture<ResponseEntity<Object>> getDuckDbSql(@Valid @RequestBody DataRequest dataRequest) throws Exception {
+        LOG.info("Generating DuckDB SQL for request: {}", dataRequest);
+
+        return tabularQueryService.buildQuery(dataRequest)
+                .thenApply(sql -> {
+                    LOG.info("Generated SQL: {}", sql);
+                    return ResponseEntity.ok((Object) Map.of(
+                            "sql", sql,
+                            "request", dataRequest,
+                            "timestamp", java.time.Instant.now().toString()));
+                })
+                .exceptionally(throwable -> {
+                    LOG.error("Error generating DuckDB SQL", throwable);
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body("Error retrieving Zenoh catalog: " + e.getMessage());
+                            .body(Map.of(
+                                    "error", "Error generating SQL",
+                                    "message", throwable.getMessage(),
+                                    "request", dataRequest));
                 });
     }
 

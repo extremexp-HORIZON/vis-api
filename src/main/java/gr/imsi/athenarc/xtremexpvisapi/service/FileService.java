@@ -4,16 +4,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.config.ApplicationFileProperties;
-import lombok.extern.java.Log;
+import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.http.HttpResponse;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -23,58 +21,38 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@Log
+@Log4j2
 public class FileService {
     private static final List<String> UNITS = Arrays.asList("B", "KB", "MB", "GB", "TB", "PB", "EB");
-    private final Map<String, String> fileCache = new HashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
     private final ApplicationFileProperties applicationFileProperties;
-    private final ZenohService zenohService;
 
     @Autowired
-    public FileService(ApplicationFileProperties applicationFileProperties, ZenohService zenohService) {
+    public FileService(ApplicationFileProperties applicationFileProperties) {
         this.applicationFileProperties = applicationFileProperties;
-        this.zenohService = zenohService;
     }
 
     /**
-     * Downloads a file from zenoh given a URI and schedules it for deletion after a
+     * Saves a file from an external source and schedules it for deletion after a
      * certain period.
      * If the file already exists in the cache, resets the deletion timer.
      *
      * @param uri the URI of the file to download
      * @throws Exception if an error occurs
      */
-    public void downloadFileFromZenoh(String uri) throws Exception {
-        // // Check if uri has the correct form
-        // if (uri.chars().filter(ch -> ch == '/').count() < 3) {
-        //     throw new IllegalArgumentException("Error: uri should have this form: \"UseCase/Folder/Subfolder/Filename\"");
-        // }
-        // // Extract UseCase, Folder, Subfolder, Filename from uri
-        // String[] uriParts = uri.split("/");
-        // String useCase = uriParts[0];
-        // String folder = uriParts[1];
-        // String subFolder = uriParts[2];
-        // String fileName = uriParts[uriParts.length - 1];
-        // if (fileCache.containsKey(fileName)) {
-        //     log.info(fileName + " already exists in the cache");
-        //     resetFileDeletion(fileName);
-        // } else {
-        //     log.fine("Downloading " + fileName + " from " + uri);
-        //     Path targetPath = Paths.get(applicationFileProperties.getDirectory(), uri);
-        //     HttpResponse<InputStream> zenohResponse = zenohService.getSingleFile(useCase, folder, subFolder, fileName);
-        //     log.fine("Download successful");
-            
-        //     // Get file from response body
-        //     InputStream fileStream = zenohResponse.body();
-        //     // Get file size from response headers
-        //     long fileSize = zenohResponse.headers().firstValue("Content-Length").map(Long::parseLong).orElse(-1L);
+    public String saveFile(String folderStructure, String fileName, InputStream fileContent) throws Exception {
 
-        //     fileInsertionHandler(fileStream, fileSize, targetPath);
-        //     fileCache.put(fileName, targetPath.toString());
-        //     scheduleFileDeletion(targetPath);
-        // }
+        String fileCacheDirectory = applicationFileProperties.getDirectory();
+        Path targetPath = Paths.get(fileCacheDirectory, folderStructure, fileName);
+
+        // Check if file is already cached and reset timer
+        if (isFileCached(targetPath.toString())) {
+            return targetPath.toString();
+        }
+
+        fileInsertionHandler(fileContent, fileContent.available(), targetPath);
+        return targetPath.toString();
     }
 
     /**
@@ -82,19 +60,21 @@ public class FileService {
      *
      * @param path the path of the file to delete
      */
-    private void scheduleFileDeletion(Path path) {
+    private void scheduleFileDeletion(Path targetPath) {
         ScheduledFuture<?> scheduledTask = scheduler.schedule(() -> {
             try {
-                Files.deleteIfExists(path);
-                fileCache.remove(path.getFileName().toString());
-                scheduledTasks.remove(path.getFileName().toString());
+                Files.deleteIfExists(targetPath);
+                scheduledTasks.remove(targetPath.toString());
+                // Delete empty parent directories recursively up to the cache directory
+                deleteEmptyParentDirectories(targetPath.getParent(),
+                        Paths.get(applicationFileProperties.getDirectory()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }, applicationFileProperties.getDuration(),
                 TimeUnit.valueOf(applicationFileProperties.getUnit()));
 
-        scheduledTasks.put(path.getFileName().toString(), scheduledTask);
+        scheduledTasks.put(targetPath.toString(), scheduledTask);
     }
 
     /**
@@ -102,12 +82,35 @@ public class FileService {
      *
      * @param fileName the name of the file to reset the deletion timer for
      */
-    private void resetFileDeletion(String fileName) {
-        ScheduledFuture<?> scheduledTask = scheduledTasks.get(fileName);
+    private void resetFileDeletion(Path targetPath) {
+        ScheduledFuture<?> scheduledTask = scheduledTasks.get(targetPath.toString());
         if (scheduledTask != null) {
             scheduledTask.cancel(false);
-            Path path = Paths.get(fileCache.get(fileName));
-            scheduleFileDeletion(path);
+            scheduleFileDeletion(targetPath);
+        }
+    }
+
+    /**
+     * Recursively deletes empty parent directories up to (but not including) the
+     * cache directory.
+     * 
+     * @param currentDir the current directory to check and potentially delete
+     * @param cacheDir   the cache directory (stopping point)
+     * @throws IOException if an I/O error occurs
+     */
+    private void deleteEmptyParentDirectories(Path currentDir, Path cacheDir) throws IOException {
+        // Stop if we've reached the cache directory or gone beyond it
+        if (currentDir == null || currentDir.equals(cacheDir) || !currentDir.startsWith(cacheDir)) {
+            return;
+        }
+
+        // Check if the current directory is empty
+        if (Files.isDirectory(currentDir) && Files.list(currentDir).count() == 0) {
+            Files.delete(currentDir);
+            log.info("Deleted empty parent directory: " + currentDir);
+
+            // Recursively check the parent of the current directory
+            deleteEmptyParentDirectories(currentDir.getParent(), cacheDir);
         }
     }
 
@@ -129,17 +132,15 @@ public class FileService {
             log.info("File size: " + insertedFileSizeBytes + " bytes");
             log.info("Directory size limit: " + folderSizeLimitBytes + " bytes");
 
-
             if (insertedFileSizeBytes > folderSizeLimitBytes) {
-                log.warning("File insertion failed: File bigger than cache size limit");
+                log.error("File insertion failed: File bigger than cache size limit");
             } else if (directoryCurrentSizeBytes + insertedFileSizeBytes > folderSizeLimitBytes) {
-                log.warning("File insertion postponed: Deleting old files to make space");
-                makeSpace(targetPath, directoryCurrentSizeBytes, insertedFileSizeBytes, folderSizeLimitBytes,
+                log.info("File insertion postponed: Deleting old files to make space");
+                makeSpaceAndInsertFile(targetPath, directoryCurrentSizeBytes, insertedFileSizeBytes,
+                        folderSizeLimitBytes,
                         fileToBeInserted);
             } else {
-                Files.createDirectories(targetPath.getParent());
-                Files.copy(fileToBeInserted, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                log.finest("File inserted successfully");
+                insertFile(fileToBeInserted, targetPath);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -148,18 +149,35 @@ public class FileService {
     }
 
     /**
-     * Deletes files from the directory to make space for the new file (one by one).
+     * Inserts the file into the target path and schedules it for deletion.
      *
-     * @param targetPath             path variable that defines the target directory.
-     * @param directoryCurrentSizeBytes the current size of the directory in bytes.
-     * @param insertedFileSizeBytes the size of the file to be inserted in bytes.
-     * @param folderSizeLimitBytes   the size limit of the directory in bytes.
-     * @param fileToBeInserted       the file to be inserted.
+     * @param fileToBeInserted the file to be inserted.
+     * @param targetPath       path variable that defines the target directory.
      * @throws IOException if an I/O error occurs
      */
-    private void makeSpace(Path targetPath, long directoryCurrentSizeBytes, long insertedFileSizeBytes,
+    private void insertFile(InputStream fileToBeInserted, Path targetPath) throws IOException {
+        Files.createDirectories(targetPath.getParent());
+        Files.copy(fileToBeInserted, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        scheduleFileDeletion(targetPath);
+        log.info("File inserted successfully");
+    }
+
+    /**
+     * Deletes files from the directory to make space for the new file (one by one).
+     *
+     * @param targetPath                path variable that defines the target
+     *                                  directory.
+     * @param directoryCurrentSizeBytes the current size of the directory in bytes.
+     * @param insertedFileSizeBytes     the size of the file to be inserted in
+     *                                  bytes.
+     * @param folderSizeLimitBytes      the size limit of the directory in bytes.
+     * @param fileToBeInserted          the file to be inserted.
+     * @throws IOException if an I/O error occurs
+     */
+    private void makeSpaceAndInsertFile(Path targetPath, long directoryCurrentSizeBytes, long insertedFileSizeBytes,
             long folderSizeLimitBytes, InputStream fileToBeInserted) throws IOException {
-        // Get all files in the directory and sort them by last modified time (oldest -> newest)
+        // Get all files in the directory and sort them by last modified time (oldest ->
+        // newest)
         List<Path> files = Files.list(targetPath.getParent())
                 .filter(Files::isRegularFile)
                 .sorted((p1, p2) -> {
@@ -177,7 +195,7 @@ public class FileService {
         for (Path file : files) {
             long fileSize = Files.size(file);
             Files.delete(file);
-            scheduledTasks.remove(file.getFileName().toString());
+            scheduledTasks.remove(targetPath.toString());
             spaceFreed += fileSize;
             log.info("Deleted file: " + file.getFileName() + " to free up space");
 
@@ -188,7 +206,7 @@ public class FileService {
 
         // Check if enough space was freed
         if (directoryCurrentSizeBytes + insertedFileSizeBytes - spaceFreed > folderSizeLimitBytes) {
-            log.warning("File insertion failed: Not enough space could be freed");
+            log.error("File insertion failed: Not enough space could be freed");
         } else {
             Files.copy(fileToBeInserted, targetPath, StandardCopyOption.REPLACE_EXISTING);
             log.info("File inserted successfully after freeing up space");
@@ -226,6 +244,30 @@ public class FileService {
             throw new IllegalArgumentException("Invalid size unit: " + unit);
         }
         return value * (long) Math.pow(1024, unitIndex);
+    }
+
+    /**
+     * Checks if a file is cached and resets its deletion timer if it exists.
+     *
+     * @param targetPath the path of the file to check
+     * @return true if the file is cached (timer reset), false if not cached
+     */
+    public boolean isFileCached(String targetPath) {
+        if (scheduledTasks.containsKey(targetPath)) {
+            log.info("File is cached, resetting deletion timer for: " + targetPath);
+            resetFileDeletion(Paths.get(targetPath));
+            return true;
+        }
+
+        // Also check if file physically exists
+        if (Files.exists(Paths.get(targetPath))) {
+            log.info("File exists but not in cache, scheduling deletion: " + targetPath);
+            scheduleFileDeletion(Paths.get(targetPath));
+            return true;
+        }
+
+        log.info("File is not cached: " + targetPath);
+        return false;
     }
 
 }
