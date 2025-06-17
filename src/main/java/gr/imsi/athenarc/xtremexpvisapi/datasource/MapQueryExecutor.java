@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -72,6 +74,7 @@ public class MapQueryExecutor {
         Schema schema = new Schema(path.toString(), DELIMITER, table.columnIndex("longitude"), 
                             table.columnIndex("latitude"), table.columnIndex(dataset.getMeasure0()), 
                             table.columnIndex(dataset.getMeasure1()), rectangle, dataset.getObjectCount());
+        schema.setHasHeader(dataset.getHasHeader());
         List<CategoricalColumn> categoricalColumns = dataset.getDimensions().stream().map(field -> new CategoricalColumn(table.columnIndex(field))).collect(Collectors.toList());
         schema.setCategoricalColumns(categoricalColumns);
         LOG.debug(schema.toString());
@@ -110,6 +113,7 @@ public class MapQueryExecutor {
             }
             Schema schema = veti.getSchema();
             QueryResults queryResults = veti.executeQuery(query);
+
             // LOG.debug(queryResults.toString());
             mapDataResponse.setFullyContainedTileCount(queryResults.getFullyContainedTileCount());
             mapDataResponse.setIoCount(queryResults.getIoCount());
@@ -125,6 +129,7 @@ public class MapQueryExecutor {
             mapDataResponse.setSeries((queryResults.getStats().entrySet().stream().map(e ->
                 new GroupedStats(e.getKey(), AggregateFunctionType.getAggValue(mapDataRequest.getAggType(),
                     mapDataRequest.getMeasureCol().equals(table.column(schema.getMeasureCol0()).name()) ? e.getValue().xStats() : e.getValue().yStats())))).collect(Collectors.toList()));
+            
             List<Object[]> points;
             if (queryResults.getPoints() != null) {
                 points = queryResults.getPoints();
@@ -132,19 +137,106 @@ public class MapQueryExecutor {
                 points = new ArrayList<>();
             }
 
-            Map<String, Float> geoHashes = new HashMap<>();
+            // Process points using GeoHash similar to SQLDataService
+            Map<String, List<Object[]>> geoHashGroups = new HashMap<>();
+            
+            // Group points by GeoHash
+            Coverage coverage = GeoHash.coverBoundingBoxMaxHashes(
+                mapDataRequest.getRectangle().getYRange().upperEndpoint(), 
+                mapDataRequest.getRectangle().getXRange().lowerEndpoint(), 
+                mapDataRequest.getRectangle().getYRange().lowerEndpoint(), 
+                mapDataRequest.getRectangle().getXRange().upperEndpoint(), 
+                10000);
+                
+            int hashLength = coverage.getHashLength();
+            
+            // Group points by geohash
+            for (Object[] point : points) {
+                if (point.length < 2) continue;
+                
+                // Get lat, lon from point
+                float lat = (float) point[0];
+                float lon = (float) point[1];
+                
+                // Point size/count is at position 2
+                Integer pointCount = point.length > 2 ? (Integer) point[2] : 1;
 
-            Coverage coverage = GeoHash.coverBoundingBoxMaxHashes(mapDataRequest.getRectangle().getYRange().upperEndpoint(), mapDataRequest.getRectangle().getXRange().lowerEndpoint(), mapDataRequest.getRectangle().getYRange().lowerEndpoint(), mapDataRequest.getRectangle().getXRange().upperEndpoint(), 10000);
-            points.stream().forEach(point -> {
-                String geoHashValue = GeoHash.encodeHash((float)point[0], (float)point[1], coverage.getHashLength());
-                geoHashes.merge(geoHashValue, 1f, Float::sum);
-            });
-            points = geoHashes.entrySet().stream().map(e -> {
-                LatLong latLong = GeoHash.decodeHash(e.getKey());
-                return new Object[]{(float) latLong.getLat(), (float) latLong.getLon(), e.getValue()};
-            }).collect(Collectors.toList());
-
-            mapDataResponse.setPoints(points);
+                // Extract values based on the point format from Veti
+                Object id = point.length > 3 ? point[3] : null;
+                Float measure0 = point.length > 4 ? (Float) point[4] : null;
+                Float measure1 = point.length > 5 ? (Float) point[5] : null;
+                List<String> groupByValues = point.length > 6 ? (List<String>) point[6] : null;
+                
+                String geoHashValue = GeoHash.encodeHash(lat, lon, hashLength);
+                
+                // Store original point data with geohash, including point count
+                Object[] pointData = new Object[] { lat, lon, pointCount, id, measure0, measure1, groupByValues };
+                geoHashGroups.computeIfAbsent(geoHashValue, k -> new ArrayList<>()).add(pointData);
+            }
+            
+            // Process geohash groups into aggregated points
+            List<Object[]> processedPoints = new ArrayList<>();
+            
+            for (Map.Entry<String, List<Object[]>> entry : geoHashGroups.entrySet()) {
+                String geoHash = entry.getKey();
+                List<Object[]> groupedPoints = entry.getValue();
+                LatLong latLong = GeoHash.decodeHash(geoHash);
+                
+                // If only one point in the group, retain its original values
+                if (groupedPoints.size() == 1) {
+                    Object[] singlePoint = groupedPoints.get(0);
+                    processedPoints.add(new Object[] { 
+                        (float) latLong.getLat(), 
+                        (float) latLong.getLon(), 
+                        singlePoint[2],  // point count
+                        singlePoint[3],  // id
+                        singlePoint[4],  // measure0
+                        singlePoint[5],  // measure1
+                        singlePoint[6]   // groupByValues
+                    });
+                } else {
+                    // Sum up the point counts
+                    int totalPointCount = groupedPoints.stream()
+                        .mapToInt(p -> p[2] != null ? (Integer)p[2] : 1)
+                        .sum();
+                    
+                    // Calculate weighted average measures for multiple points
+                    double measure0Sum = 0;
+                    double measure1Sum = 0;
+                    int measure0Count = 0;
+                    int measure1Count = 0;
+                    
+                    for (Object[] p : groupedPoints) {
+                        Integer count = (Integer) p[2];
+                        if (p[4] != null) {
+                            measure0Sum += ((Float)p[4]) * count;
+                            measure0Count += count;
+                        }
+                        if (p[5] != null) {
+                            measure1Sum += ((Float)p[5]) * count;
+                            measure1Count += count;
+                        }
+                    }
+                    
+                    Float measure0Avg = measure0Count > 0 ? (float)(measure0Sum / measure0Count) : null;
+                    Float measure1Avg = measure1Count > 0 ? (float)(measure1Sum / measure1Count) : null;
+                    
+                    // Process grouped categorical/groupBy values
+                    List<List<String>> groupedGroupByValues = processGroupByValues(groupedPoints);
+                    
+                    processedPoints.add(new Object[] { 
+                        (float) latLong.getLat(), 
+                        (float) latLong.getLon(), 
+                        totalPointCount,  // total count of all points in this group
+                        null,  // no single ID for multiple points
+                        measure0Avg, 
+                        measure1Avg,
+                        groupedGroupByValues
+                    });
+                }
+            }
+            
+            mapDataResponse.setPoints(processedPoints);
             mapDataResponse.setFacets(schema.getCategoricalColumns().stream().collect(Collectors.toMap(col -> table.column(col.getIndex()).name(), CategoricalColumn::getNonNullValues)));
 
             // LOG.debug(mapDataResponse.toString());
@@ -153,6 +245,57 @@ public class MapQueryExecutor {
             e.printStackTrace();
             throw new UncheckedIOException(e);
         }
+    }
+    
+    // Helper method to process group by values from multiple points
+    private List<List<String>> processGroupByValues(List<Object[]> points) {
+        // List to store processed group values
+        List<List<String>> result = new ArrayList<>();
+        
+        // Check if we have any valid group by values
+        boolean hasGroupValues = false;
+        for (Object[] point : points) {
+            if (point[5] != null && point[5] instanceof List) {
+                hasGroupValues = true;
+                break;
+            }
+        }
+        
+        if (!hasGroupValues) {
+            return result;
+        }
+        
+        // Collect all group values
+        List<List<String>> allGroupValues = new ArrayList<>();
+        for (Object[] point : points) {
+            if (point[5] != null && point[5] instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<String> groupValues = (List<String>) point[5];
+                allGroupValues.add(groupValues);
+            }
+        }
+        
+        // Ensure there's at least one row with group values
+        if (allGroupValues.isEmpty()) {
+            return result;
+        }
+        
+        // Find unique values for each column
+        int columnCount = allGroupValues.get(0).size();
+        for (int i = 0; i < columnCount; i++) {
+            Set<String> uniqueValues = new java.util.HashSet<>();
+            
+            for (List<String> groupValues : allGroupValues) {
+                if (i < groupValues.size() && groupValues.get(i) != null) {
+                    uniqueValues.add(groupValues.get(i));
+                }
+            }
+            
+            // Add the unique values for this column
+            result.add(new ArrayList<>(uniqueValues));
+        }
+        
+        return result;
     }
 }
 
