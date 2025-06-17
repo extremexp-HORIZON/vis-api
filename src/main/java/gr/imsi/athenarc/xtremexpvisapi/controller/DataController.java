@@ -27,6 +27,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
+import gr.imsi.athenarc.xtremexpvisapi.service.MapQueryService;
 import gr.imsi.athenarc.xtremexpvisapi.service.TabularQueryService;
 import jakarta.validation.Valid;
 
@@ -39,11 +40,14 @@ public class DataController {
 
     private final DataService dataService;
     private final TabularQueryService tabularQueryService;
+    private final MapQueryService mapQueryService;
 
     public DataController(DataService dataService,
-            TabularQueryService tabularQueryService) {
+            TabularQueryService tabularQueryService,
+            MapQueryService mapQueryService) {
         this.dataService = dataService;
         this.tabularQueryService = tabularQueryService;
+        this.mapQueryService = mapQueryService;
     }
 
     @PostMapping("/umap")
@@ -75,6 +79,56 @@ public class DataController {
     public MapDataResponse getMapData(@RequestBody MapDataRequest mapDataRequest) {
         LOG.info("Getting map data {}", mapDataRequest);
         return dataService.getMapData(mapDataRequest);
+    }
+
+    @PostMapping("/map/duckdb-test")
+    public CompletableFuture<ResponseEntity<Object>> testDuckDbMapQuery(@RequestBody MapDataRequest mapDataRequest) throws SQLException, Exception {
+        LOG.info("Testing DuckDB map query with request: {}", mapDataRequest);
+
+        return mapQueryService.executeMapDataRequest(mapDataRequest)
+                .thenApply(respone -> {
+                    LOG.info("DuckDB query executed successfully. Returned {}", respone.toString());
+                    return ResponseEntity.ok((Object) respone);
+                })
+                .exceptionally(throwable -> {
+                    if (throwable.getCause() instanceof SQLException) {
+                        SQLException e = (SQLException) throwable.getCause();
+                        LOG.error("SQL Error executing DuckDB query", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                        "error", "SQL Error",
+                                        "message", e.getMessage(),
+                                        "sqlState", e.getSQLState() != null ? e.getSQLState() : "Unknown"));
+                    } else {
+                        LOG.error("Error executing DuckDB tabular query", throwable);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(Map.of(
+                                        "error", "Internal Server Error",
+                                        "message", throwable.getMessage()));
+                    }
+                });
+    }
+
+    @PostMapping("/map/duckdb-sql")
+    public CompletableFuture<ResponseEntity<Object>> getDuckDbMapSql(@RequestBody MapDataRequest mapDataRequest ) throws Exception {
+        LOG.info("Generating DuckDB SQL for request: {}", mapDataRequest);
+
+        return mapQueryService.buildQuery(mapDataRequest)
+                .thenApply(sql -> {
+                    LOG.info("Generated SQL: {}", sql);
+                    return ResponseEntity.ok((Object) Map.of(
+                            "sql", sql,
+                            "request", mapDataRequest,
+                            "timestamp", java.time.Instant.now().toString()));
+                })
+                .exceptionally(throwable -> {
+                    LOG.error("Error generating DuckDB SQL", throwable);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of(
+                                    "error", "Error generating SQL",
+                                    "message", throwable.getMessage(),
+                                    "request", mapDataRequest));
+                });
     }
 
     @PostMapping("/tabular/duckdb-test")
