@@ -16,6 +16,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/**").permitAll() // Allow all requests to /api**/
                 .requestMatchers("/experiments/**").permitAll() // Allow all requests to /api**/
+                .requestMatchers("/data-management/**").permitAll() // Allow all requests to /api**/
                 .requestMatchers("/error").permitAll());
         return http.build();
     }

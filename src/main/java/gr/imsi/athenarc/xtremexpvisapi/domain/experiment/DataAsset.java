@@ -2,9 +2,12 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.experiment;
 
 import java.util.Map;
 
+import lombok.Data;
+
 /**
  * Represents an input dataset or output artifact used in an experiment.
  */
+@Data
 public class DataAsset {
 
     /**
@@ -14,6 +17,11 @@ public class DataAsset {
     public enum Role {
         INPUT, // Represents input datasets
         OUTPUT // Represents output artifacts
+    }
+
+    public enum Type {
+        INTERNAL,
+        EXTERNAL
     }
 
     /**
@@ -52,6 +60,21 @@ public class DataAsset {
     private String task;
 
     /**
+     * Logical folder or catalog this data asset belongs to.
+     * This field is used to group multiple file-level assets under a virtual
+     * folder.
+     * This does not imply that the data asset is a folder itself. If the asset
+     * represents a real folder (e.g., a directory on the file system), this field
+     * should be {@code null}.
+     */
+    private String folder;
+
+    /**
+     * The type of the data asset (e.g., "INTERNAL", "EXTERNAL").
+     */
+    private Type type;
+
+    /**
      * Additional metadata related to the data asset, stored as key-value pairs.
      * This field is optional.
      */
@@ -63,7 +86,7 @@ public class DataAsset {
     }
 
     public DataAsset(String name, String sourceType, String source, String format,
-            Role role, String task, Map<String, String> tags) {
+            Role role, String task, Map<String, String> tags, String folder, Type type) {
         this.name = name;
         this.sourceType = sourceType;
         this.source = source;
@@ -71,64 +94,8 @@ public class DataAsset {
         this.role = role;
         this.task = task;
         this.tags = tags;
-    }
-
-    // Getters and Setters
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getSourceType() {
-        return sourceType;
-    }
-
-    public void setSourceType(String sourceType) {
-        this.sourceType = sourceType;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public void setSource(String source) {
-        this.source = source;
-    }
-
-    public String getFormat() {
-        return format;
-    }
-
-    public void setFormat(String format) {
-        this.format = format;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
-
-    public String getTask() {
-        return task;
-    }
-
-    public void setTask(String task) {
-        this.task = task;
-    }
-
-    public Map<String, String> getTags() {
-        return tags;
-    }
-
-    public void setTags(Map<String, String> tags) {
-        this.tags = tags;
+        this.folder = folder;
+        this.type = type;
     }
 
     @Override
@@ -141,6 +108,9 @@ public class DataAsset {
                 ", role=" + role +
                 ", task='" + task + '\'' +
                 ", tags=" + tags +
+                ", folder='" + folder + '\'' +
+                ", type=" + type +
                 '}';
     }
+
 }

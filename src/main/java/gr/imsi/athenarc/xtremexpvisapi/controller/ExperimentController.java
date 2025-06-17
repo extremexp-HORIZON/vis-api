@@ -4,11 +4,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
 
 import java.util.List;
@@ -136,6 +138,23 @@ public class ExperimentController {
             @PathVariable String runId,
             @RequestBody UserEvaluation userEvaluation) {
         return experimentServiceFactory.getActiveService().submitUserEvaluation(experimentId, runId, userEvaluation);
+    }
+
+    /**
+     * Controls the experiment's lifecycle through state transitions.
+     * This endpoint allows managing the experiment workflow by submitting control
+     * requests that trigger state changes (e.g., start, pause, resume, stop).
+     * <p>
+     * The implementation handles the transition logic according to the experiment
+     * engine's capabilities.
+     *
+     * @param controlRequest The control request containing the desired action and
+     *                       target experiment/run identifiers
+     * @return A ResponseEntity containing the result of the lifecycle control operation
+     */
+    @PostMapping("/life-cycle")
+    public ResponseEntity<ControlResponse> getExperimentControl(@RequestBody ControlRequest controlRequest) {
+        return experimentServiceFactory.getActiveService().controlLifeCycle(controlRequest);
     }
 
 }

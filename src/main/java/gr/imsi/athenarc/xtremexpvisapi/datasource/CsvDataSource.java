@@ -30,6 +30,7 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.*;
 
@@ -212,18 +213,60 @@ public class CsvDataSource implements DataSource {
         metadataResponse.setDatasetType(datasetTypeDetection(table));
         metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
         List<String> timeColumns = new ArrayList<>();
-    for (Column<?> column : table.columns()) {
+        DateTimeFormatter[] formatters = new DateTimeFormatter[] {
+        DateTimeFormatter.ISO_DATE_TIME,       // 2025-04-23T07:13:48.883000Z
+        DateTimeFormatter.ISO_LOCAL_DATE_TIME, // 2025-04-23T07:13:48
+        DateTimeFormatter.ISO_LOCAL_DATE,      // 2025-04-23
+        DateTimeFormatter.ISO_INSTANT          // 2025-04-23T07:13:48Z
+    };
+
+   for (Column<?> column : table.columns()) {
         ColumnType type = column.type();
+
+        // Native time columns
         if (type.name().equals("LOCAL_DATE_TIME") || 
             type.name().equals("LOCAL_DATE") || 
             type.name().equals("INSTANT")) {
             timeColumns.add(column.name());
+            continue;
+        }
+
+        // Heuristic check for STRING columns
+        if (type.name().equals("STRING")) {
+            int validCount = 0;
+            int samplesChecked = 0;
+            int sampleLimit = Math.min(10, column.size());
+
+            for (int i = 0; i < column.size() && samplesChecked < sampleLimit; i++) {
+                String value = column.getString(i);
+                if (value == null || value.trim().isEmpty()) continue;
+
+                samplesChecked++;
+                for (DateTimeFormatter formatter : formatters) {
+                    try {
+                        formatter.parse(value);
+                        validCount++;
+                        break; // stop trying other formatters
+                    } catch (Exception e) {
+                        // try next formatter
+                    }
+                }
+            }
+
+            // Threshold to consider it a time column
+            if (validCount >= 3) {
+                timeColumns.add(column.name());
+            }
         }
     }
 
-    // Set the timeColumn field based on results
+    // Set the timeColumn field
     if (!timeColumns.isEmpty()) {
-        metadataResponse.setTimeColumn(timeColumns.size() == 1 ? Collections.singletonList(timeColumns.get(0)) : timeColumns);
+        metadataResponse.setTimeColumn(
+            timeColumns.size() == 1 ? 
+                Collections.singletonList(timeColumns.get(0)) : 
+                timeColumns
+        );
     }
 
         return metadataResponse;

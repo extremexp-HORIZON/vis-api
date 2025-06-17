@@ -11,13 +11,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 
 import java.util.List;
 import java.util.Map;
@@ -566,5 +568,10 @@ public class MLflowExperimentService implements ExperimentService {
         }
         // Return the latest metric value
         return metrics.get(metrics.size() - 1);
+    }
+
+    @Override
+    public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
+       throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
     }
 }

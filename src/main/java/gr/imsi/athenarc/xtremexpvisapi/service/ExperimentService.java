@@ -1,11 +1,14 @@
 package gr.imsi.athenarc.xtremexpvisapi.service;
 
 import org.springframework.http.ResponseEntity;
+
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 
 import java.util.List;
 
@@ -21,4 +24,5 @@ public interface ExperimentService {
     ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName);
     ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName);
     ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
+    ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest);
 }

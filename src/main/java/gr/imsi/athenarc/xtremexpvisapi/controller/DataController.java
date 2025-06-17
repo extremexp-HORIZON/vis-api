@@ -1,27 +1,20 @@
 package gr.imsi.athenarc.xtremexpvisapi.controller;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.sql.SQLException;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
@@ -32,35 +25,40 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
+import gr.imsi.athenarc.xtremexpvisapi.service.TabularQueryService;
 import jakarta.validation.Valid;
 
 @RestController
 @CrossOrigin
 @RequestMapping("/api/data")
 public class DataController {
- 
-    private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
-    
-    private final DataService dataService;
 
-    public DataController(DataService dataService) {
+    private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
+
+    private final DataService dataService;
+    private final TabularQueryService tabularQueryService;
+
+    public DataController(DataService dataService,
+            TabularQueryService tabularQueryService) {
         this.dataService = dataService;
+        this.tabularQueryService = tabularQueryService;
     }
-    
+
     @PostMapping("/umap")
-    public float[][] dimensionalityReduction(@RequestBody float[][] data) throws JsonProcessingException, InvalidProtocolBufferException {
+    public float[][] dimensionalityReduction(@RequestBody float[][] data)
+            throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for dimensionality reduction");
         return dataService.getUmap(data);
     }
 
     @PostMapping("/timeseries")
     public TimeSeriesResponse getTimeSeriesData(@Valid @RequestBody TimeSeriesRequest timeSeriesRequest) {
-        LOG.info("Request for time series data {}", timeSeriesRequest);    
+        LOG.info("Request for time series data {}", timeSeriesRequest);
         return dataService.getTimeSeriesData(timeSeriesRequest);
     }
-   
+
     @PostMapping("/tabular")
     public TabularResponse tabulardata(@Valid @RequestBody TabularRequest tabularRequest) {
         LOG.info("Request for tabular data {}", tabularRequest);
@@ -79,75 +77,54 @@ public class DataController {
         return dataService.getMapData(mapDataRequest);
     }
 
-   @GetMapping("/catalog-assets")
-public ResponseEntity<List<DataAsset>> fetchRemoteAssets(
-        @RequestParam(defaultValue = "1") int page,
-        @RequestParam(defaultValue = "10") int perPage,
-        @RequestParam(defaultValue = "created,desc") String sort,
-        @RequestParam(required = false) String project_id,
-        @RequestParam(required = false) String run_id
+    @PostMapping("/tabular/duckdb-test")
+    public CompletableFuture<ResponseEntity<Object>> testDuckDbTabularQuery(@Valid @RequestBody DataRequest dataRequest) throws SQLException, Exception {
+        LOG.info("Testing DuckDB tabular query with request: {}", dataRequest);
 
-) {
-    LOG.info("Fetching remote data assets from external catalog");
-
-    // Build the URL with query parameters
-    UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl("http://146.124.106.200/api/catalog/my-catalog")
-            .queryParam("page", page)
-            .queryParam("perPage", perPage)
-            .queryParam("sort", sort);
-
-    if (project_id != null) {
-        uriBuilder.queryParam("project_id", project_id);
+        return tabularQueryService.executeDataRequest(dataRequest)
+                .thenApply(response -> {
+                    LOG.info("DuckDB query executed successfully. Returned {} rows", response.getQuerySize());
+                    return ResponseEntity.ok((Object) response);
+                })
+                .exceptionally(throwable -> {
+                    if (throwable.getCause() instanceof SQLException) {
+                        SQLException e = (SQLException) throwable.getCause();
+                        LOG.error("SQL error executing DuckDB query", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                        "error", "SQL Error",
+                                        "message", e.getMessage(),
+                                        "sqlState", e.getSQLState() != null ? e.getSQLState() : "Unknown"));
+                    } else {
+                        LOG.error("Error executing DuckDB tabular query", throwable);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(Map.of(
+                                        "error", "Internal Server Error",
+                                        "message", throwable.getMessage()));
+                    }
+                });
     }
 
-    if (run_id != null) {
-        uriBuilder.queryParam("run_id", run_id);
+    @PostMapping("/tabular/duckdb-sql")
+    public CompletableFuture<ResponseEntity<Object>> getDuckDbSql(@Valid @RequestBody DataRequest dataRequest) throws Exception {
+        LOG.info("Generating DuckDB SQL for request: {}", dataRequest);
+
+        return tabularQueryService.buildQuery(dataRequest)
+                .thenApply(sql -> {
+                    LOG.info("Generated SQL: {}", sql);
+                    return ResponseEntity.ok((Object) Map.of(
+                            "sql", sql,
+                            "request", dataRequest,
+                            "timestamp", java.time.Instant.now().toString()));
+                })
+                .exceptionally(throwable -> {
+                    LOG.error("Error generating DuckDB SQL", throwable);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of(
+                                    "error", "Error generating SQL",
+                                    "message", throwable.getMessage(),
+                                    "request", dataRequest));
+                });
     }
-
-    String remoteUrl = uriBuilder.toUriString();
-    LOG.info("Remote URL: {}", remoteUrl);
-
-    // Make the HTTP GET request
-    RestTemplate restTemplate = new RestTemplate();
-    ResponseEntity<String> response = restTemplate.getForEntity(remoteUrl, String.class);
-
-    if (!response.getStatusCode().is2xxSuccessful()) {
-        LOG.error("Failed to fetch remote assets: HTTP {}", response.getStatusCode());
-        return ResponseEntity.status(response.getStatusCode()).build();
-    }
-
-    try {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(response.getBody());
-        JsonNode dataArray = root.path("data");
-
-        List<DataAsset> dataAssets = new ArrayList<>();
-        for (JsonNode fileNode : dataArray) {
-            DataAsset asset = new DataAsset();
-            asset.setName(fileNode.path("upload_filename").asText(""));
-            asset.setSourceType("http");
-            asset.setSource("http://146.124.106.200/" + fileNode.path("path").asText());
-            asset.setFormat(fileNode.path("file_type").asText(""));
-            asset.setRole(DataAsset.Role.INPUT);
-            asset.setTask(fileNode.path("description").asText(""));
-
-            Map<String, String> tags = new HashMap<>();
-            tags.put("created", fileNode.path("created").asText(""));
-            tags.put("projectId", fileNode.path("project_id").asText(""));
-            tags.put("id", fileNode.path("id").asText(""));
-            tags.put("file_size", fileNode.path("file_size").asText(""));
-            asset.setTags(tags);
-
-            dataAssets.add(asset);
-        }
-
-        LOG.info("Fetched {} data assets", dataAssets.size());
-        return ResponseEntity.ok(dataAssets);
-
-    } catch (Exception e) {
-        LOG.error("Error processing data assets", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    }
-}
 
 }
