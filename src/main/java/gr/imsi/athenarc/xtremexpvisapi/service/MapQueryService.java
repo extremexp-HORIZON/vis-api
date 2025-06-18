@@ -26,7 +26,6 @@ import com.github.davidmoten.geo.LatLong;
 import com.google.common.math.PairedStatsAccumulator;
 import com.google.common.math.StatsAccumulator;
 
-import gr.imsi.athenarc.xtremexpvisapi.datasource.MapQueryExecutor;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.RawVisDataset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.GroupedStats;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
@@ -43,46 +42,20 @@ public class MapQueryService {
 
     @Value("${app.working.directory}")
     private String workingDirectory;
-
-    private final MapQueryExecutor mapQueryExecutor;
     
     private static String timestampCol = "radio_timestamp";
 
-    public MapQueryService(MapQueryExecutor mapQueryExecutor) {
-        this.mapQueryExecutor = mapQueryExecutor;
-    }
-
     @Async
-    public CompletableFuture<MapDataResponse> executeMapDataRequest(MapDataRequest mapDataRequest) throws SQLException, Exception {
-        return buildQuery(mapDataRequest).thenCompose(sql -> {
+    public CompletableFuture<MapDataResponse> executeMapDataRequest(MapDataRequest mapDataRequest, RawVisDataset rawVisDataset) throws SQLException, Exception {
+        return buildQuery(mapDataRequest, rawVisDataset).thenCompose(sql -> {
             try {
                 log.info(sql);
                 Statement statement = duckdbConnection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql);
-                
-                /** Uncomment the lines below to log the resultSet */
-                // int columnCount = resultSet.getMetaData().getColumnCount();
-                // StringBuilder sb = new StringBuilder();
-                // int totalCount = 0;
-                // while (resultSet.next()) {
-                //     totalCount++;
-                //     for (int i = 1; i <= columnCount; i++) {
-                //         sb.append(resultSet.getMetaData().getColumnName(i)).append(": ")
-                //           .append(resultSet.getString(i)).append(" ");
-                //     }
-                //     sb.append(System.lineSeparator());
-                // }
-                // // log.info("ResultSet:\n" + sb.toString());
-                // log.info("Total count: " + totalCount);
-                // resultSet.beforeFirst();
-                
+                ResultSet resultSet = statement.executeQuery(sql);                
 
                 MapDataResponse mapDataResponse = new MapDataResponse();
-                // TODO Move fetchDataset to a properService that the DataController.java calls.
-                RawVisDataset dataset = mapQueryExecutor.fetchDataset(mapDataRequest.getDatasetId()).get();
-                fillFacets(dataset);
 
-                processResults(resultSet, mapDataRequest, dataset, mapDataResponse, 9);
+                processResults(resultSet, mapDataRequest, rawVisDataset, mapDataResponse, 9);
 
                 // Close resources
                 resultSet.close();
@@ -100,20 +73,18 @@ public class MapQueryService {
     }
 
     @Async
-    public CompletableFuture<String> buildQuery(MapDataRequest mapDataRequest) throws Exception {
-        // Fetch RawVisDataset from meta.json
+    public CompletableFuture<String> buildQuery(MapDataRequest mapDataRequest, RawVisDataset rawVisDataset) throws Exception {
         try {
-            RawVisDataset dataset = mapQueryExecutor.fetchDataset(mapDataRequest.getDatasetId()).get();
             String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", mapDataRequest.getDatasetId());
             StringBuilder sql = new StringBuilder();
 
-            String latCol = dataset.getLat();
-            String lonCol = dataset.getLon();
+            String latCol = rawVisDataset.getLat();
+            String lonCol = rawVisDataset.getLon();
 
             // SELECT clause
             sql.append("SELECT ");
             sql.append(String.join(", ", "id", latCol, lonCol, 
-                dataset.getMeasure0(), dataset.getMeasure1(), String.join(", ", dataset.getDimensions())));
+                rawVisDataset.getMeasure0(), rawVisDataset.getMeasure1(), String.join(", ", rawVisDataset.getDimensions())));
 
             // FROM clause (later add switch for more input types)
             sql.append(" FROM ");
@@ -144,37 +115,6 @@ public class MapQueryService {
             e.printStackTrace();
             throw new IllegalArgumentException();
         }
-
-    }
-
-    private void fillFacets(RawVisDataset rawVisDataset) throws SQLException{
-        try {
-            String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", rawVisDataset.getId());
-            Map<String, List<String>> facets = new HashMap<>();
-            for (String dimension : rawVisDataset.getDimensions()) {
-                String sql = String.format(
-                    "SELECT DISTINCT %s FROM read_csv('%s') LIMIT 10",
-                    dimension,
-                    csvPath
-                );
-                Statement statement = duckdbConnection.createStatement();
-                ResultSet rs = statement.executeQuery(sql);
-                StringBuilder sb = new StringBuilder();
-                List<String> values = new ArrayList<>();
-                while (rs.next()) {
-                    sb.append(dimension).append(": ")
-                      .append(rs.getString(1)).append(System.lineSeparator());
-                    values.add(rs.getString(1));
-                }
-                // log.info("Facet counts for " + dimension + ":\n" + sb.toString());
-                facets.put(dimension, values);
-                rs.close();
-                statement.close();
-            }
-            rawVisDataset.setFacets(facets);
-        } catch (SQLException e) {
-            throw e;
-        }
     }
 
     /**
@@ -194,6 +134,8 @@ public class MapQueryService {
         int rawPointCount = 0; // Initialize a counter for raw data points
 
         while (resultSet.next()) {
+            rawPointCount++;
+
             double lat = resultSet.getDouble(rawVisDataset.getLat());
             double lon = resultSet.getDouble(rawVisDataset.getLon());
             String id = resultSet.getString("id");
@@ -224,6 +166,7 @@ public class MapQueryService {
                 pairedStatsAccumulator.add(measure0, measure1);
 
         }
+        log.info("Raw Point count: " + rawPointCount);
 
         List<Object[]> points = new ArrayList<>();
         for (Map.Entry<String, List<Object[]>> entry : geohashGroups.entrySet()) {
@@ -283,7 +226,6 @@ public class MapQueryService {
         mapDataResponse.setFacets(rawVisDataset.getFacets());
         mapDataResponse.setPoints(points);
         mapDataResponse.setPointCount(rawPointCount);
-        // TODO: Check why RectStats are not counted properly.
         mapDataResponse.setRectStats(new RectStats(pairedStatsAccumulator.snapshot()));
     }
 

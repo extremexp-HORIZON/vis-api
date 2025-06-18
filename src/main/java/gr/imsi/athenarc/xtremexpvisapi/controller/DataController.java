@@ -17,10 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.RawVisDataset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
@@ -28,6 +28,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
 import gr.imsi.athenarc.xtremexpvisapi.service.MapQueryService;
+import gr.imsi.athenarc.xtremexpvisapi.service.RawVisDatasetService;
 import gr.imsi.athenarc.xtremexpvisapi.service.TabularQueryService;
 import jakarta.validation.Valid;
 
@@ -41,13 +42,16 @@ public class DataController {
     private final DataService dataService;
     private final TabularQueryService tabularQueryService;
     private final MapQueryService mapQueryService;
+    private final RawVisDatasetService rawVisDatasetService;
 
     public DataController(DataService dataService,
             TabularQueryService tabularQueryService,
-            MapQueryService mapQueryService) {
+            MapQueryService mapQueryService,
+            RawVisDatasetService rawVisDatasetService) {
         this.dataService = dataService;
         this.tabularQueryService = tabularQueryService;
         this.mapQueryService = mapQueryService;
+        this.rawVisDatasetService = rawVisDatasetService;
     }
 
     @PostMapping("/umap")
@@ -76,18 +80,14 @@ public class DataController {
     }
 
     @PostMapping("/map")
-    public MapDataResponse getMapData(@RequestBody MapDataRequest mapDataRequest) {
-        LOG.info("Getting map data {}", mapDataRequest);
-        return dataService.getMapData(mapDataRequest);
-    }
+    public CompletableFuture<ResponseEntity<Object>> executeMapDataQuery(@RequestBody MapDataRequest mapDataRequest) throws SQLException, Exception {
+        LOG.info("Executing MapDataRequest {} via DuckDB.", mapDataRequest);
 
-    @PostMapping("/map/duckdb-test")
-    public CompletableFuture<ResponseEntity<Object>> testDuckDbMapQuery(@RequestBody MapDataRequest mapDataRequest) throws SQLException, Exception {
-        LOG.info("Testing DuckDB map query with request: {}", mapDataRequest);
+        RawVisDataset rawVisDataset = rawVisDatasetService.findById(mapDataRequest.getDatasetId()).get();
 
-        return mapQueryService.executeMapDataRequest(mapDataRequest)
+        return mapQueryService.executeMapDataRequest(mapDataRequest, rawVisDataset)
                 .thenApply(respone -> {
-                    LOG.info("DuckDB query executed successfully. Returned {}", respone.toString());
+                    LOG.info("DuckDB query executed successfully. Returned {}");
                     return ResponseEntity.ok((Object) respone);
                 })
                 .exceptionally(throwable -> {
@@ -113,7 +113,9 @@ public class DataController {
     public CompletableFuture<ResponseEntity<Object>> getDuckDbMapSql(@RequestBody MapDataRequest mapDataRequest ) throws Exception {
         LOG.info("Generating DuckDB SQL for request: {}", mapDataRequest);
 
-        return mapQueryService.buildQuery(mapDataRequest)
+        RawVisDataset rawVisDataset = rawVisDatasetService.findById(mapDataRequest.getDatasetId()).get();
+
+        return mapQueryService.buildQuery(mapDataRequest, rawVisDataset)
                 .thenApply(sql -> {
                     LOG.info("Generated SQL: {}", sql);
                     return ResponseEntity.ok((Object) Map.of(
