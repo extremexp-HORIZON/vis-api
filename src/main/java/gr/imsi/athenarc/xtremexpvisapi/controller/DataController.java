@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +24,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
@@ -89,6 +91,35 @@ public class DataController {
                 .thenApply(respone -> {
                     LOG.info("DuckDB query executed successfully. Returned {}");
                     return ResponseEntity.ok((Object) respone);
+                })
+                .exceptionally(throwable -> {
+                    if (throwable.getCause() instanceof SQLException) {
+                        SQLException e = (SQLException) throwable.getCause();
+                        LOG.error("SQL Error executing DuckDB query", e);
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(Map.of(
+                                        "error", "SQL Error",
+                                        "message", e.getMessage(),
+                                        "sqlState", e.getSQLState() != null ? e.getSQLState() : "Unknown"));
+                    } else {
+                        LOG.error("Error executing DuckDB tabular query", throwable);
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(Map.of(
+                                        "error", "Internal Server Error",
+                                        "message", throwable.getMessage()));
+                    }
+                });
+    }
+
+    @PostMapping("/timeseries/{id}")
+    public CompletableFuture<ResponseEntity<Object>> executeTimeSeriesQuery(@PathVariable String id, @RequestBody  TimeSeriesQuery timeSeriesQuery) throws SQLException, Exception {
+        LOG.info("Executing TimeSeriesQuery : {} via DuckDB for RawVisDataset : {}", timeSeriesQuery, id);
+
+        RawVisDataset rawVisDataset = rawVisDatasetService.findById(id).get();
+        return mapQueryService.executeTimesSeriesQuery(rawVisDataset, timeSeriesQuery)
+                .thenApply(response -> {
+                    LOG.info("DuckDB timeSeries query executed successfully. Returned {}", response);
+                    return ResponseEntity.ok((Object) response);
                 })
                 .exceptionally(throwable -> {
                     if (throwable.getCause() instanceof SQLException) {

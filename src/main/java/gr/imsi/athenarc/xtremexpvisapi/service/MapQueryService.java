@@ -31,6 +31,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.GroupedStats;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.RectStats;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesQuery;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Query.UnivariateDataPoint;
 import lombok.extern.java.Log;
 
 @Service
@@ -70,6 +72,64 @@ public class MapQueryService {
 
             }
         });
+    }
+
+    @Async
+    public CompletableFuture<List<UnivariateDataPoint>> executeTimesSeriesQuery(RawVisDataset rawVisDataset, TimeSeriesQuery timeSeriesQuery) throws Exception {
+        List<UnivariateDataPoint> timeSeriesPoints = new ArrayList<>();
+        try {
+            String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", rawVisDataset.getId());
+
+            long intervalSeconds = timeSeriesQuery.getFrequency();
+            String sql = String.format(
+                "SELECT floor(extract(epoch from %1$s)/(%2$s)) as time_bucket, avg(%3$s) as average_value " +
+                "FROM read_csv('%4$s') " +
+                "WHERE %1$s BETWEEN '%5$s' AND '%6$s' " +
+                "AND %7$s BETWEEN '%8$s' AND '%9$s' " +
+                "AND %10$s BETWEEN '%11$s' AND '%12$s' ",
+                timestampCol,
+                intervalSeconds,
+                timeSeriesQuery.getMeasure(),
+                csvPath,
+                new Timestamp(timeSeriesQuery.getFrom()),
+                new Timestamp(timeSeriesQuery.getTo()),
+                rawVisDataset.getLat(),
+                timeSeriesQuery.getRectangle().getLat().lowerEndpoint(),
+                timeSeriesQuery.getRectangle().getLat().upperEndpoint(),
+                rawVisDataset.getLon(),
+                timeSeriesQuery.getRectangle().getLon().lowerEndpoint(),
+                timeSeriesQuery.getRectangle().getLon().upperEndpoint()
+            );
+
+            StringBuilder filterBuilder = new StringBuilder();
+            if (timeSeriesQuery.getCategoricalFilters() != null && !timeSeriesQuery.getCategoricalFilters().isEmpty()) {
+                timeSeriesQuery.getCategoricalFilters().forEach((key, value) -> {
+                    filterBuilder.append(String.format(" AND %s = '%s'", key, value));
+                });
+                sql += filterBuilder.toString();
+            }
+
+            sql += " GROUP BY time_bucket ORDER BY time_bucket";
+
+            log.info(sql);
+            Statement statement = duckdbConnection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+
+            while (resultSet.next()) {
+                long bucketEpoch = resultSet.getLong("time_bucket") * intervalSeconds; 
+                Double avgValue = resultSet.getObject("average_value") != null ? resultSet.getDouble("average_value") : null;
+                Timestamp timestamp = new Timestamp(bucketEpoch * 1000);
+                if(avgValue != null) {
+                    timeSeriesPoints.add(new UnivariateDataPoint(timestamp.getTime(), avgValue));
+                }
+            }
+
+            return CompletableFuture.completedFuture(timeSeriesPoints);
+        } catch (Exception e) {
+            CompletableFuture<List<UnivariateDataPoint>> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(e);
+            return failedFuture;
+        }
     }
 
     @Async
