@@ -9,8 +9,6 @@ import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
@@ -68,20 +66,6 @@ public class DataService {
         DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
 
         return dataSource.getFileMetadata(metadataRequest);
-    }
-
-    public MapDataResponse getMapData(MapDataRequest mapDataRequest) {
-        String datasetId = mapDataRequest.getDatasetId();
-        LOG.info("Retrieving map data for datasetId: {}", datasetId);
-        // expect to find the CSV data in the following path inside /opt/experiments folder.
-        datasetId = String.format("%1$s/dataset/%1$s.csv", datasetId);
-
-        // mapDataRequest.setDatasetId(datasetId);
-        SourceType type = mapDataRequest.getType();
-        DataSource dataSource = dataSourceFactory.createDataSource(type, datasetId);
-        
-        MapDataResponse response = dataSource.fetchMapData(mapDataRequest);
-        return response;
     }
 
     public float[][] getUmap(float[][] data) {

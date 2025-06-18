@@ -10,8 +10,6 @@ import org.springframework.stereotype.Component;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.QueryResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
@@ -40,7 +38,6 @@ public class CsvDataSource implements DataSource {
 
     private final TabularQueryExecutor tabularQueryExecutor;
     private final TimeSeriesQueryExecutor timeSeriesQueryExecutor;
-    private final MapQueryExecutor mapQueryExecutor;
     private final ConcurrentHashMap<String, Table> tableCache = new ConcurrentHashMap<>();
     private String source;
 
@@ -51,7 +48,6 @@ public class CsvDataSource implements DataSource {
     public CsvDataSource() {
         this.tabularQueryExecutor = new TabularQueryExecutor();
         this.timeSeriesQueryExecutor = new TimeSeriesQueryExecutor();
-        this.mapQueryExecutor = new MapQueryExecutor();
     }
 
     @PostConstruct
@@ -142,25 +138,6 @@ public class CsvDataSource implements DataSource {
             }
         }
         return tabularResults;
-    }
-    
-    @Override
-    public MapDataResponse fetchMapData(MapDataRequest mapDataRequest) {
-        LOG.debug(mapDataRequest.toString());
-        MapDataResponse mapDataResponse = new MapDataResponse();
-        Path path = Paths.get(workingDirectory, source);
-        LOG.info("Path: {}", path);
-        if (Files.isDirectory(path)) {
-            // TODO: Implement directory logic
-        } else {
-            if (mapDataRequest.getDatasetId().endsWith(".json")) {
-                // TODO: Implement JSON logic
-            } else {
-                Table table = readCsvFromFile(path);
-                mapDataResponse = mapQueryExecutor.queryMapData(path, table, mapDataRequest);
-            }
-        }
-        return mapDataResponse;
     }
 
     public TabularColumn getTimestampColumn() {

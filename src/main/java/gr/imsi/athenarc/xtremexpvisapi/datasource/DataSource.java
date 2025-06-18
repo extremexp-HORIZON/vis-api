@@ -2,8 +2,6 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.MapDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
@@ -14,5 +12,4 @@ public interface DataSource {
     MetadataResponse getFileMetadata(MetadataRequest metadataRequest);
     TabularResponse fetchTabularData(TabularRequest tabularRequest);
     TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
-    MapDataResponse fetchMapData(MapDataRequest mapDataRequest);
 }
