@@ -14,21 +14,21 @@ import lombok.Data;
 @Data
 public class Rectangle {
     @JsonDeserialize(using = FloatRangeDeserializer.class)
-    private final Range<Float> xRange;
+    private final Range<Float> lon;
     @JsonDeserialize(using = FloatRangeDeserializer.class)
-    private final Range<Float> yRange;
+    private final Range<Float> lat;
 
     @JsonCreator
     public Rectangle(
-        @JsonProperty("xRange") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> xRange,
-        @JsonProperty("yRange") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> yRange
+        @JsonProperty("lon") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> lon,
+        @JsonProperty("lat") @JsonDeserialize(using = FloatRangeDeserializer.class) Range<Float> lat
     ) {
-        this.xRange = xRange;
-        this.yRange = yRange;
+        this.lon = lon;
+        this.lat = lat;
     }
 
     public boolean contains(float x, float y) {
-        return xRange.contains(x) && yRange.contains(y);
+        return lon.contains(x) && lat.contains(y);
     }
 
     public boolean contains(Point point) {
@@ -36,42 +36,42 @@ public class Rectangle {
     }
 
     public boolean intersects(Rectangle other) {
-        return this.xRange.isConnected(other.getXRange()) && !this.xRange.intersection(other.getXRange()).isEmpty()
-                && this.yRange.isConnected(other.getYRange()) && !this.yRange.intersection(other.getYRange()).isEmpty();
+        return this.lon.isConnected(other.getLon()) && !this.lon.intersection(other.getLon()).isEmpty()
+                && this.lat.isConnected(other.getLat()) && !this.lat.intersection(other.getLat()).isEmpty();
     }
 
     public boolean encloses(Rectangle other) {
-        return this.xRange.encloses(other.getXRange()) && this.yRange.encloses(other.getYRange());
+        return this.lon.encloses(other.getLon()) && this.lat.encloses(other.getLat());
     }
 
     public double getCenterX() {
-        return (xRange.lowerEndpoint() + xRange.upperEndpoint())/2d;
+        return (lon.lowerEndpoint() + lon.upperEndpoint())/2d;
     }
 
     public double getCenterY() {
-        return (yRange.lowerEndpoint() + yRange.upperEndpoint())/2d;
+        return (lat.lowerEndpoint() + lat.upperEndpoint())/2d;
     }
 
     public float getXSize() {
-        return xRange.upperEndpoint() - xRange.lowerEndpoint();
+        return lon.upperEndpoint() - lon.lowerEndpoint();
     }
 
     public float getYSize() {
-        return yRange.upperEndpoint() - yRange.lowerEndpoint();
+        return lat.upperEndpoint() - lat.lowerEndpoint();
     }
 
     public List<Range<Float>> toList() {
         List<Range<Float>> list = new ArrayList<>(2);
-        list.add(this.xRange);
-        list.add(this.yRange);
+        list.add(this.lon);
+        list.add(this.lat);
         return list;
     }
 
     public double distanceFrom(Rectangle other){
-        double centerX = (xRange.lowerEndpoint() + xRange.upperEndpoint()) / 2d;
-        double centerY = (yRange.lowerEndpoint() + yRange.upperEndpoint()) / 2d;
-        double otherCenterX = (other.xRange.lowerEndpoint() + other.xRange.upperEndpoint()) / 2d;
-        double otherCenterY = (other.yRange.lowerEndpoint() + other.yRange.upperEndpoint()) / 2d;
+        double centerX = (lon.lowerEndpoint() + lon.upperEndpoint()) / 2d;
+        double centerY = (lat.lowerEndpoint() + lat.upperEndpoint()) / 2d;
+        double otherCenterX = (other.lon.lowerEndpoint() + other.lon.upperEndpoint()) / 2d;
+        double otherCenterY = (other.lat.lowerEndpoint() + other.lat.upperEndpoint()) / 2d;
         return Math.hypot(Math.abs(centerX - otherCenterX), Math.abs(centerY - otherCenterY));
     }
 

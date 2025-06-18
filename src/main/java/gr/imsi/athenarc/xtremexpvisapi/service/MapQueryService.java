@@ -121,8 +121,8 @@ public class MapQueryService {
 
             // WHERE clause
             sql.append(" WHERE ");
-            sql.append(latCol + " BETWEEN " + mapDataRequest.getRectangle().getYRange().lowerEndpoint() + " AND " + mapDataRequest.getRectangle().getYRange().upperEndpoint());
-            sql.append(" AND " + lonCol + " BETWEEN " + mapDataRequest.getRectangle().getXRange().lowerEndpoint() + " AND " + mapDataRequest.getRectangle().getXRange().upperEndpoint());
+            sql.append(latCol + " BETWEEN " + mapDataRequest.getRect().getLat().lowerEndpoint() + " AND " + mapDataRequest.getRect().getLat().upperEndpoint());
+            sql.append(" AND " + lonCol + " BETWEEN " + mapDataRequest.getRect().getLon().lowerEndpoint() + " AND " + mapDataRequest.getRect().getLon().upperEndpoint());
 
             if (mapDataRequest.getCategoricalFilters() != null && !mapDataRequest.getCategoricalFilters().isEmpty()) {
                 sql.append(mapDataRequest.getCategoricalFilters().entrySet().stream()

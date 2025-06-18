@@ -102,7 +102,7 @@ public class MapQueryExecutor {
             Integer measureColIndex = table.columnIndex(mapDataRequest.getMeasureCol());
             Map<Integer, String> categoricalFilters = mapDataRequest.getCategoricalFilters().entrySet().stream()
                 .collect(Collectors.toMap(entry -> table.columnIndex(entry.getKey()), Map.Entry::getValue));
-            Query query = new Query(new Rectangle(mapDataRequest.getRectangle().getXRange(), mapDataRequest.getRectangle().getYRange()), categoricalFilters, groupByColsIndexes, measureColIndex);
+            Query query = new Query(new Rectangle(mapDataRequest.getRect().getLon(), mapDataRequest.getRect().getLat()), categoricalFilters, groupByColsIndexes, measureColIndex);
             LOG.info(dataset.toString());
             
             LOG.info(query.toString());
@@ -142,10 +142,10 @@ public class MapQueryExecutor {
             
             // Group points by GeoHash
             Coverage coverage = GeoHash.coverBoundingBoxMaxHashes(
-                mapDataRequest.getRectangle().getYRange().upperEndpoint(), 
-                mapDataRequest.getRectangle().getXRange().lowerEndpoint(), 
-                mapDataRequest.getRectangle().getYRange().lowerEndpoint(), 
-                mapDataRequest.getRectangle().getXRange().upperEndpoint(), 
+                mapDataRequest.getRect().getLat().upperEndpoint(), 
+                mapDataRequest.getRect().getLon().lowerEndpoint(), 
+                mapDataRequest.getRect().getLat().lowerEndpoint(), 
+                mapDataRequest.getRect().getLon().upperEndpoint(), 
                 10000);
                 
             int hashLength = coverage.getHashLength();

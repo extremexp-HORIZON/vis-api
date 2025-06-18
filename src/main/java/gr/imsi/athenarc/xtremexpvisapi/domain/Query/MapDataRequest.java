@@ -21,7 +21,7 @@ public class MapDataRequest {
     
     private AggregateFunctionType aggType;
 
-    private Rectangle rectangle;
+    private Rectangle rect;
 
     private Map<String, String> categoricalFilters;
 
