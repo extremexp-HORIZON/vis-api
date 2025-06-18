@@ -5,6 +5,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ public class RawVisDatasetService {
             LOG.debug("Fetching dataset from: {}", metadataFile);
             FileReader reader = new FileReader(metadataFile);
             dataset = objectMapper.readValue(reader, RawVisDataset.class);
+            fillHeaders(dataset);
             fillFacets(dataset);
         }
 
@@ -54,7 +56,31 @@ public class RawVisDatasetService {
 
     }
 
-    private void fillFacets(RawVisDataset rawVisDataset) throws SQLException{
+    public String[] getRow(RawVisDataset rawVisDataset, String objectId) throws SQLException {
+        try {
+            String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", rawVisDataset.getId());
+
+            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", csvPath, objectId);
+            Statement statement = duckdbConnection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            int columnCount = resultSet.getMetaData().getColumnCount();
+            while (resultSet.next()) {
+                String[] object = new String[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    object[i] = resultSet.getString(i + 1);
+                }
+                return object;
+            }
+
+            resultSet.close();
+            statement.close();
+        } catch (Exception e) {
+            LOG.error(e.getMessage());
+        }
+        return null;
+    }
+
+    private void fillFacets(RawVisDataset rawVisDataset) throws SQLException {
         try {
             String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", rawVisDataset.getId());
             Map<String, List<String>> facets = new HashMap<>();
@@ -79,6 +105,30 @@ public class RawVisDatasetService {
                 statement.close();
             }
             rawVisDataset.setFacets(facets);
+        } catch (SQLException e) {
+            throw e;
+        }
+    }
+
+    private void fillHeaders(RawVisDataset rawVisDataset) throws SQLException {
+        try {
+            String csvPath = workingDirectory + String.format("%1$s/dataset/%1$s.csv", rawVisDataset.getId());
+            String sql = String.format("SELECT * FROM read_csv('%s') LIMIT 1", csvPath);
+
+            Statement statement = duckdbConnection.createStatement();
+            ResultSet resultSet =  statement.executeQuery(sql);
+
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            // Extracting column names from the header
+            String[] headers = new String[columnCount];
+            for (int i = 1; i <= columnCount; i++) {
+                headers[i - 1] = metaData.getColumnName(i);
+            }
+            
+            rawVisDataset.setHeaders(headers);
+            resultSet.close();
+            statement.close();
         } catch (SQLException e) {
             throw e;
         }

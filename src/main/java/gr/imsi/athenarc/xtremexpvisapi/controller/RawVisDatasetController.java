@@ -39,4 +39,21 @@ public class RawVisDatasetController {
         return rOptional.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
+
+    @GetMapping("/datasets/{datasetId}/objects/{objectId}")
+    public ResponseEntity<String[]> getRow(@PathVariable String datasetId, @PathVariable String objectId) throws IOException, SQLException {
+        LOG.debug("REST request to retrieve object {} from dataset {}", objectId, datasetId);
+        Optional<String[]> optional = rawVisDatasetService.findById(datasetId).map(dataset -> {
+            try {
+                return rawVisDatasetService.getRow(dataset, objectId);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+        return optional.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    
 }
