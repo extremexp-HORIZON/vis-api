@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Log
-public class TabularQueryService {
+public class DataQueryService {
 
     @Autowired
     private Connection duckdbConnection;
@@ -46,7 +46,7 @@ public class TabularQueryService {
     private DataManagementService dataManagementService;
 
     @Autowired
-    public TabularQueryService(FileService fileService, DataManagementService dataManagementService) {
+    public DataQueryService(FileService fileService, DataManagementService dataManagementService) {
         this.fileService = fileService;
         this.dataManagementService = dataManagementService;
     }
@@ -170,7 +170,7 @@ public class TabularQueryService {
                 sql.append("*");
             } else {
                 sql.append(String.join(", ", request.getColumns().stream()
-                        .map(col -> col.contains(" ") ? "\"" + col + "\"" : col).collect(Collectors.toList())));
+                        .map(this::getCorrectedString).collect(Collectors.toList())));
             }
 
             // FROM clause - use detected or specified file type
@@ -257,6 +257,18 @@ public class TabularQueryService {
     }
 
     /**
+     * Helper function to correct the string representation of a column name.
+     * If the column name contains spaces, it will be wrapped in double quotes.
+     *
+     * @param input the input string to correct
+     * @return the corrected string
+     */
+    private String getCorrectedString(String input) {
+        // Implement your correction logic here
+        return input.contains(" ") ? "\"" + input + "\"" : input;
+    }
+
+    /**
      * Helper function to get the file path for both INTERNAL and EXTERNAL datasets.
      * For INTERNAL datasets, returns the source path directly.
      * For EXTERNAL datasets, checks cache and downloads if necessary.
@@ -271,10 +283,10 @@ public class TabularQueryService {
         // Assuming request has a method to get DatasetMeta and file type
         String targetPath;
         DatasetMeta datasetMeta = request.getDatasetMeta(); // Assuming this method exists
-        SourceType fileType = request.getType(); // Assuming this method exists
+        SourceType fileType = datasetMeta.getType(); // Assuming this method exists
 
         if (fileType.equals(SourceType.INTERNAL)) {
-            targetPath = request.getDatasetMeta().getSource();
+            targetPath = datasetMeta.getSource();
             log.info("Internal file detected, using source path: " + targetPath);
             return CompletableFuture.completedFuture(targetPath);
         } else if (fileType.equals(SourceType.EXTERNAL)) {

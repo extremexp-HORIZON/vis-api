@@ -20,8 +20,8 @@ public class StringFilter extends AbstractFilter {
         if (value == null || value.isEmpty()) {
             return "1=1";
         }
-        
-        String column = caseSensitive ? getColumn() : "LOWER(" + getColumn() + ")";
+
+        String column = caseSensitive ? columnPreparation(getColumn()) : "LOWER(" + columnPreparation(getColumn()) + ")";
         String val = caseSensitive ? value : value.toLowerCase();
         val = val.replace("'", "''"); // Escape single quotes
         

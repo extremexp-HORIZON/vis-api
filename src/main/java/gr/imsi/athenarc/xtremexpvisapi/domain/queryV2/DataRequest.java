@@ -3,7 +3,6 @@ import java.util.List;
 
 import org.springframework.lang.NonNull;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DatasetMeta;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggregation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter.AbstractFilter;
@@ -15,7 +14,6 @@ import lombok.Data;
 public class DataRequest {
     @NonNull
     DatasetMeta datasetMeta;
-    SourceType type;
     List<String> columns;
     Integer limit;
     Integer offset;

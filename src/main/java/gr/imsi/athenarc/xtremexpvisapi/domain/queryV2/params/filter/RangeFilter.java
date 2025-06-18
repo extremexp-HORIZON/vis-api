@@ -17,11 +17,11 @@ public class RangeFilter extends AbstractFilter {
     @Override
     public String toSql() {
         if (min != null && max != null) {
-            return getColumn() + " BETWEEN " + escapeSqlValue(min) + " AND " + escapeSqlValue(max);
+            return columnPreparation(getColumn()) + " BETWEEN " + escapeSqlValue(min) + " AND " + escapeSqlValue(max);
         } else if (min != null) {
-            return getColumn() + " >= " + escapeSqlValue(min);
+            return columnPreparation(getColumn()) + " >= " + escapeSqlValue(min);
         } else if (max != null) {
-            return getColumn() + " <= " + escapeSqlValue(max);
+            return columnPreparation(getColumn()) + " <= " + escapeSqlValue(max);
         }
         return "1=1"; // No filter
     }

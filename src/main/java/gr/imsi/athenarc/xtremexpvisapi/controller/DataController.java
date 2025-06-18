@@ -25,7 +25,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.service.TabularQueryService;
+import gr.imsi.athenarc.xtremexpvisapi.service.DataQueryService;
 import jakarta.validation.Valid;
 
 @RestController
@@ -36,10 +36,10 @@ public class DataController {
     private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
 
     private final DataService dataService;
-    private final TabularQueryService tabularQueryService;
+    private final DataQueryService tabularQueryService;
 
     public DataController(DataService dataService,
-            TabularQueryService tabularQueryService) {
+            DataQueryService tabularQueryService) {
         this.dataService = dataService;
         this.tabularQueryService = tabularQueryService;
     }
@@ -69,9 +69,9 @@ public class DataController {
         return dataService.getFileMetadata(metadataRequest);
     }
 
-    @PostMapping("/tabular/duckdb-test")
-    public CompletableFuture<ResponseEntity<Object>> testDuckDbTabularQuery(@Valid @RequestBody DataRequest dataRequest) throws SQLException, Exception {
-        LOG.info("Testing DuckDB tabular query with request: {}", dataRequest);
+    @PostMapping("/fetch")
+    public CompletableFuture<ResponseEntity<Object>> fetchData(@Valid @RequestBody DataRequest dataRequest) throws SQLException, Exception {
+        LOG.info("Received request for data: {}", dataRequest);
 
         return tabularQueryService.executeDataRequest(dataRequest)
                 .thenApply(response -> {
@@ -97,7 +97,8 @@ public class DataController {
                 });
     }
 
-    @PostMapping("/tabular/duckdb-sql")
+    // TODO: Delete this endpoint after testing
+    @PostMapping("/data-debug")
     public CompletableFuture<ResponseEntity<Object>> getDuckDbSql(@Valid @RequestBody DataRequest dataRequest) throws Exception {
         LOG.info("Generating DuckDB SQL for request: {}", dataRequest);
 

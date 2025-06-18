@@ -5,8 +5,6 @@ import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -30,9 +28,9 @@ public class Aggregation {
         switch (function) {
             case COUNT:
                 if (options != null && options.isDistinct()) {
-                    sql.append("COUNT(DISTINCT ").append(column).append(")");
+                    sql.append("COUNT(DISTINCT ").append(columnPreparation(column)).append(")");
                 } else {
-                    sql.append("COUNT(").append(column).append(")");
+                    sql.append("COUNT(").append(columnPreparation(column)).append(")");
                 }
                 break;
                 
@@ -43,33 +41,42 @@ public class Aggregation {
             case PERCENTILE:
                 if (options != null && options.getPercentileValue() != null) {
                     sql.append("PERCENTILE_CONT(").append(options.getPercentileValue())
-                       .append(") WITHIN GROUP (ORDER BY ").append(column).append(")");
+                       .append(") WITHIN GROUP (ORDER BY ").append(columnPreparation(column)).append(")");
                 } else {
-                    sql.append("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ").append(column).append(")");
+                    sql.append("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ").append(columnPreparation(column)).append(")");
                 }
                 break;
                 
             case ARRAY_AGG:
                 if (options != null && options.isDistinct()) {
-                    sql.append("ARRAY_AGG(DISTINCT ").append(column).append(")");
+                    sql.append("ARRAY_AGG(DISTINCT ").append(columnPreparation(column)).append(")");
                 } else {
-                    sql.append("ARRAY_AGG(").append(column).append(")");
+                    sql.append("ARRAY_AGG(").append(columnPreparation(column)).append(")");
                 }
                 break;
                 
             default:
                 // Standard aggregations: SUM, AVG, MIN, MAX, etc.
                 if (options != null && options.isDistinct()) {
-                    sql.append(function.name()).append("(DISTINCT ").append(column).append(")");
+                    sql.append(function.name()).append("(DISTINCT ").append(columnPreparation(column)).append(")");
                 } else {
-                    sql.append(function.name()).append("(").append(column).append(")");
+                    sql.append(function.name()).append("(").append(columnPreparation(column)).append(")");
                 }
                 break;
         }
         
         // Add alias
-        sql.append(" AS ").append(alias != null ? alias : (function.name().toLowerCase() + "_" + column));
+        sql.append(" AS ").append(alias != null ? alias : (function.name().toLowerCase() + "_" + aliasHelper(column)));
         
         return sql.toString();
+    }
+
+    private String aliasHelper (String column) {
+        return column.toLowerCase().replace(" ", "_");
+    }
+
+    // Helper method for column preparation
+    protected String columnPreparation(Object column) {
+        return column.toString().contains(" ") ? "\"" + column + "\"" : column.toString();
     }
 }

@@ -16,8 +16,8 @@ public class EqualsFilter extends AbstractFilter {
     @Override
     public String toSql() {
         if (value == null) {
-            return getColumn() + " IS NULL";
+            return columnPreparation(getColumn()) + " IS NULL";
         }
-        return getColumn() + " = " + escapeSqlValue(value);
+        return columnPreparation(getColumn()) + " = " + escapeSqlValue(value);
     }
 }

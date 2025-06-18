@@ -47,8 +47,12 @@ public class DataManagementService {
     }
 
     private HttpRequest.Builder requestBuilder(String path) {
+        if(path.contains("http")) {
+            return HttpRequest.newBuilder()
+                    .uri(URI.create(path));
+        }
         return HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + path));
+                .uri(URI.create(baseUrl + "/file/" + path));
     }
 
     private String buildQueryString(Map<String, String> params) {
@@ -101,11 +105,11 @@ public class DataManagementService {
 
     @Async
     public CompletableFuture<String> downloadFile(DatasetMeta datasetMeta) throws Exception {
-        HttpRequest request = requestBuilder("/file/" + datasetMeta.getSource())
+        HttpRequest request = requestBuilder(datasetMeta.getSource())
                 .GET()
                 .build();
 
-        log.info("Downloading file from: " + baseUrl + "/file/" + datasetMeta.getSource());
+        log.info("Downloading file from: " + request.uri().toString());
 
         HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
         // Error handling

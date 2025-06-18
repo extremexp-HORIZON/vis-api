@@ -30,6 +30,6 @@ public class InequalityFilter extends AbstractFilter {
             default: return "1=1";
         }
         
-        return getColumn() + " " + sqlOperator + " " + escapeSqlValue(value);
+        return columnPreparation(getColumn()) + " " + sqlOperator + " " + escapeSqlValue(value);
     }
 }
