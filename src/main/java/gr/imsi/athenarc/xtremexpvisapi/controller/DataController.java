@@ -19,13 +19,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DatasetMeta;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.service.DataQueryService;
+import gr.imsi.athenarc.xtremexpvisapi.service.dataquery.DataQueryService;
 import jakarta.validation.Valid;
 
 @RestController
@@ -36,12 +38,12 @@ public class DataController {
     private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
 
     private final DataService dataService;
-    private final DataQueryService tabularQueryService;
+    private final DataQueryService dataQueryService;
 
     public DataController(DataService dataService,
-            DataQueryService tabularQueryService) {
+            DataQueryService dataQueryService) {
         this.dataService = dataService;
-        this.tabularQueryService = tabularQueryService;
+        this.dataQueryService = dataQueryService;
     }
 
     @PostMapping("/umap")
@@ -73,7 +75,7 @@ public class DataController {
     public CompletableFuture<ResponseEntity<Object>> fetchData(@Valid @RequestBody DataRequest dataRequest) throws SQLException, Exception {
         LOG.info("Received request for data: {}", dataRequest);
 
-        return tabularQueryService.executeDataRequest(dataRequest)
+        return dataQueryService.executeDataRequest(dataRequest)
                 .thenApply(response -> {
                     LOG.info("DuckDB query executed successfully. Returned {} rows", response.getQuerySize());
                     return ResponseEntity.ok((Object) response);
@@ -97,27 +99,15 @@ public class DataController {
                 });
     }
 
-    // TODO: Delete this endpoint after testing
-    @PostMapping("/data-debug")
-    public CompletableFuture<ResponseEntity<Object>> getDuckDbSql(@Valid @RequestBody DataRequest dataRequest) throws Exception {
-        LOG.info("Generating DuckDB SQL for request: {}", dataRequest);
-
-        return tabularQueryService.buildQuery(dataRequest)
-                .thenApply(sql -> {
-                    LOG.info("Generated SQL: {}", sql);
-                    return ResponseEntity.ok((Object) Map.of(
-                            "sql", sql,
-                            "request", dataRequest,
-                            "timestamp", java.time.Instant.now().toString()));
-                })
+    @PostMapping("/meta")
+    public CompletableFuture<ResponseEntity<Object>> getFileMeta(@RequestBody DatasetMeta datasetMeta) throws SQLException, Exception {
+        LOG.info("Getting metadata for file {}", datasetMeta.getSource());
+        return dataQueryService.getFileMetadata(datasetMeta)
+                .thenApply(response -> ResponseEntity.ok((Object) response))
                 .exceptionally(throwable -> {
-                    LOG.error("Error generating DuckDB SQL", throwable);
+                    LOG.error("Error getting file metadata", throwable);
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(Map.of(
-                                    "error", "Error generating SQL",
-                                    "message", throwable.getMessage(),
-                                    "request", dataRequest));
+                            .body((Object) ("Error getting file metadata: " + throwable.getMessage()));
                 });
     }
-
 }
