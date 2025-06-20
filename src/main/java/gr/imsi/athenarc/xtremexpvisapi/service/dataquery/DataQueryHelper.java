@@ -271,15 +271,15 @@ public class DataQueryHelper {
                 sql.append(buildFiltersClause((List<AbstractFilter>) request.getFilters()));
             }
 
-            // GROUP BY clause
-            if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-                sql.append(" GROUP BY ");
-                sql.append(String.join(", ", request.getGroupBy()));
-            }
-
-            // Handle aggregation
+            // Handle aggregation - if aggregations are present, build aggregation query
             if (request.getAggregations() != null && !request.getAggregations().isEmpty()) {
                 sql = buildAggregationQuery(request, sql);
+            } else {
+                // Only add GROUP BY if there are no aggregations (regular grouping)
+                if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+                    sql.append(" GROUP BY ");
+                    sql.append(String.join(", ", request.getGroupBy()));
+                }
             }
 
             // LIMIT and OFFSET
@@ -324,18 +324,12 @@ public class DataQueryHelper {
         }
 
         // Add aggregation functions
-        if (request.getAggregations() != null && !request.getAggregations().isEmpty()) {
-            List<String> aggSqls = request.getAggregations().stream()
-                    .map(Aggregation::toSql)
-                    .collect(Collectors.toList());
-            aggQuery.append(String.join(", ", aggSqls));
-        } else {
-            // If no aggregations specified but we're in aggregation mode, default to
-            // COUNT(*)
-            aggQuery.append("COUNT(*)");
-        }
+        List<String> aggSqls = request.getAggregations().stream()
+                .map(Aggregation::toSql)
+                .collect(Collectors.toList());
+        aggQuery.append(String.join(", ", aggSqls));
 
-        // Add FROM clause as subquery
+        // Add FROM clause as subquery (base query without GROUP BY)
         aggQuery.append(" FROM (").append(baseQuery).append(") as subquery");
 
         // Add GROUP BY if present

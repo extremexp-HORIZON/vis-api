@@ -65,14 +65,25 @@ public class Aggregation {
                 break;
         }
         
-        // Add alias
-        sql.append(" AS ").append(alias != null ? alias : (function.name().toLowerCase() + "_" + aliasHelper(column)));
+        // Add alias - handle COUNT_ALL special case
+        String aliasName;
+        if (alias != null) {
+            aliasName = alias;
+        } else if (function == AggregationFunction.COUNT_ALL) {
+            aliasName = "count_all";
+        } else {
+            aliasName = function.name().toLowerCase() + "_" + aliasHelper(column);
+        }
+        
+        sql.append(" AS ").append(aliasName);
         
         return sql.toString();
     }
 
     private String aliasHelper (String column) {
-        return column.toLowerCase().replace(" ", "_");
+        // Handle special characters in column names for aliases
+        if (column == null) return "col";
+        return column.toLowerCase().replace(" ", "_").replace("*", "all");
     }
 
     // Helper method for column preparation

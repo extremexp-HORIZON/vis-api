@@ -8,6 +8,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DatasetMeta;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
 import lombok.extern.java.Log;
+import tagbio.umap.Umap;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
@@ -129,6 +130,15 @@ public class DataQueryService {
                 throw new RuntimeException("Failed to get file metadata", e);
             }
         });
+    }
+
+    public float[][] getUmap(float[][] data) {
+        log.info("Performing dimensionality reduction");
+        Umap umap = new Umap();
+        umap.setNumberComponents(2);
+        umap.setNumberNearestNeighbours(15);
+        umap.setThreads(1);
+        return umap.fitTransform(data);
     }
 
 }
