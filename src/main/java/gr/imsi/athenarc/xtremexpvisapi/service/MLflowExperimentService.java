@@ -508,16 +508,16 @@ public class MLflowExperimentService implements ExperimentService {
                 urlPath = jsonNode.get("url").asText();
             }
 
-            if (urlPath != null && urlPath.contains("path=")) {
-                // Extract 'path' parameter from the URL
-                String[] split = urlPath.split("path=");
-                if (split.length > 1) {
-                    String relativePath = split[1];
-                    // Construct the new local file path
-                    asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
-                } else {
-                    throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
-                }
+           if (urlPath != null && urlPath.contains("path=")) {
+    String[] split = urlPath.split("path=");
+    if (split.length > 1) {
+        String relativePath = split[1];
+        // FIX: Add /panoulis prefix to match other assets
+        asset_source = Paths.get(mlflowWorkingDirectory, experimentId, runId, "artifacts", relativePath).toString();
+    } else {
+        throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
+    }
+
             } else {
                 LOG.warn("Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
                 asset_source = source_str;

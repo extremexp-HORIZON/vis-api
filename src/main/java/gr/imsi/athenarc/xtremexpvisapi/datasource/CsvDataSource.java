@@ -96,7 +96,7 @@ public class CsvDataSource implements DataSource {
     @Override
     public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
         TabularResponse tabularResults = new TabularResponse();
-        Path path = Paths.get(workingDirectory, source);
+        Path path = Paths.get(source);
         LOG.info("Path: {}", path);
         if (Files.isDirectory(path)) {
             List<Table> tables = getTablesFromPath(path);
@@ -141,7 +141,7 @@ public class CsvDataSource implements DataSource {
     }
 
     public TabularColumn getTimestampColumn() {
-        Path path = Paths.get(workingDirectory, source);
+        Path path = Paths.get(source);
         if (Files.isDirectory(path)) {
             List<Table> tables = getTablesFromPath(path);
             Table table = tables.get(0);
@@ -174,7 +174,8 @@ public class CsvDataSource implements DataSource {
     }
 
     public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
-        Path path = Paths.get(workingDirectory, source);
+        Path path = Paths.get(source);
+        LOG.info("Path: {}", path);
         Table table = readCsvFromFile(path);
         
         
