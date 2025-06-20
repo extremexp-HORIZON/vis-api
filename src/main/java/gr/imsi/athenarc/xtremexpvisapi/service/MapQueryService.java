@@ -148,7 +148,7 @@ public class MapQueryService {
 
             // FROM clause (later add switch for more input types)
             sql.append(" FROM ");
-            sql.append("read_csv('").append(csvPath).append("')");
+            sql.append("read_csv('").append(csvPath).append("', nullstr='NULL')");
 
             // WHERE clause
             sql.append(" WHERE ");
@@ -200,9 +200,15 @@ public class MapQueryService {
             double lon = resultSet.getDouble(rawVisDataset.getLon());
             String id = resultSet.getString("id");
 
-            // get measures and handle nulls
-            Double measure0 = resultSet.getObject(rawVisDataset.getMeasure0()) != null ? resultSet.getDouble(rawVisDataset.getMeasure0()) : null;
-            Double measure1 = resultSet.getObject(rawVisDataset.getMeasure1()) != null ? resultSet.getDouble(rawVisDataset.getMeasure1()) : null;
+            // get measures and handle nulls and empty strings
+            String measure0Str = resultSet.getString(rawVisDataset.getMeasure1());
+            Double measure0 = (measure0Str == null || measure0Str.trim().isEmpty())
+                ? null
+                : Double.parseDouble(measure0Str);
+            String measure1Str = resultSet.getString(rawVisDataset.getMeasure1());
+            Double measure1 = (measure1Str == null || measure1Str.trim().isEmpty())
+                ? null
+                : Double.parseDouble(measure1Str);
             String geohash = GeoHash.encodeHash(lat, lon, geohashLength);
             List<String> groupValues = new ArrayList<>();
             for (String colName : mapDataRequest.getGroupByCols()) {
