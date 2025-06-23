@@ -19,9 +19,9 @@ public class DataAsset {
         OUTPUT // Represents output artifacts
     }
 
-    public enum Type {
-        INTERNAL,
-        EXTERNAL
+    public enum SourceType {
+        http,
+        local
     }
 
     /**
@@ -32,7 +32,7 @@ public class DataAsset {
     /**
      * The type of the data source (e.g., "http", "local").
      */
-    private String sourceType;
+    private SourceType sourceType;
 
     /**
      * The exact location of the asset (e.g., "http://datasets/train.csv",
@@ -70,11 +70,6 @@ public class DataAsset {
     private String folder;
 
     /**
-     * The type of the data asset (e.g., "INTERNAL", "EXTERNAL").
-     */
-    private Type type;
-
-    /**
      * Additional metadata related to the data asset, stored as key-value pairs.
      * This field is optional.
      */
@@ -85,8 +80,8 @@ public class DataAsset {
     public DataAsset() {
     }
 
-    public DataAsset(String name, String sourceType, String source, String format,
-            Role role, String task, Map<String, String> tags, String folder, Type type) {
+    public DataAsset(String name, SourceType sourceType, String source, String format,
+            Role role, String task, Map<String, String> tags, String folder) {
         this.name = name;
         this.sourceType = sourceType;
         this.source = source;
@@ -95,7 +90,6 @@ public class DataAsset {
         this.task = task;
         this.tags = tags;
         this.folder = folder;
-        this.type = type;
     }
 
     @Override
@@ -109,7 +103,6 @@ public class DataAsset {
                 ", task='" + task + '\'' +
                 ", tags=" + tags +
                 ", folder='" + folder + '\'' +
-                ", type=" + type +
                 '}';
     }
 

@@ -12,6 +12,7 @@ import org.springframework.web.client.RestTemplate;
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.MetricDefinition;
@@ -20,8 +21,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
+import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import lombok.extern.java.Log;
 
 import java.time.Instant;
@@ -679,70 +680,97 @@ public class ExtremeXPExperimentService implements ExperimentService {
         if (taskObj.containsKey(key)) {
             List<Map<String, Object>> datasetList = (List<Map<String, Object>>) taskObj.get(key);
             for (Map<String, Object> dataset : datasetList) {
-                String name = (String) dataset.get("name");
+                String name;
                 String uri = (String) dataset.get("uri");
                 Map<String, String> tags = new HashMap<>();
                 String folder = null;
-                DataAsset.Type type = DataAsset.Type.INTERNAL;
-
-                if (dataset.containsKey("metadata")) {
-                    Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
-                    if (metadata.containsKey("project_id") || metadata.containsKey("file_name")
-                            || metadata.containsKey("file_type")) {
-                        type = DataAsset.Type.EXTERNAL;
+                DataAsset.SourceType sourceType = uri.contains("http") ? DataAsset.SourceType.http
+                : DataAsset.SourceType.local;
+                String format = getFileFormat(sourceType, dataset);
+                //If the are multiple datasets with the same name, we will put them under a folder and use metadata/file_name as the name
+                if(datasetList.stream()
+                .filter(d -> d.containsKey("name") && d.get("name").equals(dataset.get("name"))).count() > 1){
+                    folder = (String) dataset.get("name");
+                    if(dataset.containsKey("metadata") && dataset.get("metadata") instanceof Map){
+                    // If metadata is present, extract file_name from it
+                    Map<String, Object> metadata = (Map<String, Object>) dataset.get("metadata");
+                    name = (String) metadata.get("file_name");
+                    }else{
+                    name = (String) dataset.get("name");
                     }
-                    metadata.forEach((metaKey, metaValue) -> tags.put(metaKey, metaValue.toString()));
-                    // Check if other datasets with the same name_in_experiment exist then put them
-                    // under a folder
-                    if (datasetList.stream().filter(d -> {
-                        Map<String, String> dMetadata = (Map<String, String>) d.get("metadata");
-                        return dMetadata.containsKey("file_name")
-                                && !dMetadata.get("file_name").equals(metadata.get("file_name"));
-                    }).anyMatch(dt -> {
-                        Map<String, String> datasetMetadataMap = (Map<String, String>) dt.get("metadata");
-                        if (datasetMetadataMap != null && datasetMetadataMap instanceof Map) {
-                            log.info("datasetMetadataMap: " + datasetMetadataMap);
-                            return datasetMetadataMap.get("name_in_experiment")
-                                    .equals(metadata.get("name_in_experiment"));
-                        }
-                        return false;
-                    })) {
-                        folder = tags.get("name_in_experiment");
-                    }
+                }else{
+                    name = (String) dataset.get("name");
                 }
 
-                dataAssets.add(new DataAsset(name, "unknown", uri, "unknown", role, taskName, tags, folder, type));
+                dataAssets.add(new DataAsset(name, sourceType, uri, format, role, taskName, tags, folder));
             }
         }
     }
 
-    private Metric createRatingMetric(String runId) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("access-token", workflowsApiKey);
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        String putUrl = workflowsApiUrl + "/metrics";
-        Map<String, Object> putBody = new HashMap<>();
-        putBody.put("parent_id", runId);
-        putBody.put("name", "rating");
-        putBody.put("parent_type", "workflow");
-        putBody.put("value", "0"); // or default/placeholder value
-
-        HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(putBody, headers);
-        ResponseEntity<String> putResponse = restTemplate.exchange(
-                putUrl, HttpMethod.PUT, putEntity, String.class);
-
-        if (putResponse.getStatusCode().is2xxSuccessful()) {
-            System.out.println("Rating metric created for run: " + runId);
-            Metric ratingMetric = new Metric();
-            ratingMetric.setName("rating");
-            ratingMetric.setTask(runId);
-            ratingMetric.setValue(0);
-            ratingMetric.setStep(1); // Assuming step 1 for the initial rating
-            return ratingMetric;
+    private String getFileFormat(SourceType sourceType, Map<String, Object> dataset) {
+        if (sourceType == DataAsset.SourceType.http) {
+            if(dataset.containsKey("metadata")){
+                Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
+                if (metadata.containsKey("file_name")) {
+                    String name = metadata.get("file_name");
+                    return name.lastIndexOf(".") != -1 ? name.substring(name.lastIndexOf(".")) : null;
+                } else {
+                    throw new IllegalArgumentException("Metadata does not contain file_name for HTTP dataset");
+                }
+            }else{
+                throw new IllegalArgumentException("Metadata not found for HTTP dataset");
+            }
         } else {
-            throw new RuntimeException("Failed to create rating metric for run: " + runId);
+            if (dataset.containsKey("uri")) {
+                String uri = (String) dataset.get("uri");
+                if (uri.contains(".")) {
+                    return uri.lastIndexOf(".") != -1 ? uri.substring(uri.lastIndexOf(".")) : null;
+                } else {
+                    throw new IllegalArgumentException("URI does not contain file extension for local dataset");
+                }
+            } else {
+                throw new IllegalArgumentException("URI not found for local dataset");
+            }
         }
     }
+    // private void extractDatasets(Map<String, Object> taskObj, String key, DataAsset.Role role, String taskName,
+    //         List<DataAsset> dataAssets) {
+    //     if (taskObj.containsKey(key)) {
+    //         List<Map<String, Object>> datasetList = (List<Map<String, Object>>) taskObj.get(key);
+    //         for (Map<String, Object> dataset : datasetList) {
+    //             String name = (String) dataset.get("name");
+    //             String uri = (String) dataset.get("uri");
+    //             Map<String, String> tags = new HashMap<>();
+    //             String folder = null;
+    //             DataAsset.SourceType sourceType = uri.contains("http") ? DataAsset.SourceType.http
+    //                     : DataAsset.SourceType.local;
+
+    //             if (dataset.containsKey("metadata")) {
+    //                 Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
+    //                 // metadata.forEach((metaKey, metaValue) -> tags.put(metaKey, metaValue.toString()));
+    //                 // Check if other datasets with the same name_in_experiment exist then put them
+    //                 // under a folder
+    //                 if (datasetList.stream().filter(d -> {
+    //                     Map<String, String> dMetadata = (Map<String, String>) d.get("metadata");
+    //                     return dMetadata.containsKey("file_name")
+    //                             && !dMetadata.get("file_name").equals(metadata.get("file_name"));
+    //                 }).anyMatch(dt -> {
+    //                     Map<String, String> datasetMetadataMap = (Map<String, String>) dt.get("metadata");
+    //                     if (datasetMetadataMap != null && datasetMetadataMap instanceof Map) {
+    //                         log.info("datasetMetadataMap: " + datasetMetadataMap);
+    //                         return datasetMetadataMap.get("name_in_experiment")
+    //                                 .equals(metadata.get("name_in_experiment"));
+    //                     }
+    //                     return false;
+    //                 })) {
+    //                     folder = tags.get("name_in_experiment");
+    //                 }
+    //             }
+
+    //             dataAssets.add(new DataAsset(name, sourceType, uri, "unknown", role, taskName, tags, folder));
+    //         }
+    //     }
+    // }
 
     @Override
     public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest) {
