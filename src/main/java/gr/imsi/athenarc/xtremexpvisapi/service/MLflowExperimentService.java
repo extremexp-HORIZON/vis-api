@@ -21,6 +21,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -488,7 +489,7 @@ public class MLflowExperimentService implements ExperimentService {
         
         DataAsset asset = new DataAsset();
         asset.setName((String) dataset.get("name"));
-        asset.setSourceType((String) dataset.get("source_type"));
+        // asset.setSourceType((String) dataset.get("source_type"));
 
         Object source = dataset.get("source");
         LOG.info("Dataset source: {}", source);
@@ -636,6 +637,11 @@ public class MLflowExperimentService implements ExperimentService {
        throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
     }
 
+    @Override
+    public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest){
+        throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
+    }
+
     private String getFullArtifactPath(String artifactUri, String relativePath) {
         if (artifactUri == null || artifactUri.isEmpty()) {
             return null;
@@ -692,7 +698,7 @@ public class MLflowExperimentService implements ExperimentService {
                     // Create asset for this file
                     DataAsset asset = new DataAsset();
                     asset.setName(getFileName(filePath));
-                    asset.setSourceType("mlflow");
+                    asset.setSourceType(DataAsset.SourceType.local);
                     
                     // Construct full path using the cached artifactUri
                     String fullPath = getFullArtifactPath(artifactUri, filePath);
@@ -715,8 +721,7 @@ public class MLflowExperimentService implements ExperimentService {
                     if (lastDot > 0) {
                         asset.setFormat(filePath.substring(lastDot + 1).toLowerCase());
                     }
-                    
-                    asset.setType(DataAsset.Type.INTERNAL);
+
                     assets.add(asset);
                 }
             }

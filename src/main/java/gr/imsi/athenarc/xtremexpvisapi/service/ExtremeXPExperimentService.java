@@ -20,6 +20,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import lombok.extern.java.Log;
 
@@ -740,6 +741,42 @@ public class ExtremeXPExperimentService implements ExperimentService {
             return ratingMetric;
         } else {
             throw new RuntimeException("Failed to create rating metric for run: " + runId);
+        }
+    }
+
+    @Override
+    public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest) {
+        String requestUrl = experimentationEngineApiUrl + "/experiments-sort-workflows/"
+                + reorderRequest.getExperimentId();
+
+        Map<String, Object> requestBody = new HashMap<>();
+        Map<String, String> precedence = new HashMap<>();
+        precedence.put(reorderRequest.getPrecedingWorkflowId(), reorderRequest.getExperimentId());
+        requestBody.put("precedence", precedence);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headersInitializer());
+        try {
+            ResponseEntity<List> response = restTemplate.exchange(
+                    requestUrl,
+                    HttpMethod.POST,
+                    entity,
+                    List.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null
+                    && response.getBody().size() > 0) {
+                List<Object> responseObjects = (List<Object>) response.getBody();
+                List<Run> runs = responseObjects.parallelStream()
+                        .filter(Map.class::isInstance)
+                        .map(run -> runPreparation((Map<String, Object>) run))
+                        .collect(Collectors.toList());
+
+                return ResponseEntity.ok(runs);
+            } else {
+                return ResponseEntity.status(response.getStatusCode()).build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

@@ -11,6 +11,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
 
 import java.util.List;
@@ -155,6 +156,23 @@ public class ExperimentController {
     @PostMapping("/life-cycle")
     public ResponseEntity<ControlResponse> getExperimentControl(@RequestBody ControlRequest controlRequest) {
         return experimentServiceFactory.getActiveService().controlLifeCycle(controlRequest);
+    }
+    
+    /**
+     * Reorders workflows based on the provided reorder request.
+     * This endpoint allows rearranging the execution order of workflows
+     * according to the specified criteria in the reorder request.
+     * <p>
+     * The implementation handles the reordering logic according to the experiment
+     * engine's capabilities and returns the updated list of runs.
+     *
+     * @param reorderRequest The reorder request containing the criteria and
+     *                       parameters for reordering workflows
+     * @return A ResponseEntity containing the reordered list of runs
+     */
+    @PostMapping("/reorder")
+    public ResponseEntity<List<Run>> reorderWorkflows(@RequestBody ReorderRequest reorderRequest) {
+        return experimentServiceFactory.getActiveService().reorderWorkflows(reorderRequest);
     }
 
 }
