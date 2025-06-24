@@ -6,16 +6,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.QueryResult;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.TabularColumn;
+import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV1;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.QueryResult;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.TabularColumn;
 import jakarta.annotation.PostConstruct;
 import tech.tablesaw.api.*;
 import tech.tablesaw.columns.*;
@@ -173,7 +172,7 @@ public class CsvDataSource implements DataSource {
         return null;
     }
 
-    public MetadataResponse getFileMetadata(MetadataRequest metadataRequest) {
+    public MetadataResponseV1 getFileMetadata(MetadataRequest metadataRequest) {
         Path path = Paths.get(workingDirectory, source);
         Table table = readCsvFromFile(path);
         
@@ -181,7 +180,7 @@ public class CsvDataSource implements DataSource {
         // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
         //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
-        MetadataResponse metadataResponse = new MetadataResponse();
+        MetadataResponseV1 metadataResponse = new MetadataResponseV1();
         metadataResponse.setFileNames(Arrays.asList(new String[] { table.name() }));
         metadataResponse
                 .setOriginalColumns(table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());

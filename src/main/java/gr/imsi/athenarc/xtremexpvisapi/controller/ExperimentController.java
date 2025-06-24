@@ -4,15 +4,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
-import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 
 import java.util.List;
 

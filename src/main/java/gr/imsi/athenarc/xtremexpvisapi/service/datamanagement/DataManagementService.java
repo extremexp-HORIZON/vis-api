@@ -1,6 +1,5 @@
-package gr.imsi.athenarc.xtremexpvisapi.service;
+package gr.imsi.athenarc.xtremexpvisapi.service.datamanagement;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -14,9 +13,8 @@ import java.util.concurrent.CompletableFuture;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement.CatalogRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement.CatalogResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DatasetMeta;
+import gr.imsi.athenarc.xtremexpvisapi.domain.datamanagement.CatalogRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.datamanagement.CatalogResponse;
 import lombok.extern.java.Log;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -33,12 +31,9 @@ public class DataManagementService {
     @Value("${app.zenoh.baseurl}")
     private String baseUrl;
 
-    private FileService fileService; // Assuming FileService is defined elsewhere and injected
-
     private ObjectMapper objectMapper = new ObjectMapper(); // Jackson object mapper
 
-    public DataManagementService(FileService fileService) {
-        this.fileService = fileService;
+    public DataManagementService() {
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
                 .connectTimeout(Duration.ofSeconds(10))
@@ -100,32 +95,6 @@ public class DataManagementService {
         } catch (Exception e) {
             log.severe("Failed to parse response: " + e.getMessage());
             throw new RuntimeException("Failed to parse response", e);
-        }
-    }
-
-    @Async
-    public CompletableFuture<String> downloadFile(DatasetMeta datasetMeta) throws Exception {
-        HttpRequest request = requestBuilder(datasetMeta.getSource())
-                .GET()
-                .build();
-
-        log.info("Downloading file from: " + request.uri().toString());
-
-        HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-        // Error handling
-        if (response.statusCode() >= 300) {
-            log.severe("Error downloading file: " + response.statusCode());
-            throw new RuntimeException("Failed to download file: " +
-                    response.statusCode());
-        }
-
-        try {
-            // Save file using FileService and return the file path
-            String savedFilePath = fileService.saveFile(datasetMeta.getProjectId(), datasetMeta.getFileName(), response.body());
-            return CompletableFuture.completedFuture(savedFilePath);
-        } catch (Exception e) {
-            log.severe("Failed to save file: " + e.getMessage());
-            throw new RuntimeException("Failed to save file", e);
         }
     }
 

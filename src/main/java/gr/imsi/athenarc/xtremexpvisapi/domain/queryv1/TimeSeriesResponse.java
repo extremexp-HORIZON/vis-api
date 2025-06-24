@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1;
 import java.util.Map;
 
 import lombok.Data;

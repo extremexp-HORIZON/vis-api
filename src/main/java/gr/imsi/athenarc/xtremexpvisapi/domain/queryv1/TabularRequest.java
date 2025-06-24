@@ -1,12 +1,12 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1;
 
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.lang.NonNull;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter.AbstractFilter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 

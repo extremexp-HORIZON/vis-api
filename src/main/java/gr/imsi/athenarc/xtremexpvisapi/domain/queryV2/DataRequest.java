@@ -1,11 +1,11 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv2;
 import java.util.List;
 
 import org.springframework.lang.NonNull;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DatasetMeta;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggregation;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.aggregation.Aggregation;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.filter.AbstractFilter;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -13,7 +13,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class DataRequest {
     @NonNull
-    DatasetMeta datasetMeta;
+    DataSource dataSource;
     List<String> columns;
     Integer limit;
     Integer offset;

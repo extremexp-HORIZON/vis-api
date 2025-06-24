@@ -1,8 +1,8 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.Query;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1;
 
 import java.util.List;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.TabularColumn;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.TabularColumn;
 import lombok.Data;
 
 @Data

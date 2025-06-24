@@ -3,8 +3,8 @@ package gr.imsi.athenarc.xtremexpvisapi.service.explainability;
 import gr.imsi.athenarc.xtremexpvisapi.controller.DataController;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
-import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
-import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentService;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import lombok.extern.java.Log;
 

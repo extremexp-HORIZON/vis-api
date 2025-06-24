@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter;
 
 public class InequalityFilter<T> extends AbstractFilter {
 

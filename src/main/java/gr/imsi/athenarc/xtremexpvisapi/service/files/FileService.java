@@ -1,9 +1,10 @@
-package gr.imsi.athenarc.xtremexpvisapi.service;
+package gr.imsi.athenarc.xtremexpvisapi.service.files;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.config.ApplicationFileProperties;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
 import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
@@ -27,10 +28,12 @@ public class FileService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
     private final ApplicationFileProperties applicationFileProperties;
+    private final FileHelper fileHelper;
 
     @Autowired
-    public FileService(ApplicationFileProperties applicationFileProperties) {
+    public FileService(ApplicationFileProperties applicationFileProperties, FileHelper fileHelper) {
         this.applicationFileProperties = applicationFileProperties;
+        this.fileHelper = fileHelper;
     }
 
     /**
@@ -41,18 +44,41 @@ public class FileService {
      * @param uri the URI of the file to download
      * @throws Exception if an error occurs
      */
-    public String saveFile(String folderStructure, String fileName, InputStream fileContent) throws Exception {
+    public String downloadAndCacheDataAsset(DataSource dataSource, String authorization) throws Exception {
 
         String fileCacheDirectory = applicationFileProperties.getDirectory();
-        Path targetPath = Paths.get(fileCacheDirectory, folderStructure, fileName);
+        Path targetPath = Paths.get(getSafeCachePath(dataSource.getSource() + dataSource.getFormat()));
 
         // Check if file is already cached and reset timer
         if (isFileCached(targetPath.toString())) {
             return targetPath.toString();
         }
 
+        // Get input stream from the file source
+        InputStream fileContent = getInputStreamForDataAsset(dataSource, authorization);
+        if (fileContent == null) {
+            throw new IOException("Failed to download file from: " + dataSource.getSource());
+        }
+
         fileInsertionHandler(fileContent, fileContent.available(), targetPath);
         return targetPath.toString();
+    }
+
+    private InputStream getInputStreamForDataAsset(DataSource dataSource, String authorization) throws Exception {
+        // TODO: Add support for other data source types if needed
+        switch (dataSource.getType()) {
+            case http:
+                return fileHelper.downloadFromHTTP(dataSource, authorization).get();
+            default:
+                throw new UnsupportedOperationException("Source type not supported: " + dataSource.getType());
+        }
+    }
+
+    private String getSafeCachePath(String source) {
+        // Ensure the source is sanitized to prevent directory traversal attacks
+        String fileCacheDirectory = applicationFileProperties.getDirectory();
+        String sanitizedSource = source.replaceAll("[^a-zA-Z0-9._-]", "_");
+        return Paths.get(fileCacheDirectory, sanitizedSource).toString();
     }
 
     /**

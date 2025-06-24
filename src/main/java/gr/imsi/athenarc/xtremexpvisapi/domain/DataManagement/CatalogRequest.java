@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement;
+package gr.imsi.athenarc.xtremexpvisapi.domain.datamanagement;
 
 import java.util.HashMap;
 import java.util.List;

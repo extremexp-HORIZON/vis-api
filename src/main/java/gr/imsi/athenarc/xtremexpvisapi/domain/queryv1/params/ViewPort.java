@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params;
 
 import lombok.Data;
 

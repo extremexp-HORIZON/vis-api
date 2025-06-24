@@ -1,6 +1,6 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.Metadata;
+package gr.imsi.athenarc.xtremexpvisapi.domain.metadata;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
 import lombok.Data;
 
 @Data

@@ -4,8 +4,8 @@ package gr.imsi.athenarc.xtremexpvisapi.datasource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 import lombok.extern.java.Log;
 
 @Component

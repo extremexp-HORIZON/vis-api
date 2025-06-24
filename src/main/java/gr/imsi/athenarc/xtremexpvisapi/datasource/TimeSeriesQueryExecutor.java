@@ -9,10 +9,10 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.AbstractFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.EqualsFilter;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.Filter.RangeFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter.EqualsFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter.RangeFilter;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 import tech.tablesaw.selection.Selection;

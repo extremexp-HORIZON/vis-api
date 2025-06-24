@@ -1,15 +1,16 @@
 package gr.imsi.athenarc.xtremexpvisapi.datasource;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TabularResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Query.TimeSeriesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV1;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
 
+@Deprecated
 public interface DataSource {
     String getSource();
-    MetadataResponse getFileMetadata(MetadataRequest metadataRequest);
+    MetadataResponseV1 getFileMetadata(MetadataRequest metadataRequest);
     TabularResponse fetchTabularData(TabularRequest tabularRequest);
     TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
 }

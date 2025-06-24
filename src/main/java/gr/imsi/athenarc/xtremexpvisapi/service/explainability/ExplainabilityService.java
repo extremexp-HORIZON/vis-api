@@ -16,8 +16,8 @@ import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
-import gr.imsi.athenarc.xtremexpvisapi.service.DataService;
-import gr.imsi.athenarc.xtremexpvisapi.service.FileService;
+import gr.imsi.athenarc.xtremexpvisapi.service.data.v1.DataServiceV1;
+import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import lombok.extern.java.Log;
@@ -35,11 +35,11 @@ public class ExplainabilityService extends ExplanationsImplBase {
         @Value("${app.file.cache.directory}")
         private String workingDirectory;
 
-        DataService dataService;
+        DataServiceV1 dataService;
         FileService fileService;
         ExplainabilityRunHelper explainabilityRunHelper;
 
-        public ExplainabilityService(DataService dataService, FileService fileService,
+        public ExplainabilityService(DataServiceV1 dataService, FileService fileService,
                         ExplainabilityRunHelper explainabilityRunHelper) {
                 this.dataService = dataService;
                 this.fileService = fileService;

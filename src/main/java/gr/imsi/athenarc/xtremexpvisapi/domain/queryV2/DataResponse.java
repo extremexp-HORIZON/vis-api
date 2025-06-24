@@ -1,9 +1,9 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryv2;
 
 
 import java.util.List;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
 import lombok.Data;
 
 @Data

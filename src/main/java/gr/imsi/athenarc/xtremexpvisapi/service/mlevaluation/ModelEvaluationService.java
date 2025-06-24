@@ -20,14 +20,14 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
-import gr.imsi.athenarc.xtremexpvisapi.domain.QueryParams.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ConfusionMatrixResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.ClassReportEntry;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.OverallMetrics;
-import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentService;
-import gr.imsi.athenarc.xtremexpvisapi.service.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentService;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
@@ -46,8 +46,7 @@ public class ModelEvaluationService {
     // @Value("${app.mock.ml-evaluation.path:}")
     // private String mockEvaluationPath;
     @Value("${app.mock.ml-evaluation.path-template:}")
-private String mockEvaluationPathTemplate;
-
+    private String mockEvaluationPathTemplate;
 
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
 
@@ -59,57 +58,62 @@ private String mockEvaluationPathTemplate;
     }
 
     @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
-    // public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
-    //     LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
-    //     ExperimentService service = experimentServiceFactory.getActiveService();
-    //     ResponseEntity<Run> response = service.getRunById(experimentId, runId);
-    //     if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-    //         return Optional.empty();
-    //     }
+    // public Optional<ModelEvaluationData> loadEvaluationData(String experimentId,
+    // String runId) {
+    // LOG.info("Loading evaluation data for experimentId: {}, runId: {}",
+    // experimentId, runId);
+    // ExperimentService service = experimentServiceFactory.getActiveService();
+    // ResponseEntity<Run> response = service.getRunById(experimentId, runId);
+    // if (!response.getStatusCode().is2xxSuccessful() || response.getBody() ==
+    // null) {
+    // return Optional.empty();
+    // }
 
-    //     Run run = response.getBody();
+    // Run run = response.getBody();
 
-    //     Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
-    //     if (folderOpt.isEmpty()) {
-    //         return Optional.empty();
-    //     }
+    // Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
+    // if (folderOpt.isEmpty()) {
+    // return Optional.empty();
+    // }
 
-    //     Path folder = folderOpt.get();
-    //     if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-    //         LOG.warn("Analysis folder exists but is missing one or more required files.");
-    //         return Optional.empty();
-    //     }
-    //     Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-    //     Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
-    //     Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-    //     Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
-    //     Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+    // Path folder = folderOpt.get();
+    // if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+    // LOG.warn("Analysis folder exists but is missing one or more required
+    // files.");
+    // return Optional.empty();
+    // }
+    // Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+    // Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+    // Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
+    // Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
+    // Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
 
-    //     validateAlignment(xTest, yTest, yPred);
-    //     return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+    // validateAlignment(xTest, yTest, yPred);
+    // return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain,
+    // yTrain));
     // }
     public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
-    LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-String resolvedPath = mockEvaluationPathTemplate
-        .replace("{experimentId}", experimentId)
-        .replace("{runId}", runId);
+        String resolvedPath = mockEvaluationPathTemplate
+                .replace("{experimentId}", experimentId)
+                .replace("{runId}", runId);
 
-Path folder = Paths.get(resolvedPath);
-    if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-        LOG.warn("Analysis folder exists but is missing one or more required files.");
-        return Optional.empty();
+        Path folder = Paths.get(resolvedPath);
+        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
+            LOG.warn("Analysis folder exists but is missing one or more required files.");
+            return Optional.empty();
+        }
+
+        Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
+        Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
+        Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
+        Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
+        Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+
+        validateAlignment(xTest, yTest, yPred);
+        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
     }
-
-    Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-    Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
-    Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-    Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
-    Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
-
-    validateAlignment(xTest, yTest, yPred);
-    return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
-}
 
     private Table loadTable(Path path) {
         SourceType type = SourceType.csv;
@@ -370,15 +374,14 @@ Path folder = Paths.get(resolvedPath);
     }
 
     // private Optional<Path> resolveMlAnalysisFolderPath(Run run) {
-    //     // return mlAnalysisResourceHelper.getMlResourceFolder(run);
-    //     return Optional.of(Paths.get(mockEvaluationPath));
+    // // return mlAnalysisResourceHelper.getMlResourceFolder(run);
+    // return Optional.of(Paths.get(mockEvaluationPath));
     // }
     private Optional<Path> resolveMlAnalysisFolderPath(Run run) {
-    String pathStr = mockEvaluationPathTemplate
-        .replace("{experimentId}", run.getExperimentId())
-        .replace("{runId}", run.getId());
-    return Optional.of(Paths.get(pathStr));
-}
-
+        String pathStr = mockEvaluationPathTemplate
+                .replace("{experimentId}", run.getExperimentId())
+                .replace("{runId}", run.getId());
+        return Optional.of(Paths.get(pathStr));
+    }
 
 }

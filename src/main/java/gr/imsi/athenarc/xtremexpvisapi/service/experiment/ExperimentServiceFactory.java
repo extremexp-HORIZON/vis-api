@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.service;
+package gr.imsi.athenarc.xtremexpvisapi.service.experiment;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
