@@ -26,8 +26,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
-import gr.imsi.athenarc.xtremexpvisapi.service.data.v1.DataServiceV1;
-import gr.imsi.athenarc.xtremexpvisapi.service.data.v2.DataServiceV2;
+import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
+import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
 import jakarta.validation.Valid;
 
 @RestController
