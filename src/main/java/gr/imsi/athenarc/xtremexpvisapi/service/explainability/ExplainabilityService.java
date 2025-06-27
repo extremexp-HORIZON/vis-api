@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.explainability;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,8 +17,6 @@ import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
-import gr.imsi.athenarc.xtremexpvisapi.service.data.v1.DataServiceV1;
-import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import lombok.extern.java.Log;
@@ -26,32 +25,25 @@ import lombok.extern.java.Log;
 @Log
 public class ExplainabilityService extends ExplanationsImplBase {
 
-        @Value("${app.grpc.host.name}")
-        String grpcHostName;
+        private final String grpcHostName;
+        private final String grpcHostPort;
+        private final ExplainabilityRunHelper explainabilityRunHelper;
 
-        @Value("${app.grpc.host.port}")
-        String grpcHostPort;
-
-        @Value("${app.file.cache.directory}")
-        private String workingDirectory;
-
-        DataServiceV1 dataService;
-        FileService fileService;
-        ExplainabilityRunHelper explainabilityRunHelper;
-
-        public ExplainabilityService(DataServiceV1 dataService, FileService fileService,
+        @Autowired
+        public ExplainabilityService(@Value("${app.grpc.host.name}") String grpcHostName,
+                        @Value("${app.grpc.host.port}") String grpcHostPort,
                         ExplainabilityRunHelper explainabilityRunHelper) {
-                this.dataService = dataService;
-                this.fileService = fileService;
+                this.grpcHostName = grpcHostName;
+                this.grpcHostPort = grpcHostPort;
                 this.explainabilityRunHelper = explainabilityRunHelper;
         }
 
         public JsonNode GetExplains(String explainabilityRequest,
-                        String experimentId, String runId)
+                        String experimentId, String runId, String authorization)
                         throws InvalidProtocolBufferException, JsonProcessingException {
 
                 ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest,
-                                experimentId, runId);
+                                experimentId, runId, authorization);
                 String jsonString;
                 ObjectMapper objectMapper = new ObjectMapper();
                 // print the request as JSON

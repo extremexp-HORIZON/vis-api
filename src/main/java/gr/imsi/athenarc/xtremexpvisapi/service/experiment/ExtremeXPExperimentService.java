@@ -10,7 +10,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
-import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.MetricDefinition;
@@ -22,6 +21,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import lombok.extern.java.Log;
 
@@ -545,7 +545,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 String taskType = (String) taskObj.get("source_code");
                 Long taskStartTime = parseIsoDateToMillis((String) taskObj.get("start"));
                 Long taskEndTime = parseIsoDateToMillis((String) taskObj.get("end"));
-
                 Map<String, String> taskTags = new HashMap<>();
                 String variant = null;
                 Object metadataObj = taskObj.get("metadata");
@@ -684,8 +683,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 String uri = (String) dataset.get("uri");
                 Map<String, String> tags = new HashMap<>();
                 String folder = null;
-                DataAsset.SourceType sourceType = uri.contains("http") ? DataAsset.SourceType.http
-                : DataAsset.SourceType.local;
+                SourceType sourceType = uri.contains("http") ? SourceType.http : SourceType.local;
                 String format = getFileFormat(sourceType, dataset);
                 //If the are multiple datasets with the same name, we will put them under a folder and use metadata/file_name as the name
                 if(datasetList.stream()
@@ -708,7 +706,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     private String getFileFormat(SourceType sourceType, Map<String, Object> dataset) {
-        if (sourceType == DataAsset.SourceType.http) {
+        if (sourceType == SourceType.http) {
             if(dataset.containsKey("metadata")){
                 Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
                 if (metadata.containsKey("file_name")) {
@@ -726,51 +724,14 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 if (uri.contains(".")) {
                     return uri.lastIndexOf(".") != -1 ? uri.substring(uri.lastIndexOf(".")) : null;
                 } else {
-                    throw new IllegalArgumentException("URI does not contain file extension for local dataset");
+                    log.warning("No file extension found in URI: " + uri);
+                    return null;
                 }
             } else {
                 throw new IllegalArgumentException("URI not found for local dataset");
             }
         }
     }
-    // private void extractDatasets(Map<String, Object> taskObj, String key, DataAsset.Role role, String taskName,
-    //         List<DataAsset> dataAssets) {
-    //     if (taskObj.containsKey(key)) {
-    //         List<Map<String, Object>> datasetList = (List<Map<String, Object>>) taskObj.get(key);
-    //         for (Map<String, Object> dataset : datasetList) {
-    //             String name = (String) dataset.get("name");
-    //             String uri = (String) dataset.get("uri");
-    //             Map<String, String> tags = new HashMap<>();
-    //             String folder = null;
-    //             DataAsset.SourceType sourceType = uri.contains("http") ? DataAsset.SourceType.http
-    //                     : DataAsset.SourceType.local;
-
-    //             if (dataset.containsKey("metadata")) {
-    //                 Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
-    //                 // metadata.forEach((metaKey, metaValue) -> tags.put(metaKey, metaValue.toString()));
-    //                 // Check if other datasets with the same name_in_experiment exist then put them
-    //                 // under a folder
-    //                 if (datasetList.stream().filter(d -> {
-    //                     Map<String, String> dMetadata = (Map<String, String>) d.get("metadata");
-    //                     return dMetadata.containsKey("file_name")
-    //                             && !dMetadata.get("file_name").equals(metadata.get("file_name"));
-    //                 }).anyMatch(dt -> {
-    //                     Map<String, String> datasetMetadataMap = (Map<String, String>) dt.get("metadata");
-    //                     if (datasetMetadataMap != null && datasetMetadataMap instanceof Map) {
-    //                         log.info("datasetMetadataMap: " + datasetMetadataMap);
-    //                         return datasetMetadataMap.get("name_in_experiment")
-    //                                 .equals(metadata.get("name_in_experiment"));
-    //                     }
-    //                     return false;
-    //                 })) {
-    //                     folder = tags.get("name_in_experiment");
-    //                 }
-    //             }
-
-    //             dataAssets.add(new DataAsset(name, sourceType, uri, "unknown", role, taskName, tags, folder));
-    //         }
-    //     }
-    // }
 
     @Override
     public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest) {

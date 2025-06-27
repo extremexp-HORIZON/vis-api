@@ -24,7 +24,6 @@ import explainabilityService.HyperparameterList;
 import explainabilityService.Hyperparameters;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,7 +48,7 @@ public class ExplainabilityRunHelper {
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
 
 
-    public ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
+    protected ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
             MlAnalysisResourceHelper mlAnalysisResourceHelper) {
         this.mlAnalysisResourceHelper = mlAnalysisResourceHelper;
         this.experimentServiceFactory = experimentServiceFactory;
@@ -65,7 +64,7 @@ public class ExplainabilityRunHelper {
      * @param referenceRun the run used as a baseline for comparison
      * @return list of other completed runs with matching parameter structure
      */
-    public List<Run> findSimilarRuns(Run referenceRun) {
+    private List<Run> findSimilarRuns(Run referenceRun) {
         Set<String> referenceKeys = getParamNames(referenceRun);
 
         if (referenceKeys.isEmpty()) {
@@ -101,7 +100,7 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
-    public ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId)
+    protected ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId, String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
 
         // Parse the JSON request into a Protobuf object
@@ -111,17 +110,11 @@ public class ExplainabilityRunHelper {
         if (requestBuilder.getExplanationType().equals("featureExplanation")) {
 
             // Create a DataPaths object from the loaded data paths
-            Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
+            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization, "feature");
             if (dataPaths.isEmpty()) {
                 throw new IllegalArgumentException("No data paths found for experimentId this experiment");
             }
-            DataPaths.Builder dataPathsBuilder = DataPaths.newBuilder();
-            dataPathsBuilder.setXTest(dataPaths.get().get("X_test").toString());
-            dataPathsBuilder.setXTrain(dataPaths.get().get("X_train").toString());
-            dataPathsBuilder.setYTest(dataPaths.get().get("Y_test").toString());
-            dataPathsBuilder.setYTrain(dataPaths.get().get("Y_train").toString());
-            dataPathsBuilder.setYPred(dataPaths.get().get("Y_pred").toString());
-            DataPaths data = dataPathsBuilder.build();
+            DataPaths data = buildDataPaths(dataPaths.get());
             requestBuilder.setData(data);
 
             // Add the model path to the request
@@ -136,7 +129,7 @@ public class ExplainabilityRunHelper {
             List<Run> similarRuns = findSimilarRuns(run);
             similarRuns.add(run);
             
-            Optional<Map<String, Path>> dataPaths = loadExplainabilityDataPaths(experimentId, runId);
+            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization, "hyperparameter");
             if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
                 requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
@@ -147,7 +140,7 @@ public class ExplainabilityRunHelper {
             
             for (Run similarRun : similarRuns) {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
-                        similarRun.getId());
+                        similarRun.getId(), authorization, "hyperparameter");
                 String modelPath = dataPaths.get().get("model").toString();
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
                 hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
@@ -185,7 +178,7 @@ public class ExplainabilityRunHelper {
      * @return the name of the first differing parameter, or empty if all parameters
      *         have identical values
      */
-    public Optional<String> findFirstDifferingParameter(List<Run> runs) {
+    private Optional<String> findFirstDifferingParameter(List<Run> runs) {
         if (runs == null || runs.size() <= 1) {
             throw new IllegalArgumentException("Run List is empty");
         }
@@ -220,7 +213,7 @@ public class ExplainabilityRunHelper {
     }
 
     @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
-    public Optional<Map<String, Path>> loadExplainabilityDataPaths(String experimentId, String runId) {
+    private Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId, String authorization, String explanationType) {
         log.info("Loading evaluation data for experimentId: " + experimentId + ", runId: " + runId);
         ExperimentService service = experimentServiceFactory.getActiveService();
         ResponseEntity<Run> response = service.getRunById(experimentId, runId);
@@ -229,28 +222,23 @@ public class ExplainabilityRunHelper {
         }
 
         Run run = response.getBody();
-        // Optional<Path> folderOpt = mlAnalysisResourceHelper.getMlResourceFolder(run);
-        Path folderOpt = Paths.get("/data/xtreme/mlflow/mlartifacts", experimentId, runId, "artifacts", "explainability");
-
-        log.info(" folderOpt: " + folderOpt);
-        // // Fallback to mock path if no folder found and mock path is configured
-        // if (folderOpt.isEmpty()) {
-        //     throw new RuntimeException("Explainability folder not found or empty");
-        // }
-
-        // Path folder = folderOpt.get();
-            Path folder = folderOpt;
-
-
-        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-            log.warning("Analysis folder exists but is missing one or more required files.");
+        Optional<Map<String, String>> dataPaths = mlAnalysisResourceHelper.getRequiredFilePaths(run, authorization, explanationType);
+        if (dataPaths.isEmpty()) {
+            log.warning("No data paths found for experimentId: " + experimentId + ", runId: " + runId);
             return Optional.empty();
         }
 
-        if (mlAnalysisResourceHelper.getRequiredFilePaths(folder).isEmpty()) {
-            return Optional.empty();
-        } else {
-            return Optional.of(mlAnalysisResourceHelper.getRequiredFilePaths(folder));
-        }
+        return dataPaths;
+    }
+
+    private DataPaths buildDataPaths(Map<String, String> dataPaths) {
+        log.info(dataPaths.toString());
+        DataPaths.Builder dataPathsBuilder = DataPaths.newBuilder();
+        dataPathsBuilder.setXTest(dataPaths.get("x_test"));
+        dataPathsBuilder.setXTrain(dataPaths.get("x_train"));
+        dataPathsBuilder.setYTest(dataPaths.get("y_test"));
+        dataPathsBuilder.setYTrain(dataPaths.get("y_train"));
+        dataPathsBuilder.setYPred(dataPaths.get("y_pred"));
+        return dataPathsBuilder.build();
     }
 }

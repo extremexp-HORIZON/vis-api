@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,9 +32,9 @@ public class ExplainabilityController {
 
     @PostMapping("/{experimentId}/{runId}")
     public JsonNode getExplanation(@RequestBody String explainabilityRequest, @PathVariable String experimentId,
-            @PathVariable String runId) throws JsonProcessingException, InvalidProtocolBufferException {
+            @PathVariable String runId, @RequestHeader(value = "Authorization", required = false) String authorization) throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Received explainability request: \n{}", explainabilityRequest);
-        return explainabilityService.GetExplains(explainabilityRequest, experimentId, runId);
+        return explainabilityService.GetExplains(explainabilityRequest, experimentId, runId, authorization);
     }
 
     @GetMapping("/affected")

@@ -46,8 +46,7 @@ public class FileService {
      */
     public String downloadAndCacheDataAsset(DataSource dataSource, String authorization) throws Exception {
 
-        String fileCacheDirectory = applicationFileProperties.getDirectory();
-        Path targetPath = Paths.get(getSafeCachePath(dataSource.getSource() + dataSource.getFormat()));
+        Path targetPath = getTargetPathForDataAsset(dataSource);
 
         // Check if file is already cached and reset timer
         if (isFileCached(targetPath.toString())) {
@@ -64,21 +63,39 @@ public class FileService {
         return targetPath.toString();
     }
 
+    private Path getTargetPathForDataAsset(DataSource dataSource) {
+        if (dataSource.getFileName() != null && !dataSource.getFileName().isEmpty()) {
+            // If a file name is provided, use it directly
+            // check if fileName has a format in its string
+            int lastDotIndex = dataSource.getFileName().lastIndexOf('.');
+            if (lastDotIndex > 0 && lastDotIndex < dataSource.getFileName().length() - 1) {
+                return Paths.get(applicationFileProperties.getDirectory(),
+                        dataSource.getFileName());
+            } else {
+                throw new IllegalArgumentException(
+                        "Data source file name must include a valid format (e.g., .csv, .json)");
+            }
+        } else {
+            if (dataSource.getFormat() == null || dataSource.getFormat().isEmpty()) {
+                throw new IllegalArgumentException("Data source format must be specified");
+            } else {
+                // Ensure the source is sanitized to prevent directory traversal attacks
+                String fileCacheDirectory = applicationFileProperties.getDirectory();
+                String sanitizedSource = dataSource.getSource().replaceAll("[^a-zA-Z0-9._-]", "_");
+                return Paths.get(fileCacheDirectory, sanitizedSource + dataSource.getFormat());
+            }
+        }
+
+    }
+
     private InputStream getInputStreamForDataAsset(DataSource dataSource, String authorization) throws Exception {
         // TODO: Add support for other data source types if needed
-        switch (dataSource.getType()) {
+        switch (dataSource.getSourceType()) {
             case http:
                 return fileHelper.downloadFromHTTP(dataSource, authorization).get();
             default:
-                throw new UnsupportedOperationException("Source type not supported: " + dataSource.getType());
+                throw new UnsupportedOperationException("Source type not supported: " + dataSource.getSourceType());
         }
-    }
-
-    private String getSafeCachePath(String source) {
-        // Ensure the source is sanitized to prevent directory traversal attacks
-        String fileCacheDirectory = applicationFileProperties.getDirectory();
-        String sanitizedSource = source.replaceAll("[^a-zA-Z0-9._-]", "_");
-        return Paths.get(fileCacheDirectory, sanitizedSource).toString();
     }
 
     /**

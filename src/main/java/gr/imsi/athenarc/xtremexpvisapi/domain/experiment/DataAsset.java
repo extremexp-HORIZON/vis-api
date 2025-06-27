@@ -2,6 +2,7 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.experiment;
 
 import java.util.Map;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import lombok.Data;
 
 /**
@@ -17,11 +18,6 @@ public class DataAsset {
     public enum Role {
         INPUT, // Represents input datasets
         OUTPUT // Represents output artifacts
-    }
-
-    public enum SourceType {
-        http,
-        local
     }
 
     /**

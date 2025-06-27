@@ -21,6 +21,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 
 import java.util.List;
@@ -698,7 +699,7 @@ public class MLflowExperimentService implements ExperimentService {
                     // Create asset for this file
                     DataAsset asset = new DataAsset();
                     asset.setName(getFileName(filePath));
-                    asset.setSourceType(DataAsset.SourceType.local);
+                    asset.setSourceType(SourceType.local);
                     
                     // Construct full path using the cached artifactUri
                     String fullPath = getFullArtifactPath(artifactUri, filePath);

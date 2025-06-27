@@ -34,12 +34,12 @@ public class Run {
      * Enum representing the possible statuses of a Run.
      */
     public enum Status {
-        RUNNING, SCHEDULED, COMPLETED, FAILED, PAUSED, STOPPED, KILLED, PENDING_INPUT
+        RUNNING, SCHEDULED, COMPLETED, FAILED, PAUSED, STOPPED, KILLED, PENDING_INPUT, FINISHED
     }
 
     /**
      * The status of the run. One of: RUNNING, SCHEDULED, COMPLETED, FAILED, PAUSED,
-     * STOPPED, KILLED, PENDING_INPUT.
+     * STOPPED, KILLED, PENDING_INPUT, FINISHED.
      */
     private Status status;
 

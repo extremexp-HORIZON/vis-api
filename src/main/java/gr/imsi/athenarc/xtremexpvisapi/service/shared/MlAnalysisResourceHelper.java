@@ -4,13 +4,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 
 /**
  * Helper for resolving and validating ML analysis resources
@@ -19,11 +25,69 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 @Component
 public class MlAnalysisResourceHelper {
 
-    private static final String ML_ANALYSIS_FOLDER_NAME = "MLAnalysisResources";
-    
-    @Value("${app.working.directory}")
-    private String mlEvaluationPath;
+    private static final String ML_ANALYSIS_FOLDER_NAME = "MLAnalysis";
 
+    private final String mlEvaluationPath;
+    private final FileService fileService;
+
+    @Autowired
+    public MlAnalysisResourceHelper(@Value("${app.working.directory}") String mlEvaluationPath,
+            FileService fileService) {
+        this.mlEvaluationPath = mlEvaluationPath;
+        this.fileService = fileService;
+    }
+
+    /**
+     * Returns the path to the ML analysis resources folder for a given run.
+     *
+     * @param run the run to check
+     * @return the path to the ML analysis resources folder, or empty if not found
+     */
+    public Optional<Map<String, String>> getRequiredFilePaths(Run run, String authorization, String explanationType) {
+        // Filter the data assets to find the one with the ML analysis folder name
+        List<DataAsset> filesPath = run.getDataAssets().stream()
+                .filter(a -> ML_ANALYSIS_FOLDER_NAME.equalsIgnoreCase(a.getFolder()))
+                .toList();
+        // Check if the run has all required files for ML analysis
+        if (!hasFiles(filesPath)) {
+            return Optional.empty();
+        }
+
+        Map<String, String> requiredFilePaths = new LinkedHashMap<>();
+        filesPath.forEach(dataAsset -> {
+            // Skip model files unless explanationType is "hyperparameter"
+            String assetNameWithoutExtension = dataAsset.getName().substring(0, dataAsset.getName().lastIndexOf(".")).toLowerCase();
+            if (!"model".equals(assetNameWithoutExtension) && "hyperparameter".equals(explanationType)) {
+                return; // Skip this asset
+            }
+            
+            if (dataAsset.getSourceType() == SourceType.local) {
+                requiredFilePaths.put(dataAsset.getName(), dataAsset.getSource());
+            } else {
+                DataSource dataSource = new DataSource();
+                dataSource.setSource(dataAsset.getSource());
+                dataSource.setSourceType(dataAsset.getSourceType());
+                dataSource.setFormat(dataAsset.getFormat());
+                dataSource.setFileName(dataAsset.getName());
+                try {
+                    String filePath = fileService.downloadAndCacheDataAsset(dataSource, authorization);
+                    requiredFilePaths.put(assetNameWithoutExtension, filePath);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to download data asset: " + dataAsset.getName(), e);
+                }
+            }
+
+        });
+        return Optional.of(requiredFilePaths);
+    }
+
+    private boolean hasFiles(List<DataAsset> dataAssets) {
+        List<String> fileNames = List.of("X_test.csv", "Y_test.csv", "Y_train.csv", "X_train.csv", "Y_pred.csv",
+                "model.pkl");
+        return fileNames.stream()
+                .allMatch(fileName -> dataAssets.stream()
+                        .anyMatch(asset -> asset.getName().equalsIgnoreCase(fileName)));
+    }
 
     /**
      * Returns the path to the ML analysis resources folder for a given run.
@@ -38,7 +102,8 @@ public class MlAnalysisResourceHelper {
                 .findFirst();
         if (filesPath.isPresent()) {
             // Transform the path to the server ml-evaluation folder
-            String pathStr = filesPath.get().toString().replace("workspace/datasets/output", mlEvaluationPath).replace("**", "") + run.getId();
+            String pathStr = filesPath.get().toString().replace("workspace/datasets/output", mlEvaluationPath)
+                    .replace("**", "") + run.getId();
             return Optional.of(Paths.get(pathStr));
         } else {
             return Optional.empty();
@@ -84,14 +149,14 @@ public class MlAnalysisResourceHelper {
      * @return true if all required files are present
      */
     public boolean hasRequiredFiles(Path folder) {
-    return findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
-           findFileIgnoreCase(folder, "Y_test.csv").isPresent() &&
-           findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
-           findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
-           findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
-           findFileIgnoreCase(folder, "model.pkl").isPresent() ;
-        //    findFileIgnoreCase(folder, "roc_data.json").isPresent();
-}
+        return findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
+                findFileIgnoreCase(folder, "Y_test.csv").isPresent() &&
+                findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
+                findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
+                findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
+                findFileIgnoreCase(folder, "model.pkl").isPresent();
+        // findFileIgnoreCase(folder, "roc_data.json").isPresent();
+    }
 
     /**
      * Returns a map of named required resources and their paths.
@@ -100,27 +165,25 @@ public class MlAnalysisResourceHelper {
      * @return map of logical names to resolved paths
      */
     public Map<String, Path> getRequiredFilePaths(Path folder) {
-    Map<String, Path> map = new LinkedHashMap<>();
-    map.put("X_test", findFileIgnoreCase(folder, "X_test.csv").orElse(null));
-    map.put("Y_test", findFileIgnoreCase(folder, "Y_test.csv").orElse(null));
-    map.put("Y_train", findFileIgnoreCase(folder, "Y_train.csv").orElse(null));
-    map.put("X_train", findFileIgnoreCase(folder, "X_train.csv").orElse(null));
-    map.put("Y_pred", findFileIgnoreCase(folder, "Y_pred.csv").orElse(null));
-    map.put("model", findFileIgnoreCase(folder, "model.pkl").orElse(null));
-    // map.put("roc_curve", findFileIgnoreCase(folder, "roc_data.json").orElse(null));
-    return map;
-}
-
-
-
-
-private Optional<Path> findFileIgnoreCase(Path folder, String fileName) {
-    try {
-        return Files.list(folder)
-                .filter(p -> p.getFileName().toString().equalsIgnoreCase(fileName))
-                .findFirst();
-    } catch (Exception e) {
-        return Optional.empty();
+        Map<String, Path> map = new LinkedHashMap<>();
+        map.put("X_test", findFileIgnoreCase(folder, "X_test.csv").orElse(null));
+        map.put("Y_test", findFileIgnoreCase(folder, "Y_test.csv").orElse(null));
+        map.put("Y_train", findFileIgnoreCase(folder, "Y_train.csv").orElse(null));
+        map.put("X_train", findFileIgnoreCase(folder, "X_train.csv").orElse(null));
+        map.put("Y_pred", findFileIgnoreCase(folder, "Y_pred.csv").orElse(null));
+        map.put("model", findFileIgnoreCase(folder, "model.pkl").orElse(null));
+        // map.put("roc_curve", findFileIgnoreCase(folder,
+        // "roc_data.json").orElse(null));
+        return map;
     }
-}
+
+    private Optional<Path> findFileIgnoreCase(Path folder, String fileName) {
+        try {
+            return Files.list(folder)
+                    .filter(p -> p.getFileName().toString().equalsIgnoreCase(fileName))
+                    .findFirst();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
 }
