@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,9 +41,10 @@ public class ModelEvaluationController {
     @GetMapping("/summary")
     public ResponseEntity<ModelEvaluationSummary> getModelEvaluationSummary(
             @PathVariable String experimentId,
-            @PathVariable String runId) {
+            @PathVariable String runId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
 
-        return evaluationService.loadEvaluationData(experimentId, runId)
+        return evaluationService.loadEvaluationData(experimentId, runId, authorization)
                 .map(evaluationService::getModelEvaluationSummary)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -66,9 +68,10 @@ public class ModelEvaluationController {
     @GetMapping("/confusion-matrix")
     public ResponseEntity<ConfusionMatrixResult> getConfusionMatrix(
             @PathVariable String experimentId,
-            @PathVariable String runId) {
+            @PathVariable String runId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
 
-        return evaluationService.loadEvaluationData(experimentId, runId)
+        return evaluationService.loadEvaluationData(experimentId, runId, authorization)
                 .map(evaluationService::getConfusionMatrixResult)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -95,9 +98,10 @@ public class ModelEvaluationController {
             @PathVariable String experimentId,
             @PathVariable String runId,
             @RequestParam(required = false) Integer offset,
-            @RequestParam(required = false) Integer limit) {
+            @RequestParam(required = false) Integer limit,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
 
-        return evaluationService.loadEvaluationData(experimentId, runId)
+        return evaluationService.loadEvaluationData(experimentId, runId, authorization)
                 .map(data -> evaluationService.getLabeledTestInstances(data, offset, limit))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -116,8 +120,9 @@ public class ModelEvaluationController {
     @GetMapping("/roc-curve")
     public ResponseEntity<String> getRocCurveData(
             @PathVariable String experimentId,
-            @PathVariable String runId) {
-        return evaluationService.getRocCurveData(experimentId, runId)
+            @PathVariable String runId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return evaluationService.getRocCurveData(experimentId, runId, authorization)
                 .map(json -> ResponseEntity.ok().body(json))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

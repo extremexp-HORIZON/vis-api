@@ -23,7 +23,6 @@ import explainabilityService.ExplanationsRequest;
 import explainabilityService.HyperparameterList;
 import explainabilityService.Hyperparameters;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,7 +47,7 @@ public class ExplainabilityRunHelper {
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
 
 
-    protected ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
+    public ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
             MlAnalysisResourceHelper mlAnalysisResourceHelper) {
         this.mlAnalysisResourceHelper = mlAnalysisResourceHelper;
         this.experimentServiceFactory = experimentServiceFactory;
@@ -213,7 +212,7 @@ public class ExplainabilityRunHelper {
     }
 
     @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
-    private Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId, String authorization, String explanationType) {
+    public Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId, String authorization, String explanationType) {
         log.info("Loading evaluation data for experimentId: " + experimentId + ", runId: " + runId);
         ExperimentService service = experimentServiceFactory.getActiveService();
         ResponseEntity<Run> response = service.getRunById(experimentId, runId);

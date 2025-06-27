@@ -28,6 +28,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummar
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentService;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityRunHelper;
 import gr.imsi.athenarc.xtremexpvisapi.service.shared.MlAnalysisResourceHelper;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
@@ -37,82 +38,47 @@ public class ModelEvaluationService {
 
     private final DataSourceFactory dataSourceFactory;
     private final ExperimentServiceFactory experimentServiceFactory;
-
+    private final String mockEvaluationPathTemplate;
+    private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
+    private final ExplainabilityRunHelper explainabilityRunHelper;
     private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
-
-    // Maximum number of rows to return for labeled test instances
     private static final int MAX_PAGE_SIZE = 10000;
 
-    // @Value("${app.mock.ml-evaluation.path:}")
-    // private String mockEvaluationPath;
-    @Value("${app.mock.ml-evaluation.path-template:}")
-    private String mockEvaluationPathTemplate;
-
-    private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
-
     public ModelEvaluationService(DataSourceFactory dataSourceFactory,
-            ExperimentServiceFactory experimentServiceFactory, MlAnalysisResourceHelper mlAnalysisResourceHelper) {
+            ExperimentServiceFactory experimentServiceFactory, MlAnalysisResourceHelper mlAnalysisResourceHelper,
+            ExplainabilityRunHelper explainabilityRunHelper,
+            @Value("${app.mock.ml-evaluation.path-template:}") String mockEvaluationPathTemplate) {
         this.dataSourceFactory = dataSourceFactory;
         this.experimentServiceFactory = experimentServiceFactory;
         this.mlAnalysisResourceHelper = mlAnalysisResourceHelper;
+        this.explainabilityRunHelper = explainabilityRunHelper;
+        this.mockEvaluationPathTemplate = mockEvaluationPathTemplate;
     }
 
     @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
-    // public Optional<ModelEvaluationData> loadEvaluationData(String experimentId,
-    // String runId) {
-    // LOG.info("Loading evaluation data for experimentId: {}, runId: {}",
-    // experimentId, runId);
-    // ExperimentService service = experimentServiceFactory.getActiveService();
-    // ResponseEntity<Run> response = service.getRunById(experimentId, runId);
-    // if (!response.getStatusCode().is2xxSuccessful() || response.getBody() ==
-    // null) {
-    // return Optional.empty();
-    // }
-
-    // Run run = response.getBody();
-
-    // Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
-    // if (folderOpt.isEmpty()) {
-    // return Optional.empty();
-    // }
-
-    // Path folder = folderOpt.get();
-    // if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-    // LOG.warn("Analysis folder exists but is missing one or more required
-    // files.");
-    // return Optional.empty();
-    // }
-    // Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-    // Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
-    // Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-    // Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
-    // Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
-
-    // validateAlignment(xTest, yTest, yPred);
-    // return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain,
-    // yTrain));
-    // }
-    public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId) {
+    public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId, String authorization) {
         LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-        String resolvedPath = mockEvaluationPathTemplate
-                .replace("{experimentId}", experimentId)
-                .replace("{runId}", runId);
-
-        Path folder = Paths.get(resolvedPath);
-        if (!mlAnalysisResourceHelper.hasRequiredFiles(folder)) {
-            LOG.warn("Analysis folder exists but is missing one or more required files.");
+        Optional<Map<String, String>> filePaths = explainabilityRunHelper.loadExplainabilityDataPaths(experimentId, runId, authorization, authorization);
+        if (filePaths.isEmpty()) {
+            LOG.warn("No file paths found for experimentId: {}, runId: {}", experimentId, runId);
             return Optional.empty();
         }
 
-        Table xTest = loadTable(mlAnalysisResourceHelper.getXTestPath(folder));
-        Table yTest = loadTable(mlAnalysisResourceHelper.getYTestPath(folder));
-        Table yPred = loadTable(mlAnalysisResourceHelper.getYPredPath(folder));
-        Table xTrain = loadTable(mlAnalysisResourceHelper.getXTrainPath(folder));
-        Table yTrain = loadTable(mlAnalysisResourceHelper.getYTrainPath(folder));
+        LOG.info(filePaths.toString());
+
+        Table xTest = loadTable(modelAnalysisResourceToPath(filePaths.get().get("x_test")));
+        Table yTest = loadTable(modelAnalysisResourceToPath(filePaths.get().get("y_test")));
+        Table yPred = loadTable(modelAnalysisResourceToPath(filePaths.get().get("y_pred")));
+        Table xTrain = loadTable(modelAnalysisResourceToPath(filePaths.get().get("x_train")));
+        Table yTrain = loadTable(modelAnalysisResourceToPath(filePaths.get().get("y_train")));
 
         validateAlignment(xTest, yTest, yPred);
         return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+    }
+
+    private Path modelAnalysisResourceToPath(String filePath) {
+        return Paths.get(filePath);
     }
 
     private Table loadTable(Path path) {
@@ -213,20 +179,9 @@ public class ModelEvaluationService {
      * @return an Optional containing the ROC curve JSON data, or an empty Optional
      *         if not found
      */
-    public Optional<String> getRocCurveData(String experimentId, String runId) {
-        ExperimentService service = experimentServiceFactory.getActiveService();
-        ResponseEntity<Run> response = service.getRunById(experimentId, runId);
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            return Optional.empty();
-        }
-
-        Run run = response.getBody();
-        Optional<Path> folderOpt = resolveMlAnalysisFolderPath(run);
-        if (folderOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Path rocPath = mlAnalysisResourceHelper.getRocCurvePath(folderOpt.get());
+    public Optional<String> getRocCurveData(String experimentId, String runId, String authorization) {
+        Optional<Map<String, String>> filePaths = explainabilityRunHelper.loadExplainabilityDataPaths(experimentId, runId, authorization, authorization);
+        Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("rocdata"));
         if (!Files.exists(rocPath)) {
             return Optional.empty();
         }

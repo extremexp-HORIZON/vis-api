@@ -57,7 +57,7 @@ public class MlAnalysisResourceHelper {
         filesPath.forEach(dataAsset -> {
             // Skip model files unless explanationType is "hyperparameter"
             String assetNameWithoutExtension = dataAsset.getName().substring(0, dataAsset.getName().lastIndexOf(".")).toLowerCase();
-            if (!"model".equals(assetNameWithoutExtension) && "hyperparameter".equals(explanationType)) {
+            if (!"model".equals(assetNameWithoutExtension) && "hyperparameter".equals(explanationType) || explanationType == null) {
                 return; // Skip this asset
             }
             
