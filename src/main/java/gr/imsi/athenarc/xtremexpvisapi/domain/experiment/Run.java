@@ -133,7 +133,11 @@ public class Run {
     }
 
     public void setStatus(Status status) {
+        if (status == Status.FINISHED) {
+        this.status = Status.COMPLETED;
+    } else {
         this.status = status;
+    }
     }
 
     public Long getStartTime() {
