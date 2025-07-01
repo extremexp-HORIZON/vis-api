@@ -15,4 +15,11 @@ public class MetadataResponseV2 {
     private Map<String, List<?>> uniqueColumnValues;
     private boolean hasLatLonColumns;
     private List<String> timeColumn;
+    private List<String> dimensions;
+    private double queryXMin;
+    private double queryXMax;
+    private double queryYMin;
+    private double queryYMax;
+    private long timeMin;
+    private long timeMax;
 }
