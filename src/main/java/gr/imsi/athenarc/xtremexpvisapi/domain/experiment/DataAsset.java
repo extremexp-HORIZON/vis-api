@@ -2,7 +2,7 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.experiment;
 
 import java.util.Map;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import lombok.Data;
 
 /**

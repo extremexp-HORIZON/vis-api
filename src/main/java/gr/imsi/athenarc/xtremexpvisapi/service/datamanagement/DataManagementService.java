@@ -13,8 +13,8 @@ import java.util.concurrent.CompletableFuture;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.datamanagement.CatalogRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.datamanagement.CatalogResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement.CatalogRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.DataManagement.CatalogResponse;
 import lombok.extern.java.Log;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +42,7 @@ public class DataManagementService {
     }
 
     private HttpRequest.Builder requestBuilder(String path) {
-        if(path.contains("http")) {
+        if (path.contains("http")) {
             return HttpRequest.newBuilder()
                     .uri(URI.create(path));
         }

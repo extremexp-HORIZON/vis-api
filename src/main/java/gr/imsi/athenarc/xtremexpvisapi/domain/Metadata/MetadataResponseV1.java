@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.metadata;
+package gr.imsi.athenarc.xtremexpvisapi.domain.Metadata;
 
 import java.util.List;
 import java.util.Map;

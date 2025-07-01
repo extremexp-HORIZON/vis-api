@@ -6,13 +6,13 @@ import org.springframework.stereotype.Service;
 
 import lombok.extern.java.Log;
 import tagbio.umap.Umap;
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.DatasetType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV2;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -36,7 +36,8 @@ public class DataServiceV2 {
     }
 
     @Async
-    public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization) throws SQLException, Exception {
+    public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
+            throws SQLException, Exception {
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
             try {
                 Statement statement = duckdbConnection.createStatement();
@@ -58,7 +59,8 @@ public class DataServiceV2 {
     }
 
     @Async
-    public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization) throws Exception, SQLException {
+    public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
+            throws Exception, SQLException {
         return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
             try {
                 // Build a simple SELECT query to get column information
@@ -105,7 +107,7 @@ public class DataServiceV2 {
 
                 // Check for lat/lon columns
                 // Set metadata response fields
-                
+
                 // Detect dataset type based on time columns and data ordering
                 DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
 

@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import lombok.extern.java.Log;
 
 @Component
@@ -35,7 +35,7 @@ public class FileHelper {
     }
 
     private HttpRequest.Builder requestBuilder(String path) {
-        if(path.contains("http")) {
+        if (path.contains("http")) {
             return HttpRequest.newBuilder()
                     .uri(URI.create(path));
         }
@@ -43,9 +43,9 @@ public class FileHelper {
                 .uri(URI.create(zenohBaseUrl + "/file/" + path));
     }
 
-
     @Async
-    public CompletableFuture<InputStream> downloadFromHTTP(DataSource dataSource, String authorization) throws Exception {
+    public CompletableFuture<InputStream> downloadFromHTTP(DataSource dataSource, String authorization)
+            throws Exception {
         if (authorization == null || authorization.isEmpty()) {
             log.severe("Authorization header is missing or empty");
             throw new IllegalArgumentException("Authorization header is required");

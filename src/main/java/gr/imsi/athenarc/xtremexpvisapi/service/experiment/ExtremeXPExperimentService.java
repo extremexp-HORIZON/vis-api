@@ -19,9 +19,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Task;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import lombok.extern.java.Log;
 
@@ -685,18 +685,19 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 String folder = null;
                 SourceType sourceType = uri.contains("http") ? SourceType.http : SourceType.local;
                 String format = getFileFormat(sourceType, dataset);
-                //If the are multiple datasets with the same name, we will put them under a folder and use metadata/file_name as the name
-                if(datasetList.stream()
-                .filter(d -> d.containsKey("name") && d.get("name").equals(dataset.get("name"))).count() > 1){
+                // If the are multiple datasets with the same name, we will put them under a
+                // folder and use metadata/file_name as the name
+                if (datasetList.stream()
+                        .filter(d -> d.containsKey("name") && d.get("name").equals(dataset.get("name"))).count() > 1) {
                     folder = (String) dataset.get("name");
-                    if(dataset.containsKey("metadata") && dataset.get("metadata") instanceof Map){
-                    // If metadata is present, extract file_name from it
-                    Map<String, Object> metadata = (Map<String, Object>) dataset.get("metadata");
-                    name = (String) metadata.get("file_name");
-                    }else{
-                    name = (String) dataset.get("name");
+                    if (dataset.containsKey("metadata") && dataset.get("metadata") instanceof Map) {
+                        // If metadata is present, extract file_name from it
+                        Map<String, Object> metadata = (Map<String, Object>) dataset.get("metadata");
+                        name = (String) metadata.get("file_name");
+                    } else {
+                        name = (String) dataset.get("name");
                     }
-                }else{
+                } else {
                     name = (String) dataset.get("name");
                 }
 
@@ -707,7 +708,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     private String getFileFormat(SourceType sourceType, Map<String, Object> dataset) {
         if (sourceType == SourceType.http) {
-            if(dataset.containsKey("metadata")){
+            if (dataset.containsKey("metadata")) {
                 Map<String, String> metadata = (Map<String, String>) dataset.get("metadata");
                 if (metadata.containsKey("file_name")) {
                     String name = metadata.get("file_name");
@@ -715,7 +716,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 } else {
                     throw new IllegalArgumentException("Metadata does not contain file_name for HTTP dataset");
                 }
-            }else{
+            } else {
                 throw new IllegalArgumentException("Metadata not found for HTTP dataset");
             }
         } else {

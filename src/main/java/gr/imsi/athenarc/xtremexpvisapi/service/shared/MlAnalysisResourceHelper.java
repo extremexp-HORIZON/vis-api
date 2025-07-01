@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 
 /**
@@ -56,11 +56,13 @@ public class MlAnalysisResourceHelper {
         Map<String, String> requiredFilePaths = new LinkedHashMap<>();
         filesPath.forEach(dataAsset -> {
             // Skip model files unless explanationType is "hyperparameter"
-            String assetNameWithoutExtension = dataAsset.getName().substring(0, dataAsset.getName().lastIndexOf(".")).toLowerCase();
-            if (!"model".equals(assetNameWithoutExtension) && "hyperparameter".equals(explanationType) || explanationType == null) {
+            String assetNameWithoutExtension = dataAsset.getName().substring(0, dataAsset.getName().lastIndexOf("."))
+                    .toLowerCase();
+            if (!"model".equals(assetNameWithoutExtension) && "hyperparameter".equals(explanationType)
+                    || explanationType == null) {
                 return; // Skip this asset
             }
-            
+
             if (dataAsset.getSourceType() == SourceType.local) {
                 requiredFilePaths.put(dataAsset.getName(), dataAsset.getSource());
             } else {

@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.aggregation;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation;
 
 import lombok.Data;
 import lombok.AllArgsConstructor;

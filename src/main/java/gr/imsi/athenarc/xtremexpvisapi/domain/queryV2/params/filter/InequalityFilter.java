@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.filter;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

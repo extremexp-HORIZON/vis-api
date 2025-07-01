@@ -7,8 +7,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 
 import java.util.List;
@@ -19,12 +19,21 @@ import java.util.List;
  */
 public interface ExperimentService {
     ResponseEntity<List<Experiment>> getExperiments(int limit, int offset);
+
     ResponseEntity<Experiment> getExperimentById(String experimentId);
+
     ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
+
     ResponseEntity<Run> getRunById(String experimentId, String runId);
+
     ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName);
+
     ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName);
-    ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
+
+    ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId,
+            UserEvaluation userEvaluation);
+
     ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest);
+
     ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest);
 }

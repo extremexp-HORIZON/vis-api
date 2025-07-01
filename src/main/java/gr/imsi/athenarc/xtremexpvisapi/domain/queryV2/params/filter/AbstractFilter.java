@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.filter;
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

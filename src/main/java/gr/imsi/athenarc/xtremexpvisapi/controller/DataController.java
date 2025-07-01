@@ -18,14 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV1;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV1;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
 import jakarta.validation.Valid;
@@ -73,7 +73,8 @@ public class DataController {
 
     @PostMapping("/fetch")
     public CompletableFuture<ResponseEntity<Object>> fetchData(@Valid @RequestBody DataRequest dataRequest,
-    @RequestHeader(value = "Authorization", required = false) String authorization) throws SQLException, Exception {
+            @RequestHeader(value = "Authorization", required = false) String authorization)
+            throws SQLException, Exception {
         LOG.info("Received request for data: {}", dataRequest);
 
         return dataServiceV2.executeDataRequest(dataRequest, authorization)
@@ -101,7 +102,9 @@ public class DataController {
     }
 
     @PostMapping("/meta")
-    public CompletableFuture<ResponseEntity<Object>> getFileMeta(@RequestBody DataSource dataSource,@RequestHeader(value = "Authorization", required = false) String authorization) throws SQLException, Exception {
+    public CompletableFuture<ResponseEntity<Object>> getFileMeta(@RequestBody DataSource dataSource,
+            @RequestHeader(value = "Authorization", required = false) String authorization)
+            throws SQLException, Exception {
         LOG.info("Getting metadata for file {}", dataSource.getSource());
         return dataServiceV2.getFileMetadata(dataSource, authorization)
                 .thenApply(response -> ResponseEntity.ok((Object) response))

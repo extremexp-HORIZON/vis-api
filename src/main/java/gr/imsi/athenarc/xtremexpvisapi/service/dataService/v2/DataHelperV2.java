@@ -17,15 +17,15 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.DatasetType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.FileType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.aggregation.Aggregation;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggregation;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 import lombok.extern.java.Log;
 
@@ -94,13 +94,15 @@ public class DataHelperV2 {
     }
 
     /**
-     * Detects the dataset type based on the presence and characteristics of time columns.
+     * Detects the dataset type based on the presence and characteristics of time
+     * columns.
      *
-     * @param resultSet the ResultSet containing the data
+     * @param resultSet   the ResultSet containing the data
      * @param timeColumns the list of time column names
-     * @param statement the SQL Statement for executing queries
-     * @param baseSql the base SQL query string
-     * @return DatasetType.timeseries if time data is ordered, DatasetType.tabular otherwise
+     * @param statement   the SQL Statement for executing queries
+     * @param baseSql     the base SQL query string
+     * @return DatasetType.timeseries if time data is ordered, DatasetType.tabular
+     *         otherwise
      * @throws SQLException if a database access error occurs
      */
     protected DatasetType detectDatasetType(ResultSet resultSet, List<String> timeColumns, Statement statement,
@@ -135,7 +137,7 @@ public class DataHelperV2 {
      * Converts a ResultSet to a DataResponse object containing tabular data.
      *
      * @param resultSet the ResultSet to convert
-     * @param query the SQL query that generated the ResultSet
+     * @param query     the SQL query that generated the ResultSet
      * @return a DataResponse containing the converted data, columns, and metadata
      * @throws SQLException if a database access error occurs
      */
@@ -300,9 +302,10 @@ public class DataHelperV2 {
     }
 
     /**
-     * Builds an aggregation query by wrapping the base query with aggregation functions.
+     * Builds an aggregation query by wrapping the base query with aggregation
+     * functions.
      *
-     * @param request the DataRequest containing aggregation parameters
+     * @param request   the DataRequest containing aggregation parameters
      * @param baseQuery the base SQL query to wrap
      * @return a StringBuilder containing the aggregation query
      */
@@ -337,11 +340,13 @@ public class DataHelperV2 {
      * For external datasets, checks cache and downloads if necessary.
      *
      * @param meta the dataset metadata containing source information
-     * @return a CompletableFuture containing the file path (local path for external files, source path for internal files)
+     * @return a CompletableFuture containing the file path (local path for external
+     *         files, source path for internal files)
      * @throws Exception if download fails
      */
     @Async
-    protected CompletableFuture<String> getFilePathForDataset(DataSource dataSource, String authorization) throws Exception {
+    protected CompletableFuture<String> getFilePathForDataset(DataSource dataSource, String authorization)
+            throws Exception {
         // Assuming request has a method to get DatasetMeta and file type
         String targetPath;
         SourceType fileType = dataSource.getSourceType(); // Assuming this method exists
@@ -353,10 +358,11 @@ public class DataHelperV2 {
         } else {
             return CompletableFuture.completedFuture(fileService.downloadAndCacheDataAsset(dataSource, authorization));
         }
-    } 
+    }
 
     /**
-     * Generates the appropriate SQL function call for reading files based on file type.
+     * Generates the appropriate SQL function call for reading files based on file
+     * type.
      *
      * @param fileType the type of file to read
      * @param filePath the path to the file

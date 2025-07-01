@@ -1,9 +1,9 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.metadata;
+package gr.imsi.athenarc.xtremexpvisapi.domain.Metadata;
 
 import java.util.List;
 import java.util.Map;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import lombok.Data;
 
 @Data
@@ -14,5 +14,5 @@ public class MetadataResponseV2 {
     private int totalItems;
     private Map<String, List<?>> uniqueColumnValues;
     private boolean hasLatLonColumns;
-    private List<String> timeColumn; 
+    private List<String> timeColumn;
 }

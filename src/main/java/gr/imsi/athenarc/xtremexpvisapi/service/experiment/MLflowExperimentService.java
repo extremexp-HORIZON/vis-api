@@ -19,9 +19,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 
 import java.util.List;
@@ -91,12 +91,13 @@ public class MLflowExperimentService implements ExperimentService {
                 LOG.info("Attempting to parse the received list of experiments.");
                 List<Experiment> pageExperiments = mapToExperiments(responseBody);
                 LOG.info("Experiments parsed successfully.");
-                
+
                 if (pageExperiments == null || pageExperiments.isEmpty()) {
                     break;
                 }
 
-                LOG.info("Starting paging handling. Total experiments received in this round: {}", pageExperiments.size());
+                LOG.info("Starting paging handling. Total experiments received in this round: {}",
+                        pageExperiments.size());
                 // Handle offset and collect only needed experiments
                 for (Experiment exp : pageExperiments) {
                     if (skipped < offset) {
@@ -105,10 +106,12 @@ public class MLflowExperimentService implements ExperimentService {
                     }
                     targetExperiments.add(exp);
                     collected++;
-                    if (collected == limit) break;
+                    if (collected == limit)
+                        break;
                 }
 
-                if (collected == limit) break;
+                if (collected == limit)
+                    break;
 
                 pageToken = (String) responseBody.get("next_page_token");
                 if (pageToken == null || pageToken.isEmpty()) {
@@ -168,7 +171,7 @@ public class MLflowExperimentService implements ExperimentService {
         while (true) {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("experiment_ids", List.of(experimentId));
-            requestBody.put("max_results", 1000);  // MLflow maximum page size
+            requestBody.put("max_results", 1000); // MLflow maximum page size
             requestBody.put("page_token", pageToken);
             requestBody.put("order_by", List.of("start_time DESC"));
 
@@ -177,10 +180,10 @@ public class MLflowExperimentService implements ExperimentService {
             try {
                 LOG.info("Sending runs request to MLflow for experiment with id {}: {}", experimentId, requestUrl);
                 ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.POST,
-                    entity,
-                    Map.class);
+                        requestUrl,
+                        HttpMethod.POST,
+                        entity,
+                        Map.class);
                 LOG.info("Received response from MLflow: {}", response.getStatusCode());
 
                 if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
@@ -248,7 +251,8 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key="
+                + metricName;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -256,7 +260,8 @@ public class MLflowExperimentService implements ExperimentService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
-            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId, requestUrl);
+            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId,
+                    requestUrl);
             ResponseEntity<Map> response = restTemplate.exchange(
                     requestUrl,
                     HttpMethod.GET,
@@ -277,7 +282,8 @@ public class MLflowExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
+    public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId,
+            UserEvaluation userEvaluation) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/set-tag";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -285,18 +291,18 @@ public class MLflowExperimentService implements ExperimentService {
         try {
             // Required field
             setRunTag(requestUrl, runId, "user_evaluation.user", userEvaluation.getUser(), headers);
-            
+
             // Optional fields
             if (userEvaluation.getRating() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.rating", 
+                setRunTag(requestUrl, runId, "user_evaluation.rating",
                         String.valueOf(userEvaluation.getRating()), headers);
             }
             if (userEvaluation.getFavorite() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.favorite", 
+                setRunTag(requestUrl, runId, "user_evaluation.favorite",
                         String.valueOf(userEvaluation.getFavorite()), headers);
             }
             if (userEvaluation.getComment() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.comment", 
+                setRunTag(requestUrl, runId, "user_evaluation.comment",
                         userEvaluation.getComment(), headers);
             }
 
@@ -310,7 +316,8 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
+        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key="
+                + metricName;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -318,7 +325,8 @@ public class MLflowExperimentService implements ExperimentService {
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
-            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId, requestUrl);
+            LOG.info("Sending metric request to MLflow for metric {} in run with id {}: {}", metricName, runId,
+                    requestUrl);
             ResponseEntity<Map> response = restTemplate.exchange(
                     requestUrl,
                     HttpMethod.GET,
@@ -337,6 +345,7 @@ public class MLflowExperimentService implements ExperimentService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
     private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("run_id", runId);
@@ -360,35 +369,35 @@ public class MLflowExperimentService implements ExperimentService {
 
     private List<Experiment> mapToExperiments(Map<String, Object> data) {
         List<Map<String, Object>> experiments = (List<Map<String, Object>>) data.get("experiments");
-        if (experiments == null) return new ArrayList<>();
-        
+        if (experiments == null)
+            return new ArrayList<>();
+
         return experiments.stream()
-            .map(this::mapToExperiment)
-            .collect(Collectors.toList());
+                .map(this::mapToExperiment)
+                .collect(Collectors.toList());
     }
 
     private Experiment mapToExperiment(Map<String, Object> data) {
         Experiment experiment = new Experiment();
         experiment.setId((String) data.get("experiment_id"));
         experiment.setName((String) data.get("name"));
-        
+
         // Timestamps are already in milliseconds
         Object creationTime = data.get("creation_time");
         if (creationTime != null) {
             experiment.setCreationTime(((Number) creationTime).longValue());
         }
-        
+
         Object lastUpdateTime = data.get("last_update_time");
         if (lastUpdateTime != null) {
             experiment.setLastUpdateTime(((Number) lastUpdateTime).longValue());
         }
-        
+
         // Map tags
         Map<String, String> tags = new HashMap<>();
         if (data.get("tags") instanceof List) {
             List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data.get("tags");
-            mlflowTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value")));
+            mlflowTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
         }
         experiment.setTags(tags);
 
@@ -397,17 +406,18 @@ public class MLflowExperimentService implements ExperimentService {
 
     private List<Run> mapToRuns(Map<String, Object> data) {
         List<Map<String, Object>> runs = (List<Map<String, Object>>) data.get("runs");
-        if (runs == null) return new ArrayList<>();
-        
+        if (runs == null)
+            return new ArrayList<>();
+
         return runs.stream()
-            .map(this::mapToRun)
-            .collect(Collectors.toList());
+                .map(this::mapToRun)
+                .collect(Collectors.toList());
     }
 
     private Run mapToRun(Map<String, Object> data) {
         Map<String, Object> info = (Map<String, Object>) data.get("info");
         Map<String, Object> data2 = (Map<String, Object>) data.get("data");
-        
+
         Run run = new Run();
         run.setId((String) info.get("run_id"));
         run.setName((String) info.get("run_name"));
@@ -415,41 +425,39 @@ public class MLflowExperimentService implements ExperimentService {
         run.setStatus(mapStatus((String) info.get("status")));
         String experimentId = (String) info.get("experiment_id");
         String runId = (String) info.get("run_id");
-        
+
         // Timestamps are already in milliseconds
         Object startTime = info.get("start_time");
         if (startTime != null) {
             run.setStartTime(((Number) startTime).longValue());
         }
-        
+
         Object endTime = info.get("end_time");
         if (endTime != null) {
             run.setEndTime(((Number) endTime).longValue());
         }
-        
+
         // Map parameters
         if (data2.get("params") instanceof List) {
             List<Map<String, Object>> params = (List<Map<String, Object>>) data2.get("params");
             run.setParams(
-                params.stream()
-                .map(p -> new Param((String) p.get("key"), (String) p.get("value"), null))
-                .collect(Collectors.toList())
-            );
+                    params.stream()
+                            .map(p -> new Param((String) p.get("key"), (String) p.get("value"), null))
+                            .collect(Collectors.toList()));
         }
-        
+
         // Map metrics
         if (data2.get("metrics") instanceof List) {
             List<Map<String, Object>> metrics = (List<Map<String, Object>>) data2.get("metrics");
             run.setMetrics(
-                metrics.stream()
-                .map(m -> new Metric(
-                    (String) m.get("key"),
-                    (Double) m.get("value"),
-                    ((Number) m.get("timestamp")).longValue(),
-                    (Integer) m.get("step"),
-                    (String) m.get("producedByTask"))
-                )
-                .collect(Collectors.toList()));
+                    metrics.stream()
+                            .map(m -> new Metric(
+                                    (String) m.get("key"),
+                                    (Double) m.get("value"),
+                                    ((Number) m.get("timestamp")).longValue(),
+                                    (Integer) m.get("step"),
+                                    (String) m.get("producedByTask")))
+                            .collect(Collectors.toList()));
         }
 
         // Get existing input datasets
@@ -459,27 +467,25 @@ public class MLflowExperimentService implements ExperimentService {
             if (inputs.get("dataset_inputs") instanceof List) {
                 List<Map<String, Object>> datasetInputs = (List<Map<String, Object>>) inputs.get("dataset_inputs");
                 allAssets.addAll(
-                    datasetInputs.stream()
-                    .map(input -> mapToDataAsset(input, experimentId, runId))
-                    .collect(Collectors.toList())
-                );
+                        datasetInputs.stream()
+                                .map(input -> mapToDataAsset(input, experimentId, runId))
+                                .collect(Collectors.toList()));
             }
         }
 
         // Get artifacts as additional assets
         allAssets.addAll(getArtifactsAsDataAssets(runId, info));
-        
+
         run.setDataAssets(allAssets);
 
         // Map tags
         Map<String, String> tags = new HashMap<>();
         if (data2.get("tags") instanceof List) {
             List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data2.get("tags");
-            mlflowTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value")));
+            mlflowTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
         }
         run.setTags(tags);
-        
+
         return run;
     }
 
@@ -487,14 +493,14 @@ public class MLflowExperimentService implements ExperimentService {
         LOG.info("Mapping dataset input: {}", experimentId + " - " + runId);
         Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
         List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
-        
+
         DataAsset asset = new DataAsset();
         asset.setName((String) dataset.get("name"));
         // asset.setSourceType((String) dataset.get("source_type"));
 
         Object source = dataset.get("source");
         LOG.info("Dataset source: {}", source);
-        if (! (source instanceof String)) {
+        if (!(source instanceof String)) {
             throw new RuntimeException("Dataset source is not a string as specified in MLflow API: " + source);
         }
         String source_str = (String) source;
@@ -535,10 +541,9 @@ public class MLflowExperimentService implements ExperimentService {
         }
         asset.setSource(asset_source);
 
-        
         // Map tags from both dataset metadata and input tags
         Map<String, String> tags = new HashMap<>();
-        
+
         // Add dataset metadata as tags
         if (dataset.get("digest") != null) {
             tags.put("digest", (String) dataset.get("digest"));
@@ -549,17 +554,15 @@ public class MLflowExperimentService implements ExperimentService {
         if (dataset.get("profile") != null) {
             tags.put("profile", (String) dataset.get("profile"));
         }
-        
+
         // Add input tags
         if (inputTags != null) {
-            inputTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value"))
-            );
+            inputTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
         }
-        
+
         asset.setTags(tags);
         asset.setRole(DataAsset.Role.INPUT); // These are always input datasets from MLflow
-        
+
         return asset;
     }
 
@@ -570,7 +573,7 @@ public class MLflowExperimentService implements ExperimentService {
 
     private String getRunArtifactUri(String runId) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
-        
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -600,28 +603,34 @@ public class MLflowExperimentService implements ExperimentService {
 
     private Run.Status mapStatus(String mlflowStatus) {
         switch (mlflowStatus.toUpperCase()) {
-            case "RUNNING": return Run.Status.RUNNING;
-            case "SCHEDULED": return Run.Status.SCHEDULED;
-            case "FINISHED": return Run.Status.COMPLETED;
-            case "FAILED": return Run.Status.FAILED;
-            case "KILLED": return Run.Status.KILLED;
-            default: return Run.Status.STOPPED;
+            case "RUNNING":
+                return Run.Status.RUNNING;
+            case "SCHEDULED":
+                return Run.Status.SCHEDULED;
+            case "FINISHED":
+                return Run.Status.COMPLETED;
+            case "FAILED":
+                return Run.Status.FAILED;
+            case "KILLED":
+                return Run.Status.KILLED;
+            default:
+                return Run.Status.STOPPED;
         }
     }
 
     private List<Metric> mapMetricHistory(Map<String, Object> data) {
         List<Map<String, Object>> metrics = (List<Map<String, Object>>) data.get("metrics");
-        if (metrics == null) return new ArrayList<>();
-        
+        if (metrics == null)
+            return new ArrayList<>();
+
         return metrics.stream()
-            .map(m -> new Metric(
-                (String) m.get("key"),
-                (Double) m.get("value"),
-                ((Number) m.get("timestamp")).longValue(), // Timestamp is already in milliseconds
-                (Integer) m.get("step"),
-                (String) m.get("producedByTask"))
-            )
-            .collect(Collectors.toList());
+                .map(m -> new Metric(
+                        (String) m.get("key"),
+                        (Double) m.get("value"),
+                        ((Number) m.get("timestamp")).longValue(), // Timestamp is already in milliseconds
+                        (Integer) m.get("step"),
+                        (String) m.get("producedByTask")))
+                .collect(Collectors.toList());
     }
 
     private Metric mapToMetric(Map<String, Object> data) {
@@ -635,11 +644,11 @@ public class MLflowExperimentService implements ExperimentService {
 
     @Override
     public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
-       throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
+        throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
     }
 
     @Override
-    public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest){
+    public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest) {
         throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
     }
 
@@ -647,16 +656,16 @@ public class MLflowExperimentService implements ExperimentService {
         if (artifactUri == null || artifactUri.isEmpty()) {
             return null;
         }
-        
+
         // Extract the exp/run/artifacts part from mlflow-artifacts:/exp/run/...
         String path = artifactUri.replace("mlflow-artifacts:/", "");
-        
+
         // Combine working directory with MLflow path and relative file path
         return Paths.get(mlflowWorkingDirectory)
-                   .resolve(path)
-                   .resolve(relativePath)
-                   .toString()
-                   .replace('\\', '/'); // Ensure forward slashes for consistency
+                .resolve(path)
+                .resolve(relativePath)
+                .toString()
+                .replace('\\', '/'); // Ensure forward slashes for consistency
     }
 
     private List<DataAsset> getArtifactsRecursively(String runId, String path, String artifactUri) {
@@ -686,12 +695,13 @@ public class MLflowExperimentService implements ExperimentService {
             }
 
             List<Map<String, Object>> files = (List<Map<String, Object>>) response.getBody().get("files");
-            if (files == null) return assets;
-            
+            if (files == null)
+                return assets;
+
             for (Map<String, Object> file : files) {
                 boolean isDir = (boolean) file.get("is_dir");
                 String filePath = (String) file.get("path");
-                
+
                 if (isDir) {
                     // Recursively get assets from this directory
                     assets.addAll(getArtifactsRecursively(runId, filePath, artifactUri));
@@ -700,23 +710,23 @@ public class MLflowExperimentService implements ExperimentService {
                     DataAsset asset = new DataAsset();
                     asset.setName(getFileName(filePath));
                     asset.setSourceType(SourceType.local);
-                    
+
                     // Construct full path using the cached artifactUri
                     String fullPath = getFullArtifactPath(artifactUri, filePath);
                     if (fullPath == null) {
                         LOG.warn("Artifact URI is null for run {} at path {}", runId, path);
                         continue;
                     }
-                    
+
                     asset.setSource(fullPath);
                     asset.setRole(DataAsset.Role.OUTPUT);
-                    
+
                     // Set folder as the directory path
                     int lastSlash = filePath.lastIndexOf('/');
                     if (lastSlash > 0) {
                         asset.setFolder(filePath.substring(0, lastSlash));
                     }
-                    
+
                     // Set format from extension
                     int lastDot = filePath.lastIndexOf('.');
                     if (lastDot > 0) {

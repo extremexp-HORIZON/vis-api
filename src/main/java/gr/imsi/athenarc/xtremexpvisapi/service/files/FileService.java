@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.config.ApplicationFileProperties;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;

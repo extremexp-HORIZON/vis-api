@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV1;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV1;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
@@ -30,7 +30,6 @@ public class DataServiceV1 {
 
     public TabularResponse getTabularData(TabularRequest tabularRequest) {
         String datasetId = tabularRequest.getDatasetId();
-
 
         tabularRequest.setDatasetId(datasetId);
         SourceType type = tabularRequest.getType();
@@ -73,5 +72,4 @@ public class DataServiceV1 {
         return umap.fitTransform(data);
     }
 
-    
 }

@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle;
+package gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle;
 
 import lombok.Data;
 
