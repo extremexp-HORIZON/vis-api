@@ -157,7 +157,7 @@ public class MapQueryService {
 
             if (mapDataRequest.getCategoricalFilters() != null && !mapDataRequest.getCategoricalFilters().isEmpty()) {
                 sql.append(mapDataRequest.getCategoricalFilters().entrySet().stream()
-                            .map(entry -> " AND " + entry.getKey() + " = " + entry.getValue())
+                            .map(entry -> " AND " + entry.getKey() + " = '" + entry.getValue() + "'")
                             .collect(Collectors.joining()));
             }
 
