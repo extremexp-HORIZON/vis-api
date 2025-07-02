@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -118,6 +119,31 @@ public class DataServiceV2 {
                 if (!timeColumns.isEmpty()) {
                     metadataResponse.setTimeColumn(timeColumns);
                 }
+
+                try {
+    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file loading
+    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+
+    List<Map<String, Object>> summaryList = new ArrayList<>();
+int colCount = summarizeResult.getMetaData().getColumnCount();
+
+while (summarizeResult.next()) {
+    Map<String, Object> summaryRow = new java.util.HashMap<>();
+    for (int i = 1; i <= colCount; i++) {
+        String colName = summarizeResult.getMetaData().getColumnName(i);
+        Object value = summarizeResult.getObject(i);
+        summaryRow.put(colName, value);
+    }
+    summaryList.add(summaryRow);
+    log.info("Summary Row: " + summaryRow.toString());
+}
+
+metadataResponse.setSummary(summaryList);
+
+    summarizeResult.close();
+} catch (SQLException summarizeEx) {
+    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+}
 
                 // Close resources
                 resultSet.close();

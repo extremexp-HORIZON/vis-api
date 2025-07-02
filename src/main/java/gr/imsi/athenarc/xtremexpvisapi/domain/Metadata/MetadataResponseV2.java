@@ -15,4 +15,6 @@ public class MetadataResponseV2 {
     private Map<String, List<?>> uniqueColumnValues;
     private boolean hasLatLonColumns;
     private List<String> timeColumn; 
+    private List<Map<String, Object>> summary; // each row of the summary as a map
+
 }
