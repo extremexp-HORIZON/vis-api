@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.Metadata;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -15,11 +16,20 @@ public class MetadataResponseV2 {
     private Map<String, List<?>> uniqueColumnValues;
     private boolean hasLatLonColumns;
     private List<String> timeColumn;
-    private List<String> dimensions;
+    // RawVis specific metadata (for now)
+    private double xMin;
+    private double xMax;
+    private double yMin;
+    private double yMax;
     private double queryXMin;
     private double queryXMax;
     private double queryYMin;
     private double queryYMax;
     private long timeMin;
     private long timeMax;
+    private String measure0;
+    private String measure1;
+    private LinkedHashSet<String> dimensions = new LinkedHashSet<>();
+    private LinkedHashSet<String> measures = new LinkedHashSet<>();
+    private Map<String, List<String>> facets;
 }

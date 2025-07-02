@@ -1,9 +1,16 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +25,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
@@ -223,6 +231,35 @@ public class DataHelperV2 {
     }
 
     /**
+     * Determines if SQL type is numerical
+     * 
+     * @param sqlType
+     * @return
+     */
+    protected boolean isNumerical(Column column) {
+        if (column.getName().equals("longitude") || column.getName().equals("latitude")) {
+            return false;
+        }
+        return column.getType().equals("INTEGER") || column.getType().equals("BIGINT")
+                || column.getType().equals("DOUBLE") || column.getType().equals("FLOAT")
+                || column.getType().equals("DECIMAL") || column.getType().equals("NUMERIC");
+    }
+
+    /**
+     * Determines if SQL type is categorical
+     * 
+     * @param sqlType
+     * @return
+     */
+    protected boolean isCategorical(Column column) {
+        if (column.getName().equals("id") || column.getName().equals("h3")
+                || column.getName().equals("geohash")) {
+            return false;
+        }
+        return column.getType().equals("STRING");
+    }
+
+    /**
      * Asynchronously builds a SQL query based on the provided data request.
      *
      * @param request the DataRequest containing query parameters
@@ -380,6 +417,189 @@ public class DataHelperV2 {
             default:
                 throw new IllegalArgumentException("Unknown file type: " + fileType);
         }
+    }
+
+    /**
+     * Populates the metadata for RawVis datasets.
+     * 
+     * @param duckdbConnection
+     * @param filePath
+     * @param dataSource
+     * @param convertedColumns
+     * @param metadataResponse
+     * @throws SQLException
+     */
+    public void populateRawvisMeta(
+            Connection duckdbConnection,
+            String filePath,
+            DataSource dataSource,
+            List<Column> convertedColumns,
+            MetadataResponseV2 metadataResponse) throws SQLException {
+
+        String tableName = dataSource.getFileName().replace("-", "_");
+        String metaTableName = dataSource.getFormat().toLowerCase() + "_meta";
+        Statement stmt = duckdbConnection.createStatement();
+
+        // 1. Ensure meta table exists
+        String createMetaTableSql = String.format(
+                "CREATE TABLE IF NOT EXISTS %s (" +
+                        "table_name VARCHAR PRIMARY KEY, " +
+                        "xMin DOUBLE, " +
+                        "xMax DOUBLE, " +
+                        "yMin DOUBLE, " +
+                        "yMax DOUBLE, " +
+                        "min_time BIGINT, " +
+                        "max_time BIGINT, " +
+                        "queryXMin DOUBLE, " +
+                        "queryXMax DOUBLE, " +
+                        "queryYMin DOUBLE, " +
+                        "queryYMax DOUBLE, " +
+                        "dimensions VARCHAR, " +
+                        "measures VARCHAR, " +
+                        "measure0 VARCHAR, " +
+                        "measure1 VARCHAR" +
+                        ")",
+                metaTableName);
+        stmt.execute(createMetaTableSql);
+
+        // 2. Check if row for fileName exists
+        String checkRowSql = String.format(
+                "SELECT * FROM %s WHERE table_name = ?", metaTableName);
+        PreparedStatement checkRowStmt = duckdbConnection.prepareStatement(checkRowSql);
+        checkRowStmt.setString(1, tableName);
+        ResultSet rowRs = checkRowStmt.executeQuery();
+
+        boolean foundInMeta = false;
+        if (rowRs.next()) {
+            log.info("Found in meta table");
+            // Populate metadataResponse from meta table
+            metadataResponse.setXMin(rowRs.getDouble("xMin"));
+            metadataResponse.setXMax(rowRs.getDouble("xMax"));
+            metadataResponse.setYMin(rowRs.getDouble("yMin"));
+            metadataResponse.setYMax(rowRs.getDouble("yMax"));
+            metadataResponse.setTimeMin(rowRs.getLong("min_time"));
+            metadataResponse.setTimeMax(rowRs.getLong("max_time"));
+            metadataResponse.setQueryXMin(rowRs.getDouble("queryXMin"));
+            metadataResponse.setQueryXMax(rowRs.getDouble("queryXMax"));
+            metadataResponse.setQueryYMin(rowRs.getDouble("queryYMin"));
+            metadataResponse.setQueryYMax(rowRs.getDouble("queryYMax"));
+            String dimensionsStr = rowRs.getString("dimensions");
+            if (dimensionsStr != null && !dimensionsStr.isEmpty()) {
+                metadataResponse.getDimensions().addAll(java.util.Arrays.asList(dimensionsStr.split(",")));
+            }
+            String measuresStr = rowRs.getString("measures");
+            if (measuresStr != null && !measuresStr.isEmpty()) {
+                metadataResponse.getMeasures().addAll(java.util.Arrays.asList(measuresStr.split(",")));
+            }
+            metadataResponse.setMeasure0(rowRs.getString("measure0"));
+            metadataResponse.setMeasure1(rowRs.getString("measure1"));
+            foundInMeta = true;
+        }
+        rowRs.close();
+        checkRowStmt.close();
+
+        if (!foundInMeta) {
+            // 3. If not found, read CSV and compute metadata, then insert into meta table
+            // Detect delimiter
+            String delimiter;
+            try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+                String firstLine = br.readLine();
+                delimiter = firstLine.contains("\t") ? "\t" : ",";
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to read file", e);
+            }
+
+            String rawVisSql = String.format(
+                    "SELECT " +
+                            "MIN(radio_timestamp) AS min_time, " +
+                            "MAX(radio_timestamp) AS max_time, " +
+                            "MIN(longitude) AS queryXMin, " +
+                            "MAX(longitude) AS queryXMax, " +
+                            "MIN(latitude) AS queryYMin, " +
+                            "MAX(latitude) AS queryYMax " +
+                            "FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
+                    filePath.replace("\\", "\\\\"), delimiter);
+            ResultSet rs = stmt.executeQuery(rawVisSql);
+            Timestamp minTs = null;
+            Timestamp maxTs = null;
+            double queryXMin = 0, queryXMax = 0, queryYMin = 0, queryYMax = 0;
+            double xMin = -157.9287779, xMax = 119.819558, yMin = 8.91667, yMax = 61.231374;
+            if (rs.next()) {
+                minTs = rs.getTimestamp("min_time");
+                maxTs = rs.getTimestamp("max_time");
+                queryXMin = rs.getDouble("queryXMin");
+                queryXMax = rs.getDouble("queryXMax");
+                queryYMin = rs.getDouble("queryYMin");
+                queryYMax = rs.getDouble("queryYMax");
+                metadataResponse.setTimeMin(minTs != null ? minTs.getTime() : 0);
+                metadataResponse.setTimeMax(maxTs != null ? maxTs.getTime() : 0);
+                metadataResponse.setXMin(xMin);
+                metadataResponse.setXMax(xMax);
+                metadataResponse.setYMin(yMin);
+                metadataResponse.setYMax(yMax);
+                metadataResponse.setQueryXMin(queryXMin);
+                metadataResponse.setQueryXMax(queryXMax);
+                metadataResponse.setQueryYMin(queryYMin);
+                metadataResponse.setQueryYMax(queryYMax);
+                // Populate dimensions and measures depending on the columns. (hardcoded ?)
+                metadataResponse.getDimensions()
+                        .addAll(Arrays.asList("net_type", "mcc_nr", "mnc_nr", "provider", "eci_cid"));
+                // metadataResponse.getDimensions()
+                // .addAll(convertedColumns.stream()
+                // .filter(c -> isCategorical(c))
+                // .map(Column::getName).collect(Collectors.toList()));
+                metadataResponse.getMeasures().addAll(convertedColumns.stream()
+                        .filter(c -> isNumerical(c))
+                        .map(Column::getName).collect(Collectors.toList()));
+                metadataResponse.setMeasure0("rsrp_rscp_rssi");
+                metadataResponse.setMeasure1(dataSource.getFileName().equals("patra") ? "latency" : "cqi");
+            }
+            rs.close();
+
+            // Insert into meta table
+            String upsertMetaSql = String.format(
+                    "INSERT OR REPLACE INTO %s (table_name, xMin, xMax, yMin, yMax, min_time, max_time, queryXMin, queryXMax, queryYMin, queryYMax, dimensions, measures, measure0, measure1) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    metaTableName);
+            PreparedStatement upsertStmt = duckdbConnection.prepareStatement(upsertMetaSql);
+            upsertStmt.setString(1, tableName);
+            upsertStmt.setDouble(2, xMin);
+            upsertStmt.setDouble(3, xMax);
+            upsertStmt.setDouble(4, yMin);
+            upsertStmt.setDouble(5, yMax);
+            upsertStmt.setLong(6, minTs != null ? minTs.getTime() : 0L);
+            upsertStmt.setLong(7, maxTs != null ? maxTs.getTime() : 0L);
+            upsertStmt.setDouble(8, queryXMin);
+            upsertStmt.setDouble(9, queryXMax);
+            upsertStmt.setDouble(10, queryYMin);
+            upsertStmt.setDouble(11, queryYMax);
+            upsertStmt.setString(12, String.join(",", metadataResponse.getDimensions()));
+            upsertStmt.setString(13, String.join(",", metadataResponse.getMeasures()));
+            upsertStmt.setString(14, metadataResponse.getMeasure0());
+            upsertStmt.setString(15, metadataResponse.getMeasure1());
+            upsertStmt.executeUpdate();
+            upsertStmt.close();
+        }
+        // 4. Populate facets
+        Map<String, List<String>> facets = new HashMap<>();
+        for (String dimension : metadataResponse.getDimensions()) {
+            String facetsSql = String.format(
+                    "SELECT DISTINCT %s FROM read_csv('%s')",
+                    dimension,
+                    filePath.replace("\\", "\\\\"));
+            ResultSet facetsRs = stmt.executeQuery(facetsSql);
+            StringBuilder sb = new StringBuilder();
+            List<String> values = new ArrayList<>();
+            while (facetsRs.next()) {
+                sb.append(dimension).append(": ")
+                        .append(facetsRs.getString(1)).append(System.lineSeparator());
+                values.add(facetsRs.getString(1));
+            }
+            // log.info("Facet counts for " + dimension + ":\n" + sb.toString());
+            facets.put(dimension, values);
+            facetsRs.close();
+        }
+        metadataResponse.setFacets(facets);
+        stmt.close();
     }
 
 }

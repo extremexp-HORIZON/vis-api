@@ -14,16 +14,11 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -116,51 +111,10 @@ public class DataServiceV2 {
                 // Detect dataset type based on time columns and data ordering
                 DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
 
-                // Temporary code for rawvis metadata. Figure out how to cache this.
+                // RawVis specific metadata
                 if ("rawvis".equalsIgnoreCase(dataSource.getFormat())) {
-                    // 1. Detect delimiter
-                    String delimiter;
-                    try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-                        String firstLine = br.readLine();
-                        delimiter = firstLine.contains("\t") ? "\t" : ",";
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to read file", e);
-                    }
-
-                    // 2. Read CSV into DuckDB
-                    String createTable = String.format(
-                            "CREATE TABLE data AS SELECT * FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE);",
-                            filePath.replace("\\", "\\\\"), delimiter.equals("\t") ? "\\t" : delimiter);
-                    log.info("Create Table: " + createTable);
-                    Statement stmt = duckdbConnection.createStatement();
-                    stmt.execute(createTable);
-
-                    // 3. Get metadata
-                    String rawVisSql = "SELECT " +
-                            "MIN(radio_timestamp) AS min_time, " +
-                            "MAX(radio_timestamp) AS max_time, " +
-                            "MIN(longitude) AS queryXMin, " +
-                            "MAX(longitude) AS queryXMax, " +
-                            "MIN(latitude) AS queryYMin, " +
-                            "MAX(latitude) AS queryYMax, " +
-                            "FROM data";
-                    ResultSet rs = stmt.executeQuery(rawVisSql);
-                    if (rs.next()) {
-                        log.info("RawVis SQL: " + rawVisSql);
-                        Timestamp minTs = rs.getTimestamp("min_time");
-                        Timestamp maxTs = rs.getTimestamp("max_time");
-                        metadataResponse.setTimeMin(minTs != null ? minTs.getTime() : 0);
-                        metadataResponse.setTimeMax(maxTs != null ? maxTs.getTime() : 0);
-                        metadataResponse.setQueryXMin(rs.getDouble("queryXMin"));
-                        metadataResponse.setQueryXMax(rs.getDouble("queryXMax"));
-                        metadataResponse.setQueryYMin(rs.getDouble("queryYMin"));
-                        metadataResponse.setQueryYMax(rs.getDouble("queryYMax"));
-                        // TODO: Get dimensions, measure0 and measure1 either from other source.
-                        metadataResponse
-                                .setDimensions(Arrays.asList("net_type", "mcc_nr", "mnc_nr", "provider", "eci_cid"));
-                    }
-                    rs.close();
-                    stmt.close();
+                    dataQueryHelper.populateRawvisMeta(duckdbConnection, filePath, dataSource, convertedColumns,
+                            metadataResponse);
                 }
 
                 // Set metadata response fields
