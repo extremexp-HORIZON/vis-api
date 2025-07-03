@@ -38,6 +38,37 @@ public class DataServiceV2 {
     @Async
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
             throws SQLException, Exception {
+
+        // Check if the request is for a map view
+        if (request.getDataType() != null && request.getDataType().equals("map")) {
+
+            // Get the metadata response for the dataset
+            MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
+
+            // Build the SQL query for the map view
+            return dataQueryHelper.buildMapQuery(request, authorization, metadataResponse).thenCompose(sql -> {
+                try {
+                    Statement statement = duckdbConnection.createStatement();
+                    ResultSet resultSet = statement.executeQuery(sql);
+
+                    DataResponse response = new DataResponse();
+
+                    dataQueryHelper.processMapQueryResults(resultSet, request, metadataResponse, response, 9);
+
+                    // Close resources
+                    resultSet.close();
+                    statement.close();
+
+                    return CompletableFuture.completedFuture(response);
+                } catch (SQLException e) {
+                    CompletableFuture<DataResponse> failedFuture = new CompletableFuture<>();
+                    failedFuture.completeExceptionally(e);
+                    return failedFuture;
+                }
+            });
+        }
+
+        // Build the SQL query for the tabular view
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
             try {
                 Statement statement = duckdbConnection.createStatement();

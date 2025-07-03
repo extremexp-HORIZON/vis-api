@@ -12,8 +12,10 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -23,6 +25,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.davidmoten.geo.GeoHash;
+import com.github.davidmoten.geo.LatLong;
+import com.google.common.math.PairedStatsAccumulator;
+import com.google.common.math.StatsAccumulator;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
@@ -31,6 +37,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.GroupedStats;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.RectStats;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggregation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter.AbstractFilter;
@@ -602,4 +610,229 @@ public class DataHelperV2 {
         stmt.close();
     }
 
+    /**
+     * Builds the SQL query for the map view.
+     * 
+     * @param request
+     * @param authorization
+     * @param metadataResponse
+     * @return
+     */
+    @Async
+    protected CompletableFuture<String> buildMapQuery(DataRequest request, String authorization,
+            MetadataResponseV2 metadataResponse) throws Exception {
+
+        // TODO: Think of merging this with the buildQuery method
+        return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
+            StringBuilder sql = new StringBuilder();
+            String latCol = "latitude";
+            String lonCol = "longitude";
+            String timestampCol = "radio_timestamp";
+
+            // SELECT clause
+            sql.append("SELECT ");
+            sql.append(String.join(", ", "id", latCol, lonCol,
+                    metadataResponse.getMeasure0(), metadataResponse.getMeasure1(),
+                    String.join(", ", metadataResponse.getDimensions())));
+
+            // FROM clause - use detected or specified file type
+            FileType fileType = detectFileType(datasetPath);
+            sql.append(" FROM ");
+            switch (fileType) {
+                case CSV:
+                    sql.append("read_csv('").append(datasetPath).append("', nullstr='NULL')");
+                    break;
+                case PARQUET:
+                    sql.append("read_parquet('").append(datasetPath).append("')");
+                    break;
+                case JSON:
+                    sql.append("read_json_auto('").append(datasetPath).append("')");
+                    break;
+            }
+
+            // WHERE clause
+            sql.append(" WHERE ");
+            sql.append(latCol + " BETWEEN " + request.getRect().getLat().lowerEndpoint() + " AND "
+                    + request.getRect().getLat().upperEndpoint());
+            sql.append(" AND " + lonCol + " BETWEEN " + request.getRect().getLon().lowerEndpoint() + " AND "
+                    + request.getRect().getLon().upperEndpoint());
+
+            if (request.getCategoricalFilters() != null && !request.getCategoricalFilters().isEmpty()) {
+                sql.append(request.getCategoricalFilters().entrySet().stream()
+                        .map(entry -> " AND " + entry.getKey() + " = '" + entry.getValue() + "'")
+                        .collect(Collectors.joining()));
+            }
+
+            if (request.getFrom() != null && request.getTo() != null) {
+                sql.append(" AND " + timestampCol + " BETWEEN '" + new Timestamp(request.getFrom()) + "' AND '"
+                        + new Timestamp(request.getTo()) + "'");
+            } else if (request.getFrom() != null) {
+                sql.append(" AND " + timestampCol + " >= '" + new Timestamp(request.getFrom()) + "'");
+            } else if (request.getTo() != null) {
+                sql.append(" AND " + timestampCol + " <= '" + new Timestamp(request.getTo()) + "'");
+            }
+            return sql.toString();
+        });
+    }
+
+    /**
+     * Processes the results of the map query.
+     * 
+     * @param resultSet
+     * @param request
+     * @param metadataResponse
+     * @param response
+     * @param geohashLength
+     * @throws SQLException
+     */
+    protected void processMapQueryResults(ResultSet resultSet, DataRequest request, MetadataResponseV2 metadataResponse,
+            DataResponse response, int geohashLength) throws SQLException {
+        Map<String, List<Object[]>> geohashGroups = new HashMap<>();
+        Map<String, StatsAccumulator> groupStatsMap = new HashMap<>();
+        PairedStatsAccumulator pairedStatsAccumulator = new PairedStatsAccumulator();
+        int rawPointCount = 0; // Initialize a counter for raw data points
+
+        while (resultSet.next()) {
+            rawPointCount++;
+
+            double lat = resultSet.getDouble("latitude");
+            double lon = resultSet.getDouble("longitude");
+            String id = resultSet.getString("id");
+
+            // get measures and handle nulls and empty strings
+            String measure0Str = resultSet.getString(metadataResponse.getMeasure1());
+            Double measure0 = (measure0Str == null || measure0Str.trim().isEmpty())
+                    ? null
+                    : Double.parseDouble(measure0Str);
+            String measure1Str = resultSet.getString(metadataResponse.getMeasure1());
+            Double measure1 = (measure1Str == null || measure1Str.trim().isEmpty())
+                    ? null
+                    : Double.parseDouble(measure1Str);
+            String geohash = GeoHash.encodeHash(lat, lon, geohashLength);
+            List<String> groupValues = new ArrayList<>();
+            for (String colName : request.getGroupByCols()) {
+                groupValues.add(resultSet.getString(colName));
+            }
+            List<String> categoricalValues = new ArrayList<>();
+            for (String colName : metadataResponse.getDimensions()) {
+                categoricalValues.add(resultSet.getString(colName));
+            }
+            Object[] point = new Object[] { lat, lon, id, measure0, measure1, categoricalValues };
+            geohashGroups.computeIfAbsent(geohash, k -> new ArrayList<>()).add(point);
+
+            String groupKey = String.join(",", groupValues);
+
+            Double measureValue = resultSet.getObject(request.getMeasureCol()) != null
+                    ? resultSet.getDouble(request.getMeasureCol())
+                    : null;
+            if (measureValue != null)
+                groupStatsMap.computeIfAbsent(groupKey, k -> new StatsAccumulator()).add(measureValue);
+
+            // For paired statistical analysis
+            if (measure0 != null && measure1 != null)
+                pairedStatsAccumulator.add(measure0, measure1);
+
+        }
+        log.info("Raw Point count: " + rawPointCount);
+
+        List<Object[]> points = new ArrayList<>();
+        for (Map.Entry<String, List<Object[]>> entry : geohashGroups.entrySet()) {
+            List<Object[]> groupedPoints = entry.getValue();
+            String geohash = entry.getKey();
+            LatLong geohashCenter = GeoHash.decodeHash(geohash);
+
+            if (groupedPoints.size() == 1) {
+                Object[] singlePoint = groupedPoints.get(0);
+                points.add(new Object[] { geohashCenter.getLat(), geohashCenter.getLon(), 1, singlePoint[2],
+                        singlePoint[3], singlePoint[4], singlePoint[5] });
+            } else {
+                OptionalDouble measure0AvgOpt = groupedPoints.stream().map(point -> point[3])
+                        .filter(value -> value != null).mapToDouble(value -> (double) value).average();
+                OptionalDouble measure1AvgOpt = groupedPoints.stream().map(point -> point[4])
+                        .filter(value -> value != null).mapToDouble(value -> (double) value).average();
+
+                Double measure0Avg = measure0AvgOpt.isPresent() ? measure0AvgOpt.getAsDouble() : null;
+                Double measure1Avg = measure1AvgOpt.isPresent() ? measure1AvgOpt.getAsDouble() : null;
+                // Process groupedPoints using streams
+                @SuppressWarnings("unchecked")
+                List<List<String>> groupedGroupByValues = processStrings(groupedPoints.stream()
+                        .map(allPoints -> (List<String>) allPoints[5])
+                        .collect(Collectors.toList()));
+
+                points.add(new Object[] { geohashCenter.getLat(), geohashCenter.getLon(), groupedPoints.size(), null,
+                        measure0Avg, measure1Avg, groupedGroupByValues });
+            }
+        }
+
+        List<GroupedStats> series = groupStatsMap.entrySet().stream()
+                .map(entry -> {
+                    String key = entry.getKey();
+                    StatsAccumulator accumulator = entry.getValue();
+                    List<String> group = Arrays.asList(key.split(","));
+                    double value = 0;
+                    switch (request.getAggType()) {
+                        case AVG:
+                            value = accumulator.mean();
+                            break;
+                        case SUM:
+                            value = accumulator.sum();
+                            break;
+                        case MIN:
+                            value = accumulator.min();
+                            break;
+                        case MAX:
+                            value = accumulator.max();
+                            break;
+                        case COUNT:
+                            value = accumulator.count();
+                            break;
+                        default:
+                            break;
+                    }
+                    return new GroupedStats(group, value);
+                })
+                .collect(Collectors.toList());
+
+        // TODO: Figure out which fields are needed for the response
+        response.setSeries(series);
+        response.setFacets(metadataResponse.getFacets());
+        response.setPoints(points);
+        response.setPointCount(rawPointCount);
+        response.setTotalItems(rawPointCount);
+        response.setQuerySize(points.size());
+        response.setRectStats(new RectStats(pairedStatsAccumulator.snapshot()));
+    }
+
+    /**
+     * Processes the strings in the list of lists.
+     * 
+     * @param listOfLists
+     * @return
+     */
+    private List<List<String>> processStrings(List<List<String>> listOfLists) {
+        // List to store the list of unique strings for each column
+        List<List<String>> processedStrings = new ArrayList<>();
+
+        // Ensure there's at least one row to avoid IndexOutOfBoundsException
+        if (listOfLists.isEmpty())
+            return processedStrings;
+
+        // Iterate over each column
+        for (int i = 0; i < listOfLists.get(0).size(); i++) {
+            Set<String> uniqueStrings = new HashSet<>();
+
+            // Collect all unique strings in the current column
+            for (int j = 0; j < listOfLists.size(); j++) {
+                String currentString = listOfLists.get(j).get(i);
+                if (currentString != null) {
+                    uniqueStrings.add(currentString);
+                }
+            }
+
+            // Convert the set of unique strings to a list and add it to the results
+            processedStrings.add(new ArrayList<>(uniqueStrings));
+        }
+
+        return processedStrings;
+    }
 }

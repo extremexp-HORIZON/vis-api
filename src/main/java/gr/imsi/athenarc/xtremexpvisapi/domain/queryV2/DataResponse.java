@@ -21,10 +21,10 @@ public class DataResponse {
     private Map<String, List<String>> facets;
     private List<GroupedStats> series;
     private RectStats rectStats;
-    private int fullyContainedTileCount;
-    private int tileCount;
     private int pointCount;
-    private int ioCount;
-    private int totalTileCount;
-    private int totalPointCount;
+    // private int fullyContainedTileCount;
+    // private int tileCount;
+    // private int ioCount;
+    // private int totalTileCount;
+    // private int totalPointCount;
 }
