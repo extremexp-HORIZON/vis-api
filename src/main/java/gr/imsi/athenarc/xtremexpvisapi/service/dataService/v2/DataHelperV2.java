@@ -34,6 +34,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.MapDataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.MapDataResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.TimeSeriesDataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
@@ -619,7 +622,7 @@ public class DataHelperV2 {
      * @return
      */
     @Async
-    protected CompletableFuture<String> buildMapQuery(DataRequest request, String authorization,
+    protected CompletableFuture<String> buildMapQuery(MapDataRequest request, String authorization,
             MetadataResponseV2 metadataResponse) throws Exception {
 
         // TODO: Think of merging this with the buildQuery method
@@ -685,8 +688,9 @@ public class DataHelperV2 {
      * @param geohashLength
      * @throws SQLException
      */
-    protected void processMapQueryResults(ResultSet resultSet, DataRequest request, MetadataResponseV2 metadataResponse,
-            DataResponse response, int geohashLength) throws SQLException {
+    protected void processMapQueryResults(ResultSet resultSet, MapDataRequest request,
+            MetadataResponseV2 metadataResponse,
+            MapDataResponse response, int geohashLength) throws SQLException {
         Map<String, List<Object[]>> geohashGroups = new HashMap<>();
         Map<String, StatsAccumulator> groupStatsMap = new HashMap<>();
         PairedStatsAccumulator pairedStatsAccumulator = new PairedStatsAccumulator();
@@ -812,7 +816,7 @@ public class DataHelperV2 {
      * @return
      */
     @Async
-    protected CompletableFuture<String> buildTimeSeriesQuery(DataRequest request, String authorization,
+    protected CompletableFuture<String> buildTimeSeriesQuery(TimeSeriesDataRequest request, String authorization,
             MetadataResponseV2 metadataResponse) throws Exception {
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
 
