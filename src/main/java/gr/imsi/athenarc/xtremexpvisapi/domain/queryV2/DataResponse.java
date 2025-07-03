@@ -6,8 +6,10 @@ import java.util.Map;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.GroupedStats;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.RectStats;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.UnivariateDataPoint;
 import lombok.Data;
 
+// TODO: Figure out if an inheritance is needed for the different data types
 @Data
 public class DataResponse {
 
@@ -27,4 +29,7 @@ public class DataResponse {
     // private int ioCount;
     // private int totalTileCount;
     // private int totalPointCount;
+
+    // Time series-specific fields
+    private List<UnivariateDataPoint> timeSeriesPoints;
 }

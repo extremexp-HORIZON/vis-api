@@ -804,6 +804,56 @@ public class DataHelperV2 {
     }
 
     /**
+     * Builds the SQL query for the time series view.
+     * 
+     * @param request
+     * @param authorization
+     * @param metadataResponse
+     * @return
+     */
+    @Async
+    protected CompletableFuture<String> buildTimeSeriesQuery(DataRequest request, String authorization,
+            MetadataResponseV2 metadataResponse) throws Exception {
+        return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
+
+            String latCol = "latitude";
+            String lonCol = "longitude";
+            String timestampCol = "radio_timestamp";
+
+            long intervalSeconds = request.getFrequency();
+            String sql = String.format(
+                    "SELECT floor(extract(epoch from %1$s)/(%2$s)) as time_bucket, avg(%3$s) as average_value " +
+                            "FROM read_csv('%4$s') " +
+                            "WHERE %1$s BETWEEN '%5$s' AND '%6$s' " +
+                            "AND %7$s BETWEEN '%8$s' AND '%9$s' " +
+                            "AND %10$s BETWEEN '%11$s' AND '%12$s' ",
+                    timestampCol,
+                    intervalSeconds,
+                    request.getMeasureCol(),
+                    datasetPath,
+                    new Timestamp(request.getFrom()),
+                    new Timestamp(request.getTo()),
+                    latCol,
+                    request.getRect().getLat().lowerEndpoint(),
+                    request.getRect().getLat().upperEndpoint(),
+                    lonCol,
+                    request.getRect().getLon().lowerEndpoint(),
+                    request.getRect().getLon().upperEndpoint());
+
+            StringBuilder filterBuilder = new StringBuilder();
+            if (request.getCategoricalFilters() != null && !request.getCategoricalFilters().isEmpty()) {
+                request.getCategoricalFilters().forEach((key, value) -> {
+                    filterBuilder.append(String.format(" AND %s = '%s'", key, value));
+                });
+                sql += filterBuilder.toString();
+            }
+
+            sql += " GROUP BY time_bucket ORDER BY time_bucket";
+            return sql;
+        });
+    }
+
+    /**
      * Processes the strings in the list of lists.
      * 
      * @param listOfLists

@@ -14,6 +14,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+// TODO: Figure out if an inheritance is needed for the different data types
 @Data
 @AllArgsConstructor
 public class DataRequest {
@@ -36,6 +37,9 @@ public class DataRequest {
     private String measureCol;
     private Long from;
     private Long to;
+
+    // Time series-specific fields
+    private long frequency;
 
     // Optional: to distinguish request type
     private String dataType; // "tabular", "map", "timeseries"

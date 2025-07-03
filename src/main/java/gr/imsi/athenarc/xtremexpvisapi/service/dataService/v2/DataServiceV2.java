@@ -13,11 +13,13 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.UnivariateDataPoint;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -39,33 +41,69 @@ public class DataServiceV2 {
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
             throws SQLException, Exception {
 
-        // Check if the request is for a map view
-        if (request.getDataType() != null && request.getDataType().equals("map")) {
-
+        // Check if the request is for a map view or time series view
+        if (request.getDataType() != null) {
             // Get the metadata response for the dataset
             MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
 
-            // Build the SQL query for the map view
-            return dataQueryHelper.buildMapQuery(request, authorization, metadataResponse).thenCompose(sql -> {
-                try {
-                    Statement statement = duckdbConnection.createStatement();
-                    ResultSet resultSet = statement.executeQuery(sql);
+            if (request.getDataType().equals("map")) {
+                // Build the SQL query for the map view
+                return dataQueryHelper.buildMapQuery(request, authorization, metadataResponse).thenCompose(sql -> {
+                    try {
+                        Statement statement = duckdbConnection.createStatement();
+                        ResultSet resultSet = statement.executeQuery(sql);
 
-                    DataResponse response = new DataResponse();
+                        DataResponse response = new DataResponse();
 
-                    dataQueryHelper.processMapQueryResults(resultSet, request, metadataResponse, response, 9);
+                        dataQueryHelper.processMapQueryResults(resultSet, request, metadataResponse, response, 9);
 
-                    // Close resources
-                    resultSet.close();
-                    statement.close();
+                        // Close resources
+                        resultSet.close();
+                        statement.close();
 
-                    return CompletableFuture.completedFuture(response);
-                } catch (SQLException e) {
-                    CompletableFuture<DataResponse> failedFuture = new CompletableFuture<>();
-                    failedFuture.completeExceptionally(e);
-                    return failedFuture;
-                }
-            });
+                        return CompletableFuture.completedFuture(response);
+                    } catch (SQLException e) {
+                        CompletableFuture<DataResponse> failedFuture = new CompletableFuture<>();
+                        failedFuture.completeExceptionally(e);
+                        return failedFuture;
+                    }
+                });
+            } else if (request.getDataType().equals("timeseries")) {
+                // Build the SQL query for the time series view
+                return dataQueryHelper.buildTimeSeriesQuery(request, authorization, metadataResponse)
+                        .thenCompose(sql -> {
+                            try {
+                                Statement statement = duckdbConnection.createStatement();
+                                ResultSet resultSet = statement.executeQuery(sql);
+
+                                DataResponse response = new DataResponse();
+                                List<UnivariateDataPoint> timeSeriesPoints = new ArrayList<>();
+
+                                while (resultSet.next()) {
+                                    long bucketEpoch = resultSet.getLong("time_bucket") * request.getFrequency();
+                                    Double avgValue = resultSet.getObject("average_value") != null
+                                            ? resultSet.getDouble("average_value")
+                                            : null;
+                                    Timestamp timestamp = new Timestamp(bucketEpoch * 1000);
+                                    if (avgValue != null) {
+                                        timeSeriesPoints.add(new UnivariateDataPoint(timestamp.getTime(), avgValue));
+                                    }
+                                }
+
+                                response.setTimeSeriesPoints(timeSeriesPoints);
+
+                                // Close resources
+                                resultSet.close();
+                                statement.close();
+
+                                return CompletableFuture.completedFuture(response);
+                            } catch (SQLException e) {
+                                CompletableFuture<DataResponse> failedFuture = new CompletableFuture<>();
+                                failedFuture.completeExceptionally(e);
+                                return failedFuture;
+                            }
+                        });
+            }
         }
 
         // Build the SQL query for the tabular view
