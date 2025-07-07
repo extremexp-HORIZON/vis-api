@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.controller;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -99,6 +102,24 @@ public class DataController {
                                         "message", throwable.getMessage()));
                     }
                 });
+    }
+
+    @GetMapping("/fetch/{datasetId}/row/{objectId}")
+    public ResponseEntity<String[]> fetchRow(@PathVariable String datasetId, @PathVariable String objectId)
+            throws IOException, SQLException {
+        LOG.info("REST request to retrieve object {} from dataset {}", objectId, datasetId);
+        try {
+            String[] row = dataServiceV2.fetchRow(datasetId, objectId);
+            return ResponseEntity.ok(row);
+        } catch (SQLException e) {
+            LOG.error("SQL error retrieving row", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(null);
+        } catch (Exception e) {
+            LOG.error("Error retrieving row", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
     }
 
     @PostMapping("/meta")
