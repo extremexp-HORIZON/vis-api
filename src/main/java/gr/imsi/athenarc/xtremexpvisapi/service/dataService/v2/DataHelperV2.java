@@ -31,7 +31,7 @@ import com.google.common.math.PairedStatsAccumulator;
 import com.google.common.math.StatsAccumulator;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataMapResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.MapDataRequest;
@@ -445,7 +445,7 @@ public class DataHelperV2 {
             String filePath,
             DataSource dataSource,
             List<Column> convertedColumns,
-            MetadataResponseV2 metadataResponse) throws SQLException {
+            MetadataMapResponse metadataResponse) throws SQLException {
 
         String tableName = dataSource.getFileName().replace("-", "_");
         String metaTableName = dataSource.getFormat().toLowerCase() + "_meta";
@@ -623,7 +623,7 @@ public class DataHelperV2 {
      */
     @Async
     protected CompletableFuture<String> buildMapQuery(MapDataRequest request, String authorization,
-            MetadataResponseV2 metadataResponse) throws Exception {
+            MetadataMapResponse metadataResponse) throws Exception {
 
         // TODO: Think of merging this with the buildQuery method
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
@@ -689,7 +689,7 @@ public class DataHelperV2 {
      * @throws SQLException
      */
     protected void processMapQueryResults(ResultSet resultSet, MapDataRequest request,
-            MetadataResponseV2 metadataResponse,
+            MetadataMapResponse metadataResponse,
             MapDataResponse response, int geohashLength) throws SQLException {
         Map<String, List<Object[]>> geohashGroups = new HashMap<>();
         Map<String, StatsAccumulator> groupStatsMap = new HashMap<>();
@@ -817,7 +817,7 @@ public class DataHelperV2 {
      */
     @Async
     protected CompletableFuture<String> buildTimeSeriesQuery(TimeSeriesDataRequest request, String authorization,
-            MetadataResponseV2 metadataResponse) throws Exception {
+            MetadataMapResponse metadataResponse) throws Exception {
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
 
             String latCol = "latitude";

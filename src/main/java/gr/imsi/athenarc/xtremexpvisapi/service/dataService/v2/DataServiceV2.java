@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import lombok.extern.java.Log;
 import tagbio.umap.Umap;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataMapResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataResponseV2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataResponse;
@@ -51,7 +52,8 @@ public class DataServiceV2 {
         if (request instanceof MapDataRequest) {
             MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
             // Build the SQL query for the map view
-            return dataQueryHelper.buildMapQuery((MapDataRequest) request, authorization, metadataResponse)
+            return dataQueryHelper
+                    .buildMapQuery((MapDataRequest) request, authorization, (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
                         try {
                             Statement statement = duckdbConnection.createStatement();
@@ -60,7 +62,7 @@ public class DataServiceV2 {
                             MapDataResponse response = new MapDataResponse();
 
                             dataQueryHelper.processMapQueryResults(resultSet, (MapDataRequest) request,
-                                    metadataResponse, response, 9);
+                                    (MetadataMapResponse) metadataResponse, response, 9);
 
                             // Close resources
                             resultSet.close();
@@ -77,7 +79,8 @@ public class DataServiceV2 {
             MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
             // Build the SQL query for the time series view
             return dataQueryHelper
-                    .buildTimeSeriesQuery((TimeSeriesDataRequest) request, authorization, metadataResponse)
+                    .buildTimeSeriesQuery((TimeSeriesDataRequest) request, authorization,
+                            (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
                         try {
                             Statement statement = duckdbConnection.createStatement();
@@ -188,10 +191,6 @@ public class DataServiceV2 {
                 DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
 
                 // RawVis specific metadata
-                if ("rawvis".equalsIgnoreCase(dataSource.getFormat())) {
-                    dataQueryHelper.populateRawvisMeta(duckdbConnection, filePath, dataSource, convertedColumns,
-                            metadataResponse);
-                }
 
                 // Set metadata response fields
                 metadataResponse.setOriginalColumns(convertedColumns);
@@ -203,12 +202,18 @@ public class DataServiceV2 {
                     metadataResponse.setTimeColumn(timeColumns);
                 }
 
+                Boolean ifRawVis = "rawvis".equalsIgnoreCase(dataSource.getFormat());
+                MetadataMapResponse metadataMapResponse = new MetadataMapResponse(metadataResponse);
+                if (ifRawVis) {
+                    dataQueryHelper.populateRawvisMeta(duckdbConnection, filePath, dataSource,
+                            convertedColumns, metadataMapResponse);
+                }
                 // Close resources
                 resultSet.close();
                 countResult.close();
                 statement.close();
 
-                return metadataResponse;
+                return ifRawVis ? metadataMapResponse : metadataResponse;
 
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to get file metadata", e);
