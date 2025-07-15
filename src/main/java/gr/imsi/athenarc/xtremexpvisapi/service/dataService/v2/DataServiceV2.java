@@ -62,16 +62,15 @@ public class DataServiceV2 {
     @Async
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization) throws Exception, SQLException {
         return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
+            
             try {
-                log.info("Getting metadata for file: " + filePath);
                 // Build a simple SELECT query to get column information
                 String sql = "SELECT * FROM ";
                 // Detect file type and build appropriate query
                 FileType fileType = dataQueryHelper.detectFileType(filePath);
-                log.info("Detected file type: " + fileType);
 
                 sql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
-                sql += " LIMIT 0"; // Just get a few rows for metadata analysis
+                sql += " LIMIT 10"; // Just get a few rows for metadata analysis
 
                 Statement statement = duckdbConnection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql);
@@ -123,7 +122,7 @@ public class DataServiceV2 {
                 }
 
                 try {
-                    sql = sql.replace(" LIMIT 0", ""); // Remove limit for summarization
+                    sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
             
                     String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file loading
                     ResultSet summarizeResult = statement.executeQuery(summarizeSql);
@@ -136,7 +135,6 @@ public class DataServiceV2 {
                             Object value = summarizeResult.getObject(i);
                             summaryRow.put(colName, value);
                         }summaryList.add(summaryRow);
-                        // log.info("Summary Row: " + summaryRow.toString());
                     }
                     metadataResponse.setSummary(summaryList);
                     summarizeResult.close();
