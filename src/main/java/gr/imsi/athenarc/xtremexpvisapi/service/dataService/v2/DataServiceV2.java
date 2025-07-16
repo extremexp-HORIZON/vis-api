@@ -1,5 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
+import org.checkerframework.checker.units.qual.s;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -141,10 +143,10 @@ public class DataServiceV2 {
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
             throws Exception, SQLException {
         return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
+            
             try {
                 // Build a simple SELECT query to get column information
                 String sql = "SELECT * FROM ";
-
                 // Detect file type and build appropriate query
                 FileType fileType = dataQueryHelper.detectFileType(filePath);
 
@@ -208,6 +210,26 @@ public class DataServiceV2 {
                     dataQueryHelper.populateRawvisMeta(duckdbConnection, filePath, dataSource,
                             convertedColumns, metadataMapResponse);
                 }
+                try {
+                    sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
+            
+                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file loading
+                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+                    List<Map<String, Object>> summaryList = new ArrayList<>();
+                    int colCount = summarizeResult.getMetaData().getColumnCount();
+                    while (summarizeResult.next()) {
+                        Map<String, Object> summaryRow = new java.util.HashMap<>();
+                        for (int i = 1; i <= colCount; i++) {
+                            String colName = summarizeResult.getMetaData().getColumnName(i);
+                            Object value = summarizeResult.getObject(i);
+                            summaryRow.put(colName, value);
+                        }summaryList.add(summaryRow);
+                    }
+                    metadataResponse.setSummary(summaryList);
+                    summarizeResult.close();
+                } catch (SQLException summarizeEx) {
+                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());}
+
                 // Close resources
                 resultSet.close();
                 countResult.close();

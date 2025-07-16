@@ -17,7 +17,7 @@ public class MetadataMapResponse extends MetadataResponseV2 {
     public MetadataMapResponse(MetadataResponseV2 metadataResponse) {
         super(metadataResponse.getDatasetType(), metadataResponse.getFileNames(), metadataResponse.getOriginalColumns(),
                 metadataResponse.getTotalItems(), metadataResponse.getUniqueColumnValues(),
-                metadataResponse.isHasLatLonColumns(), metadataResponse.getTimeColumn());
+                metadataResponse.isHasLatLonColumns(), metadataResponse.getTimeColumn(), metadataResponse.getSummary());
     }
 
     double xMin;

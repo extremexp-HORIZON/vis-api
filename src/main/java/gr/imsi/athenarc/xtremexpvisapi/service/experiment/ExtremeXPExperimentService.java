@@ -398,7 +398,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
             ResponseEntity<List> response = restTemplate.exchange(
                     requestUrl, HttpMethod.POST, entity, List.class);
             List<Map<String, Object>> responseList = response.getBody();
-            System.out.println("responseList: " + responseList);
             if (responseList == null || responseList.isEmpty()) {
                 System.out.println("No metrics found for the given experiment and run.");
                 String putUrl = workflowsApiUrl + "/metrics";
@@ -423,8 +422,6 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 // return ResponseEntity.ok(new UserEvaluationResponse("failed", "User
                 // evaluation was not submitted "));
             } else {
-                System.out.println("Metrics found for the given experiment and run.");
-                System.out.println("responseList: " + responseList);
                 Map<String, Object> metric = responseList.get(0); // assuming only one relevant metric
                 String metricId = (String) metric.get("id");
                 // Construct the URL
@@ -608,7 +605,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Object rawValue = data.get("value");
         long timestamp = getTimestampFromWorkflowData(data);
 
-        if (rawValue instanceof String) {
+        if (rawValue instanceof String) { 
             String valueStr = ((String) rawValue).trim();
             if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
                 try {
@@ -635,6 +632,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
             double value = ((Number) rawValue).doubleValue();
             int step = (Integer) data.getOrDefault("step", 1);
             metrics.add(new Metric(metricName, value, timestamp, step, producedByTask));
+        } else {
+            metrics.add(new Metric(metricName, 0, timestamp, 0, producedByTask));
         }
 
         return metrics;

@@ -78,7 +78,6 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
 
                 ApplyAffectedActionsResponse response = stub.applyAffectedActions(request);
-                System.out.println("Response " + response);
 
                 // Shutdown the channel
                 channel.shutdown();
