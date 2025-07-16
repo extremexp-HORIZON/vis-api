@@ -704,7 +704,7 @@ public class DataHelperV2 {
             String id = resultSet.getString("id");
 
             // get measures and handle nulls and empty strings
-            String measure0Str = resultSet.getString(metadataResponse.getMeasure1());
+            String measure0Str = resultSet.getString(metadataResponse.getMeasure0());
             Double measure0 = (measure0Str == null || measure0Str.trim().isEmpty())
                     ? null
                     : Double.parseDouble(measure0Str);
