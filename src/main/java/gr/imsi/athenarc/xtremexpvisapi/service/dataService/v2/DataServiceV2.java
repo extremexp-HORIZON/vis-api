@@ -37,14 +37,34 @@ public class DataServiceV2 {
         this.dataQueryHelper = dataQueryHelper;
     }
 
+    private String buildCountQuery(String originalQuery) {
+    // Remove existing LIMIT and OFFSET
+    String cleanedQuery = originalQuery
+        .replaceAll("(?i)LIMIT\\s+\\d+", "")
+        .replaceAll("(?i)OFFSET\\s+\\d+", "");
+
+    // Wrap in a subquery to count total rows
+    return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
+}
+
     @Async
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization) throws SQLException, Exception {
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
             try {
                 Statement statement = duckdbConnection.createStatement();
+                String countQuery = buildCountQuery(sql);
+                ResultSet countResultSet = statement.executeQuery(countQuery);
+                int totalItems = 0;
+                if (countResultSet.next()) {
+                    totalItems = countResultSet.getInt(1);
+                }
+                countResultSet.close();
+
                 ResultSet resultSet = statement.executeQuery(sql);
 
                 DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
+                response.setTotalItems(totalItems);
+
 
                 // Close resources
                 resultSet.close();
