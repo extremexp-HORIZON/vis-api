@@ -16,6 +16,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 
 /**
@@ -25,16 +26,34 @@ import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 @Component
 public class MlAnalysisResourceHelper {
 
-    private static final String ML_ANALYSIS_FOLDER_NAME = "MLAnalysis";
+    private String mlAnalysisFolderName;
 
     private final String mlEvaluationPath;
     private final FileService fileService;
+    private final ExperimentServiceFactory experimentServiceFactory;
 
     @Autowired
     public MlAnalysisResourceHelper(@Value("${app.working.directory}") String mlEvaluationPath,
-            FileService fileService) {
+            FileService fileService,
+            ExperimentServiceFactory experimentServiceFactory) {
         this.mlEvaluationPath = mlEvaluationPath;
         this.fileService = fileService;
+        this.experimentServiceFactory = experimentServiceFactory;
+        this.mlAnalysisFolderName = resolveAnalysisFolderName();
+    }
+
+    private String resolveAnalysisFolderName() {
+        String serviceName = experimentServiceFactory.getActiveService().getClass().getSimpleName();
+        return serviceName.equalsIgnoreCase("MLflowExperimentService") ? "explainability" : "MLAnalysis";
+    }
+
+    public String getMlAnalysisFolderName() {
+        return mlAnalysisFolderName;
+    }
+
+    // Optional: use this method instead of accessing the field directly
+    public Path getAnalysisFolderPathForRun(String runId) {
+        return Path.of(mlEvaluationPath, runId, mlAnalysisFolderName);
     }
 
     /**
@@ -45,8 +64,11 @@ public class MlAnalysisResourceHelper {
      */
     public Optional<Map<String, String>> getRequiredFilePaths(Run run, String authorization, String explanationType) {
         // Filter the data assets to find the one with the ML analysis folder name
+
+        String folderName = getMlAnalysisFolderName(); // or just use mlAnalysisFolderName directly if preferred
+
         List<DataAsset> filesPath = run.getDataAssets().stream()
-                .filter(a -> ML_ANALYSIS_FOLDER_NAME.equalsIgnoreCase(a.getFolder()))
+                .filter(a -> folderName.equalsIgnoreCase(a.getFolder()))
                 .toList();
         // Check if the run has all required files for ML analysis
         if (!hasFiles(filesPath)) {
@@ -99,7 +121,7 @@ public class MlAnalysisResourceHelper {
      */
     public Optional<Path> getMlResourceFolder(Run run) {
         Optional<Path> filesPath = run.getDataAssets().stream()
-                .filter(a -> ML_ANALYSIS_FOLDER_NAME.equals(a.getName()))
+                .filter(a -> getMlAnalysisFolderName().equals(a.getName()))
                 .map(a -> Paths.get(a.getSource()))
                 .findFirst();
         if (filesPath.isPresent()) {

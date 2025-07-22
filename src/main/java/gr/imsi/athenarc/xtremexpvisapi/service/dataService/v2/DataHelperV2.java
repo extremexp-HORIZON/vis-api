@@ -85,7 +85,11 @@ public class DataHelperV2 {
      */
     protected String getCorrectedString(String input) {
         // Implement your correction logic here
-        return input.contains(" ") ? "\"" + input + "\"" : input;
+        if (input.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+            return input; // safe to use as-is
+        } else {
+            return "\"" + input.replace("\"", "\"\"") + "\""; // quote and escape
+        }
     }
 
     /**
@@ -317,10 +321,13 @@ public class DataHelperV2 {
                 sql = buildAggregationQuery(request, sql);
             } else {
                 // Only add GROUP BY if there are no aggregations (regular grouping)
-                if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-                    sql.append(" GROUP BY ");
-                    sql.append(String.join(", ", request.getGroupBy()));
-                }
+              if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+    sql.append(" GROUP BY ");
+    sql.append(request.getGroupBy().stream()
+        .map(this::getCorrectedString)
+        .collect(Collectors.joining(", ")));
+}
+
             }
 
             // LIMIT and OFFSET

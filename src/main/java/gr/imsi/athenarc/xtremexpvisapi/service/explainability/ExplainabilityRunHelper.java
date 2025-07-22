@@ -42,10 +42,8 @@ import java.util.stream.Collectors;
 public class ExplainabilityRunHelper {
     private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
 
-
     private final ExperimentServiceFactory experimentServiceFactory;
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
-
 
     public ExplainabilityRunHelper(ExperimentServiceFactory experimentServiceFactory,
             MlAnalysisResourceHelper mlAnalysisResourceHelper) {
@@ -67,8 +65,8 @@ public class ExplainabilityRunHelper {
         Set<String> referenceKeys = getParamNames(referenceRun);
 
         if (referenceKeys.isEmpty()) {
-        log.info("No parameters found for reference run: " + referenceRun.getId());
-        return Collections.emptyList();
+            log.info("No parameters found for reference run: " + referenceRun.getId());
+            return Collections.emptyList();
         }
 
         ExperimentService service = experimentServiceFactory.getActiveService();
@@ -99,7 +97,8 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
-    protected ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId, String authorization)
+    protected ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId,
+            String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
 
         // Parse the JSON request into a Protobuf object
@@ -109,16 +108,26 @@ public class ExplainabilityRunHelper {
         if (requestBuilder.getExplanationType().equals("featureExplanation")) {
 
             // Create a DataPaths object from the loaded data paths
-            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization, "feature");
+            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
+                    "feature");
             if (dataPaths.isEmpty()) {
                 throw new IllegalArgumentException("No data paths found for experimentId this experiment");
             }
             DataPaths data = buildDataPaths(dataPaths.get());
             requestBuilder.setData(data);
 
-            // Add the model path to the request
-            List<String> model = new ArrayList<>();
-            model.add(dataPaths.get().get("model").toString());
+            // Get model path, try "model.pkl" first, then "model"
+            String modelPath = dataPaths.get().get("model.pkl");
+            if (modelPath == null) {
+                modelPath = dataPaths.get().get("model");
+            }
+
+            if (modelPath == null) {
+                throw new IllegalArgumentException("Missing model path: expected either 'model.pkl' or 'model'");
+            }
+
+            // Add model to request
+            List<String> model = List.of(modelPath.toString());
             requestBuilder.addAllModel(model);
 
         } else if (requestBuilder.getExplanationType().equals("hyperparameterExplanation")) {
@@ -127,8 +136,9 @@ public class ExplainabilityRunHelper {
             Run run = response.getBody();
             List<Run> similarRuns = findSimilarRuns(run);
             similarRuns.add(run);
-            
-            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization, "hyperparameter");
+
+            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
+                    "hyperparameter");
             if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
                 requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
@@ -136,7 +146,7 @@ public class ExplainabilityRunHelper {
             List<String> model = new ArrayList<>();
             model.add(dataPaths.get().get("model").toString());
             requestBuilder.addAllModel(model);
-            
+
             for (Run similarRun : similarRuns) {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId(), authorization, "hyperparameter");
@@ -162,7 +172,7 @@ public class ExplainabilityRunHelper {
                 Hyperparameters hyperparameters = hyperparametersBuilder.build();
                 requestBuilder.putHyperConfigs(modelPath, hyperparameters);
             }
-                        LOG.info("Similar runs: " + similarRuns.size());
+            LOG.info("Similar runs: " + similarRuns.size());
 
         } else {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());
@@ -212,7 +222,8 @@ public class ExplainabilityRunHelper {
     }
 
     @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
-    public Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId, String authorization, String explanationType) {
+    public Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId,
+            String authorization, String explanationType) {
         log.info("Loading evaluation data for experimentId: " + experimentId + ", runId: " + runId);
         ExperimentService service = experimentServiceFactory.getActiveService();
         ResponseEntity<Run> response = service.getRunById(experimentId, runId);
@@ -221,7 +232,8 @@ public class ExplainabilityRunHelper {
         }
 
         Run run = response.getBody();
-        Optional<Map<String, String>> dataPaths = mlAnalysisResourceHelper.getRequiredFilePaths(run, authorization, explanationType);
+        Optional<Map<String, String>> dataPaths = mlAnalysisResourceHelper.getRequiredFilePaths(run, authorization,
+                explanationType);
         if (dataPaths.isEmpty()) {
             log.warning("No data paths found for experimentId: " + experimentId + ", runId: " + runId);
             return Optional.empty();
@@ -230,14 +242,33 @@ public class ExplainabilityRunHelper {
         return dataPaths;
     }
 
-    private DataPaths buildDataPaths(Map<String, String> dataPaths) {
-        log.info(dataPaths.toString());
-        DataPaths.Builder dataPathsBuilder = DataPaths.newBuilder();
-        dataPathsBuilder.setXTest(dataPaths.get("x_test"));
-        dataPathsBuilder.setXTrain(dataPaths.get("x_train"));
-        dataPathsBuilder.setYTest(dataPaths.get("y_test"));
-        dataPathsBuilder.setYTrain(dataPaths.get("y_train"));
-        dataPathsBuilder.setYPred(dataPaths.get("y_pred"));
-        return dataPathsBuilder.build();
+    private static final Map<String, List<String>> ALIASES = new HashMap<>();
+    static {
+        ALIASES.put("xTest", Arrays.asList("X_test.csv", "x_test"));
+        ALIASES.put("xTrain", Arrays.asList("X_train.csv", "x_train"));
+        ALIASES.put("yTest", Arrays.asList("Y_test.csv", "y_test"));
+        ALIASES.put("yTrain", Arrays.asList("Y_train.csv", "y_train"));
+        ALIASES.put("yPred", Arrays.asList("Y_pred.csv", "y_pred"));
     }
+
+    private String resolve(Map<String, String> map, String logicalKey) {
+        return ALIASES.get(logicalKey).stream()
+                .map(map::get)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Missing key for " + logicalKey +
+                        " (accepted: " + ALIASES.get(logicalKey) + ")"));
+    }
+
+    private DataPaths buildDataPaths(Map<String, String> dataPaths) {
+        DataPaths.Builder b = DataPaths.newBuilder()
+                .setXTest(resolve(dataPaths, "xTest"))
+                .setXTrain(resolve(dataPaths, "xTrain"))
+                .setYTest(resolve(dataPaths, "yTest"))
+                .setYTrain(resolve(dataPaths, "yTrain"))
+                .setYPred(resolve(dataPaths, "yPred"));
+
+        return b.build();
+    }
+
 }
