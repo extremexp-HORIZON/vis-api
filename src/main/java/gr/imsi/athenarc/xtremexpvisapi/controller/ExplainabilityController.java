@@ -38,11 +38,12 @@ public class ExplainabilityController {
         return explainabilityService.GetExplains(explainabilityRequest, experimentId, runId, authorization);
     }
 
-    @PostMapping("/feature-importance")
-    public JsonNode getFeatureImportance(@RequestBody String featureImportanceRequest)
+    @PostMapping("/{experimentId}/{runId}/feature-importance")
+    public JsonNode getFeatureImportance(@RequestBody String featureImportanceRequest,@PathVariable String experimentId,
+            @PathVariable String runId, @RequestHeader(value="Authorization", required=false) String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Received feature importance request:\n{}", featureImportanceRequest);
-        return explainabilityService.getFeatureImportance(featureImportanceRequest);
+        return explainabilityService.getFeatureImportance(featureImportanceRequest,experimentId, runId, authorization);
     }
 
     @GetMapping("/affected")

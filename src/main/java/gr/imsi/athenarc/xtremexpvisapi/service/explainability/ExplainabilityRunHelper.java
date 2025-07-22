@@ -20,6 +20,7 @@ import com.google.protobuf.util.JsonFormat;
 
 import explainabilityService.DataPaths;
 import explainabilityService.ExplanationsRequest;
+import explainabilityService.FeatureImportanceRequest;
 import explainabilityService.HyperparameterList;
 import explainabilityService.Hyperparameters;
 
@@ -97,6 +98,40 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
+
+    public FeatureImportanceRequest featureImportanceRequestBuilder(String experimentId, String runId, String authorization) {
+    // Fetch metadata, paths, etc. like you do in requestBuilder
+    // Pseudo-code example:
+
+   // Create a DataPaths object from the loaded data paths
+            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
+                    "feature");
+            if (dataPaths.isEmpty()) {
+                throw new IllegalArgumentException("No data paths found for experimentId this experiment");
+            }
+            DataPaths data = buildDataPaths(dataPaths.get());
+
+            // Get model path, try "model.pkl" first, then "model"
+            String modelPath = dataPaths.get().get("model.pkl");
+            if (modelPath == null) {
+                modelPath = dataPaths.get().get("model");
+            }
+
+            if (modelPath == null) {
+                throw new IllegalArgumentException("Missing model path: expected either 'model.pkl' or 'model'");
+            }
+
+            System.out.println("Model path: " + modelPath);
+            System.out.println("data {}"+data);
+
+            // Add model to request
+            List<String> model = List.of(modelPath.toString());
+    return FeatureImportanceRequest.newBuilder()
+        .addModel(modelPath)
+        .setData(data)
+        .build();
+}
+
     protected ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId,
             String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
@@ -129,6 +164,7 @@ public class ExplainabilityRunHelper {
             // Add model to request
             List<String> model = List.of(modelPath.toString());
             requestBuilder.addAllModel(model);
+            System.out.println("requstbuildr "+requestBuilder);
 
         } else if (requestBuilder.getExplanationType().equals("hyperparameterExplanation")) {
             ExperimentService service = experimentServiceFactory.getActiveService();
