@@ -114,7 +114,7 @@ message FeatureImportance {
 }
 
 message FeatureImportanceRequest {
-    string data = 1; // Path to dataset file
+    DataPaths data = 1; // Path to dataset file
     string target_column = 2; // The target variable in the dataset
     repeated int32 test_index = 3;
     repeated string model = 4; // path to model file

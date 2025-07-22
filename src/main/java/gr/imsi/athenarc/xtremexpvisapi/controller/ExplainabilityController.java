@@ -32,9 +32,17 @@ public class ExplainabilityController {
 
     @PostMapping("/{experimentId}/{runId}")
     public JsonNode getExplanation(@RequestBody String explainabilityRequest, @PathVariable String experimentId,
-            @PathVariable String runId, @RequestHeader(value = "Authorization", required = false) String authorization) throws JsonProcessingException, InvalidProtocolBufferException {
+            @PathVariable String runId, @RequestHeader(value = "Authorization", required = false) String authorization)
+            throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Received explainability request: \n{}", explainabilityRequest);
         return explainabilityService.GetExplains(explainabilityRequest, experimentId, runId, authorization);
+    }
+
+    @PostMapping("/feature-importance")
+    public JsonNode getFeatureImportance(@RequestBody String featureImportanceRequest)
+            throws JsonProcessingException, InvalidProtocolBufferException {
+        LOG.info("Received feature importance request:\n{}", featureImportanceRequest);
+        return explainabilityService.getFeatureImportance(featureImportanceRequest);
     }
 
     @GetMapping("/affected")
