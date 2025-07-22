@@ -17,6 +17,8 @@ import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
+import explainabilityService.FeatureImportanceRequest;
+import explainabilityService.FeatureImportanceResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import lombok.extern.java.Log;
@@ -83,6 +85,36 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 channel.shutdown();
 
                 String jsonString = JsonFormat.printer().print(response);
+
+                ObjectMapper objectMapper = new ObjectMapper();
+                return objectMapper.readTree(jsonString);
+        }
+
+        public JsonNode getFeatureImportance(String featureImportanceRequest)
+                        throws InvalidProtocolBufferException, JsonProcessingException {
+
+                // 1. Build the Protobuf Request from the incoming JSON string
+                FeatureImportanceRequest.Builder requestBuilder = FeatureImportanceRequest.newBuilder();
+                JsonFormat.parser().ignoringUnknownFields().merge(featureImportanceRequest, requestBuilder);
+                FeatureImportanceRequest request = requestBuilder.build();
+
+                log.info("Built Feature Importance Request: \n" + request.toString());
+
+                // 2. Create the gRPC channel and stub
+                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
+                                .usePlaintext()
+                                .build();
+                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
+
+                // 3. Call the gRPC method
+                FeatureImportanceResponse response = stub.getFeatureImportance(request);
+
+                // 4. Shutdown the channel
+                channel.shutdown();
+
+                // 5. Convert the Protobuf Response to a JSON string and return
+                String jsonString = JsonFormat.printer().print(response);
+                log.info("Received Feature Importance Response: \n" + jsonString);
 
                 ObjectMapper objectMapper = new ObjectMapper();
                 return objectMapper.readTree(jsonString);
