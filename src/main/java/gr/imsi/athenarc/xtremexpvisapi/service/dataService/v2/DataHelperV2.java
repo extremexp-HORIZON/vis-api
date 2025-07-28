@@ -321,12 +321,12 @@ public class DataHelperV2 {
                 sql = buildAggregationQuery(request, sql);
             } else {
                 // Only add GROUP BY if there are no aggregations (regular grouping)
-              if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-    sql.append(" GROUP BY ");
-    sql.append(request.getGroupBy().stream()
-        .map(this::getCorrectedString)
-        .collect(Collectors.joining(", ")));
-}
+                if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+                    sql.append(" GROUP BY ");
+                    sql.append(request.getGroupBy().stream()
+                            .map(this::getCorrectedString)
+                            .collect(Collectors.joining(", ")));
+                }
 
             }
 
@@ -456,7 +456,7 @@ public class DataHelperV2 {
 
         String tableName = dataSource.getFileName().replace("-", "_");
         String metaTableName = dataSource.getFormat().toLowerCase() + "_meta";
-        Statement stmt = duckdbConnection.createStatement();
+        Statement createTableStmt = duckdbConnection.createStatement();
 
         // 1. Ensure meta table exists
         String createMetaTableSql = String.format(
@@ -478,7 +478,8 @@ public class DataHelperV2 {
                         "measure1 VARCHAR" +
                         ")",
                 metaTableName);
-        stmt.execute(createMetaTableSql);
+        createTableStmt.execute(createMetaTableSql);
+        createTableStmt.close();
 
         // 2. Check if row for fileName exists
         String checkRowSql = String.format(
@@ -537,7 +538,8 @@ public class DataHelperV2 {
                             "MAX(latitude) AS queryYMax " +
                             "FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
                     filePath.replace("\\", "\\\\"), delimiter);
-            ResultSet rs = stmt.executeQuery(rawVisSql);
+            Statement rawVisStmt = duckdbConnection.createStatement();
+            ResultSet rs = rawVisStmt.executeQuery(rawVisSql);
             Timestamp minTs = null;
             Timestamp maxTs = null;
             double queryXMin = 0, queryXMax = 0, queryYMin = 0, queryYMax = 0;
@@ -573,6 +575,7 @@ public class DataHelperV2 {
                 metadataResponse.setMeasure1(dataSource.getFileName().equals("patra") ? "latency" : "cqi");
             }
             rs.close();
+            rawVisStmt.close();
 
             // Insert into meta table
             String upsertMetaSql = String.format(
@@ -604,7 +607,8 @@ public class DataHelperV2 {
                     "SELECT DISTINCT %s FROM read_csv('%s')",
                     dimension,
                     filePath.replace("\\", "\\\\"));
-            ResultSet facetsRs = stmt.executeQuery(facetsSql);
+            Statement facetsStmt = duckdbConnection.createStatement();
+            ResultSet facetsRs = facetsStmt.executeQuery(facetsSql);
             StringBuilder sb = new StringBuilder();
             List<String> values = new ArrayList<>();
             while (facetsRs.next()) {
@@ -615,9 +619,9 @@ public class DataHelperV2 {
             // log.info("Facet counts for " + dimension + ":\n" + sb.toString());
             facets.put(dimension, values);
             facetsRs.close();
+            facetsStmt.close();
         }
         metadataResponse.setFacets(facets);
-        stmt.close();
     }
 
     /**
