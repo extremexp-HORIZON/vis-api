@@ -1,6 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
-import org.checkerframework.checker.units.qual.s;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -45,14 +44,14 @@ public class DataServiceV2 {
     }
 
     private String buildCountQuery(String originalQuery) {
-    // Remove existing LIMIT and OFFSET
-    String cleanedQuery = originalQuery
-        .replaceAll("(?i)LIMIT\\s+\\d+", "")
-        .replaceAll("(?i)OFFSET\\s+\\d+", "");
+        // Remove existing LIMIT and OFFSET
+        String cleanedQuery = originalQuery
+                .replaceAll("(?i)LIMIT\\s+\\d+", "")
+                .replaceAll("(?i)OFFSET\\s+\\d+", "");
 
-    // Wrap in a subquery to count total rows
-    return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
-}
+        // Wrap in a subquery to count total rows
+        return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
+    }
 
     @Async
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
@@ -62,7 +61,9 @@ public class DataServiceV2 {
         log.info("Request: " + request);
 
         if (request instanceof MapDataRequest) {
-            MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
+            final MetadataResponseV2 metadataResponse = ((MapDataRequest) request).getMapMetadata() == null
+                    ? getFileMetadata(request.getDataSource(), authorization).get()
+                    : ((MapDataRequest) request).getMapMetadata();
             // Build the SQL query for the map view
             return dataQueryHelper
                     .buildMapQuery((MapDataRequest) request, authorization, (MetadataMapResponse) metadataResponse)
@@ -88,7 +89,9 @@ public class DataServiceV2 {
                         }
                     });
         } else if (request instanceof TimeSeriesDataRequest) {
-            MetadataResponseV2 metadataResponse = getFileMetadata(request.getDataSource(), authorization).get();
+            final MetadataResponseV2 metadataResponse = ((TimeSeriesDataRequest) request).getMapMetadata() == null
+                    ? getFileMetadata(request.getDataSource(), authorization).get()
+                    : ((TimeSeriesDataRequest) request).getMapMetadata();
             // Build the SQL query for the time series view
             return dataQueryHelper
                     .buildTimeSeriesQuery((TimeSeriesDataRequest) request, authorization,
@@ -145,7 +148,6 @@ public class DataServiceV2 {
                 DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
                 response.setTotalItems(totalItems);
 
-
                 // Close resources
                 resultSet.close();
                 statement.close();
@@ -163,7 +165,7 @@ public class DataServiceV2 {
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
             throws Exception, SQLException {
         return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
-            
+
             try {
                 // Build a simple SELECT query to get column information
                 String sql = "SELECT * FROM ";
@@ -200,7 +202,8 @@ public class DataServiceV2 {
                 String countSql = "SELECT COUNT(*) as total FROM ";
                 countSql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
 
-                ResultSet countResult = statement.executeQuery(countSql);
+                Statement countStatement = duckdbConnection.createStatement();
+                ResultSet countResult = countStatement.executeQuery(countSql);
                 int totalItems = 0;
                 if (countResult.next()) {
                     totalItems = countResult.getInt("total");
@@ -232,9 +235,11 @@ public class DataServiceV2 {
                 }
                 try {
                     sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
-            
-                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file loading
-                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+
+                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file
+                                                                                             // loading
+                    Statement summarizeStatement = duckdbConnection.createStatement();
+                    ResultSet summarizeResult = summarizeStatement.executeQuery(summarizeSql);
                     List<Map<String, Object>> summaryList = new ArrayList<>();
                     int colCount = summarizeResult.getMetaData().getColumnCount();
                     while (summarizeResult.next()) {
@@ -243,17 +248,21 @@ public class DataServiceV2 {
                             String colName = summarizeResult.getMetaData().getColumnName(i);
                             Object value = summarizeResult.getObject(i);
                             summaryRow.put(colName, value);
-                        }summaryList.add(summaryRow);
+                        }
+                        summaryList.add(summaryRow);
                     }
                     metadataResponse.setSummary(summaryList);
                     summarizeResult.close();
+                    summarizeStatement.close();
                 } catch (SQLException summarizeEx) {
-                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());}
+                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+                }
 
                 // Close resources
                 resultSet.close();
                 countResult.close();
                 statement.close();
+                countStatement.close();
 
                 return ifRawVis ? metadataMapResponse : metadataResponse;
 

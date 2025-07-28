@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 
 import java.util.Map;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataMapResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
 
 @Data
@@ -20,4 +21,14 @@ public class TimeSeriesDataRequest extends DataRequest {
     String measureCol;
     Long from;
     Long to;
+    MetadataMapResponse mapMetadata;
+
+    public TimeSeriesDataRequest(long frequency, Rectangle rect, Map<String, String> categoricalFilters, String measureCol, Long from, Long to) {
+        this.frequency = frequency;
+        this.rect = rect;
+        this.categoricalFilters = categoricalFilters;
+        this.measureCol = measureCol;
+        this.from = from;
+        this.to = to;
+    }
 }
