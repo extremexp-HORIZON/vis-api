@@ -61,12 +61,12 @@ public class ModelEvaluationService {
     public Optional<ModelEvaluationData> loadEvaluationData(
             String experimentId, String runId, String auth) {
 
-        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        // LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
         Optional<Map<String, String>> rawPaths = explainabilityRunHelper.loadExplainabilityDataPaths(
                 experimentId, runId, auth, "");
 
-        System.out.println("rawPaths: " + rawPaths);
+        // System.out.println("rawPaths: " + rawPaths);
 
         if (rawPaths.isEmpty()) {
             LOG.warn("No file paths found for experimentId: {}, runId: {}", experimentId, runId);
@@ -223,9 +223,12 @@ public class ModelEvaluationService {
      */
     public Optional<String> getRocCurveData(String experimentId, String runId, String authorization) {
         Optional<Map<String, String>> filePaths = explainabilityRunHelper.loadExplainabilityDataPaths(experimentId,
-                runId, authorization, authorization);
-        Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("rocdata"));
-        if (!Files.exists(rocPath)) {
+                runId, authorization, "");
+        // System.out.println("filePaths MODEL SERVICE: " + filePaths);
+        ExperimentService service = experimentServiceFactory.getActiveService();
+        if (service.getClass().getSimpleName().equals("MLflowExperimentService")) {
+            Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("roc_data.json"));
+            if (!Files.exists(rocPath)) {
             return Optional.empty();
         }
 
@@ -235,6 +238,23 @@ public class ModelEvaluationService {
             LOG.error("Error reading ROC curve file", e);
             return Optional.empty();
         }
+
+        } else {
+                Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("rocdata"));
+                if (!Files.exists(rocPath)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(Files.readString(rocPath));
+        } catch (IOException e) {
+            LOG.error("Error reading ROC curve file", e);
+            return Optional.empty();
+        }
+
+           
+        }
+        
     }
 
     /*

@@ -122,7 +122,7 @@ public class ExplainabilityRunHelper {
             }
 
             System.out.println("Model path: " + modelPath);
-            System.out.println("data {}"+data);
+            // System.out.println("data {}"+data);
 
             // Add model to request
             List<String> model = List.of(modelPath.toString());
@@ -164,7 +164,7 @@ public class ExplainabilityRunHelper {
             // Add model to request
             List<String> model = List.of(modelPath.toString());
             requestBuilder.addAllModel(model);
-            System.out.println("requstbuildr "+requestBuilder);
+            // System.out.println("requstbuildr "+requestBuilder);
 
         } else if (requestBuilder.getExplanationType().equals("hyperparameterExplanation")) {
             ExperimentService service = experimentServiceFactory.getActiveService();

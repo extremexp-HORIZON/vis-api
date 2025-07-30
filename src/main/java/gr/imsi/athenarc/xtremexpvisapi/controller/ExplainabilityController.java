@@ -35,6 +35,7 @@ public class ExplainabilityController {
             @PathVariable String runId, @RequestHeader(value = "Authorization", required = false) String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Received explainability request: \n{}", explainabilityRequest);
+
         return explainabilityService.GetExplains(explainabilityRequest, experimentId, runId, authorization);
     }
 
@@ -42,13 +43,15 @@ public class ExplainabilityController {
     public JsonNode getFeatureImportance(@RequestBody String featureImportanceRequest,@PathVariable String experimentId,
             @PathVariable String runId, @RequestHeader(value="Authorization", required=false) String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
-        LOG.info("Received feature importance request:\n{}", featureImportanceRequest);
+        // LOG.info("Received feature importance request:\n{}", featureImportanceRequest);
+                LOG.info("Received feature importance request");
+
         return explainabilityService.getFeatureImportance(featureImportanceRequest,experimentId, runId, authorization);
     }
 
     @GetMapping("/affected")
     public JsonNode applyAffectedActions() throws JsonProcessingException, InvalidProtocolBufferException {
-        LOG.info("Request for apply affected actions");
+        LOG.info("Received request for affected ppl");
         return explainabilityService.ApplyAffectedActions();
     }
 }

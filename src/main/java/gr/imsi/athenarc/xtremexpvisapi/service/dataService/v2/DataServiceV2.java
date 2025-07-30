@@ -175,7 +175,6 @@ public class DataServiceV2 {
     }
 
     public float[][] getUmap(float[][] data) {
-        log.info("Performing dimensionality reduction");
         Umap umap = new Umap();
         umap.setNumberComponents(2);
         umap.setNumberNearestNeighbours(15);

@@ -50,7 +50,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 ObjectMapper objectMapper = new ObjectMapper();
                 // print the request as JSON
                 jsonString = JsonFormat.printer().print(request);
-                log.info("Request: \n" + jsonString);
+                // log.info("Request: \n" + jsonString);
 
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
                                 Integer.parseInt(grpcHostPort))
@@ -61,7 +61,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
                 ExplanationsResponse response = stub.getExplanation(request);
                 jsonString = JsonFormat.printer().print(response);
-                log.info("Response: \n" + jsonString);
+                // log.info("Response: \n" + jsonString);
 
                 channel.shutdown();
 
@@ -95,13 +95,13 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
     FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
             experimentId, runId, authorization);
-            System.out.println("FeatureImportanceRequestRRRRn: " + request);
+        //     System.out.println("FeatureImportanceRequestRRRRn: " + request);
 
 
     String jsonString;
     ObjectMapper objectMapper = new ObjectMapper();
     jsonString = JsonFormat.printer().print(request);
-    log.info("FeatureImportanceRequest: \n" + jsonString);
+//     log.info("FeatureImportanceRequest: \n" + jsonString);
 
     ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
             Integer.parseInt(grpcHostPort))
@@ -111,7 +111,6 @@ public class ExplainabilityService extends ExplanationsImplBase {
     ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
     FeatureImportanceResponse response = stub.getFeatureImportance(request);
     jsonString = JsonFormat.printer().print(response);
-    log.info("FeatureImportanceResponse: \n" + jsonString);
 
     channel.shutdown();
 
