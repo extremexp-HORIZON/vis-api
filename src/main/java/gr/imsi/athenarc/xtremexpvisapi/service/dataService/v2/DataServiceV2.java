@@ -272,13 +272,11 @@ public class DataServiceV2 {
         });
     }
 
-    public String[] fetchRow(String datasetId, String objectId) throws Exception, SQLException {
+    public String[] fetchRow(DataSource dataSource, String objectId) throws Exception, SQLException {
 
         try {
 
-            String csvPath = String.format("/opt/experiments/%1$s/dataset/%1$s.csv", datasetId);
-
-            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", csvPath, objectId);
+            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", dataSource.getSource(), objectId);
             Statement statement = duckdbConnection.createStatement();
             ResultSet resultSet = statement.executeQuery(sql);
             int columnCount = resultSet.getMetaData().getColumnCount();

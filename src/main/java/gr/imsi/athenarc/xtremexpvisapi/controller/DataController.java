@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -29,6 +30,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
+import gr.imsi.athenarc.xtremexpvisapi.service.DataSourceService;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
 import jakarta.validation.Valid;
@@ -39,6 +41,9 @@ import jakarta.validation.Valid;
 public class DataController {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataController.class);
+
+    @Autowired
+    private DataSourceService dataSourceService;
 
     private final DataServiceV1 dataServiceV1;
     private final DataServiceV2 dataServiceV2;
@@ -109,7 +114,9 @@ public class DataController {
             throws IOException, SQLException {
         LOG.info("REST request to retrieve object {} from dataset {}", objectId, datasetId);
         try {
-            String[] row = dataServiceV2.fetchRow(datasetId, objectId);
+            DataSource dataSource = dataSourceService.findByFileName(datasetId).get();
+
+            String[] row = dataServiceV2.fetchRow(dataSource, objectId);
             return ResponseEntity.ok(row);
         } catch (SQLException e) {
             LOG.error("SQL error retrieving row", e);
