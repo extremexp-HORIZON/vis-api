@@ -58,66 +58,68 @@ public class ModelEvaluationService {
 
     @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
 
-    
     public Optional<ModelEvaluationData> loadEvaluationData(
-        String experimentId, String runId, String auth) {
+            String experimentId, String runId, String auth) {
 
-    LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
 
-    Optional<Map<String, String>> rawPaths =
-            explainabilityRunHelper.loadExplainabilityDataPaths(
-                    experimentId, runId, auth, auth);
+        Optional<Map<String, String>> rawPaths = explainabilityRunHelper.loadExplainabilityDataPaths(
+                experimentId, runId, auth, "");
 
-    if (rawPaths.isEmpty()) {
-        LOG.warn("No file paths found for experimentId: {}, runId: {}", experimentId, runId);
-        return Optional.empty();
+        System.out.println("rawPaths: " + rawPaths);
+
+        if (rawPaths.isEmpty()) {
+            LOG.warn("No file paths found for experimentId: {}, runId: {}", experimentId, runId);
+            return Optional.empty();
+        }
+
+        // Step 1: canonicalise
+        Map<String, String> paths = normaliseKeys(rawPaths.get());
+        // Step 2: sanity‑check
+        assertContainsAll(paths);
+
+        // Step 3: load tables with predictable keys
+        Table xTest = loadTable(modelAnalysisResourceToPath(paths.get("x_test")));
+        Table yTest = loadTable(modelAnalysisResourceToPath(paths.get("y_test")));
+        Table yPred = loadTable(modelAnalysisResourceToPath(paths.get("y_pred")));
+        Table xTrain = loadTable(modelAnalysisResourceToPath(paths.get("x_train")));
+        Table yTrain = loadTable(modelAnalysisResourceToPath(paths.get("y_train")));
+
+        validateAlignment(xTest, yTest, yPred);
+        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
     }
-
-    // Step 1: canonicalise
-    Map<String, String> paths = normaliseKeys(rawPaths.get());
-    // Step 2: sanity‑check
-    assertContainsAll(paths);
-
-    // Step 3: load tables with predictable keys
-    Table xTest  = loadTable(modelAnalysisResourceToPath(paths.get("x_test")));
-    Table yTest  = loadTable(modelAnalysisResourceToPath(paths.get("y_test")));
-    Table yPred  = loadTable(modelAnalysisResourceToPath(paths.get("y_pred")));
-    Table xTrain = loadTable(modelAnalysisResourceToPath(paths.get("x_train")));
-    Table yTrain = loadTable(modelAnalysisResourceToPath(paths.get("y_train")));
-
-    validateAlignment(xTest, yTest, yPred);
-    return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
-}
 
     private static final List<String> REQUIRED_KEYS = List.of(
-        "x_test", "y_test", "y_pred", "x_train", "y_train");
+            "x_test", "y_test", "y_pred", "x_train", "y_train");
 
-/**
- * Converts whatever keys MLflow returns (e.g. "X_test.csv", "x_test")
- * into a predictable, lower‑case, extension‑less map.  
- */
-private Map<String, String> normaliseKeys(Map<String, String> raw) {
-    return raw.entrySet().stream()
-              .collect(Collectors.toMap(
-                   e -> e.getKey()
-                         .toLowerCase(Locale.ROOT)
-                         .replace(".csv", ""),
-                   Map.Entry::getValue));
-}
-
-/** Throws if any required key is missing so we never pass null to Paths.get(). */
-private void assertContainsAll(Map<String, String> m) {
-    List<String> missing = REQUIRED_KEYS.stream()
-                                        .filter(k -> !m.containsKey(k))
-                                        .toList();
-    if (!missing.isEmpty()) {
-        throw new IllegalStateException(
-            "MLflow run is missing expected files: " + missing);
+    /**
+     * Converts whatever keys MLflow returns (e.g. "X_test.csv", "x_test")
+     * into a predictable, lower‑case, extension‑less map.
+     */
+    private Map<String, String> normaliseKeys(Map<String, String> raw) {
+        return raw.entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey()
+                                .toLowerCase(Locale.ROOT)
+                                .replace(".csv", ""),
+                        Map.Entry::getValue));
     }
-}
+
+    /**
+     * Throws if any required key is missing so we never pass null to Paths.get().
+     */
+    private void assertContainsAll(Map<String, String> m) {
+        List<String> missing = REQUIRED_KEYS.stream()
+                .filter(k -> !m.containsKey(k))
+                .toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException(
+                    "MLflow run is missing expected files: " + missing);
+        }
+    }
 
     private Path modelAnalysisResourceToPath(String filePath) {
-        System.out.println("oooooook"+filePath);
+        System.out.println("oooooook" + filePath);
         return Paths.get(filePath);
     }
 
@@ -220,7 +222,8 @@ private void assertContainsAll(Map<String, String> m) {
      *         if not found
      */
     public Optional<String> getRocCurveData(String experimentId, String runId, String authorization) {
-        Optional<Map<String, String>> filePaths = explainabilityRunHelper.loadExplainabilityDataPaths(experimentId, runId, authorization, authorization);
+        Optional<Map<String, String>> filePaths = explainabilityRunHelper.loadExplainabilityDataPaths(experimentId,
+                runId, authorization, authorization);
         Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("rocdata"));
         if (!Files.exists(rocPath)) {
             return Optional.empty();

@@ -180,13 +180,18 @@ public class ExplainabilityRunHelper {
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
             }
             List<String> model = new ArrayList<>();
-            model.add(dataPaths.get().get("model").toString());
-            requestBuilder.addAllModel(model);
+            if (service.getClass().getSimpleName().equals("MLflowExperimentService")) {
+                model.add(dataPaths.get().get("model.pkl").toString());
+                requestBuilder.addAllModel(model);
+            } else {
+                model.add(dataPaths.get().get("model").toString());
+                requestBuilder.addAllModel(model);
+
+            }
 
             for (Run similarRun : similarRuns) {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId(), authorization, "hyperparameter");
-                String modelPath = dataPaths.get().get("model").toString();
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
                 hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
 
@@ -206,7 +211,11 @@ public class ExplainabilityRunHelper {
                 }
 
                 Hyperparameters hyperparameters = hyperparametersBuilder.build();
-                requestBuilder.putHyperConfigs(modelPath, hyperparameters);
+                if(service.getClass().getSimpleName().equals("MLflowExperimentService")) {
+                    requestBuilder.putHyperConfigs(dataPaths.get().get("model.pkl").toString(), hyperparameters);
+                } else {
+                    requestBuilder.putHyperConfigs(dataPaths.get().get("model").toString(), hyperparameters);
+                }
             }
             LOG.info("Similar runs: " + similarRuns.size());
 
