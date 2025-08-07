@@ -1,6 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
-import org.checkerframework.checker.units.qual.s;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,8 @@ import java.util.concurrent.CompletableFuture;
 public class DataServiceV2 {
 
     @Autowired
-    private Connection duckdbConnection;
+private javax.sql.DataSource dataSource;
+
     private DataHelperV2 dataQueryHelper;
 
     @Autowired
@@ -50,8 +50,9 @@ public class DataServiceV2 {
     @Async
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization) throws SQLException, Exception {
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
-            try {
-                Statement statement = duckdbConnection.createStatement();
+           try (Connection connection = dataSource.getConnection();
+     Statement statement = connection.createStatement()) {
+
                 String countQuery = buildCountQuery(sql);
                 ResultSet countResultSet = statement.executeQuery(countQuery);
                 int totalItems = 0;
@@ -81,99 +82,86 @@ public class DataServiceV2 {
 
     @Async
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization) throws Exception, SQLException {
-        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
-            
-            try {
-                // Build a simple SELECT query to get column information
-                String sql = "SELECT * FROM ";
-                // Detect file type and build appropriate query
-                FileType fileType = dataQueryHelper.detectFileType(filePath);
+     return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
+    try (
+        Connection connection = this.dataSource.getConnection();
+        Statement statement = connection.createStatement()
+    ) {
+        FileType fileType = dataQueryHelper.detectFileType(filePath);
 
-                sql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
-                sql += " LIMIT 10"; // Just get a few rows for metadata analysis
+        String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath) + " LIMIT 10";
+        ResultSet resultSet = statement.executeQuery(sql);
 
-                Statement statement = duckdbConnection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql);
+        MetadataResponseV2 metadataResponse = new MetadataResponseV2();
 
-                MetadataResponseV2 metadataResponse = new MetadataResponseV2();
+        var metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        List<String> timeColumns = new ArrayList<>();
+        List<Column> convertedColumns = new ArrayList<>();
 
-                // Get column metadata
-                var metaData = resultSet.getMetaData();
-                int columnCount = metaData.getColumnCount();
-                List<String> timeColumns = new ArrayList<>();
+        for (int i = 1; i <= columnCount; i++) {
+            String columnName = metaData.getColumnName(i);
+            String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
+            convertedColumns.add(new Column(columnName, columnType));
 
-                // Convert TabularColumn to Column for the metadata response
-                List<Column> convertedColumns = new ArrayList<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    String columnName = metaData.getColumnName(i);
-                    String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
-                    convertedColumns.add(new Column(columnName, columnType));
-
-                    // Check if it's a time column
-                    if (dataQueryHelper.isTimeColumn(columnType)) {
-                        timeColumns.add(columnName);
-                    }
-                }
-
-                // Count total rows
-                String countSql = "SELECT COUNT(*) as total FROM ";
-                countSql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
-
-                ResultSet countResult = statement.executeQuery(countSql);
-                int totalItems = 0;
-                if (countResult.next()) {
-                    totalItems = countResult.getInt("total");
-                }
-
-                // Check for lat/lon columns
-                // Set metadata response fields
-                
-                // Detect dataset type based on time columns and data ordering
-                DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
-
-                // Set metadata response fields
-                metadataResponse.setOriginalColumns(convertedColumns);
-                metadataResponse.setTotalItems(totalItems);
-                metadataResponse.setDatasetType(datasetType);
-                metadataResponse.setHasLatLonColumns(dataQueryHelper.hasLatLonColumns(convertedColumns));
-
-                if (!timeColumns.isEmpty()) {
-                    metadataResponse.setTimeColumn(timeColumns);
-                }
-
-                try {
-                    sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
-            
-                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file loading
-                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
-                    List<Map<String, Object>> summaryList = new ArrayList<>();
-                    int colCount = summarizeResult.getMetaData().getColumnCount();
-                    while (summarizeResult.next()) {
-                        Map<String, Object> summaryRow = new java.util.HashMap<>();
-                        for (int i = 1; i <= colCount; i++) {
-                            String colName = summarizeResult.getMetaData().getColumnName(i);
-                            Object value = summarizeResult.getObject(i);
-                            summaryRow.put(colName, value);
-                        }summaryList.add(summaryRow);
-                    }
-                    metadataResponse.setSummary(summaryList);
-                    summarizeResult.close();
-                } catch (SQLException summarizeEx) {
-                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());}
-
-                // Close resources
-                resultSet.close();
-                countResult.close();
-                statement.close();
-
-                return metadataResponse;
-
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to get file metadata", e);
+            if (dataQueryHelper.isTimeColumn(columnType)) {
+                timeColumns.add(columnName);
             }
-        });
-    }
+        }
 
+        String countSql = "SELECT COUNT(*) as total FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath);
+        ResultSet countResult = statement.executeQuery(countSql);
+        int totalItems = 0;
+        if (countResult.next()) {
+            totalItems = countResult.getInt("total");
+        }
+
+        DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
+
+        metadataResponse.setOriginalColumns(convertedColumns);
+        metadataResponse.setTotalItems(totalItems);
+        metadataResponse.setDatasetType(datasetType);
+        metadataResponse.setHasLatLonColumns(dataQueryHelper.hasLatLonColumns(convertedColumns));
+
+        if (!timeColumns.isEmpty()) {
+            metadataResponse.setTimeColumn(timeColumns);
+        }
+
+        try {
+            sql = sql.replace(" LIMIT 10", "");
+            String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM"));
+            ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+
+            List<Map<String, Object>> summaryList = new ArrayList<>();
+            int colCount = summarizeResult.getMetaData().getColumnCount();
+
+            while (summarizeResult.next()) {
+                Map<String, Object> summaryRow = new java.util.HashMap<>();
+                for (int i = 1; i <= colCount; i++) {
+                    String colName = summarizeResult.getMetaData().getColumnName(i);
+                    Object value = summarizeResult.getObject(i);
+                    summaryRow.put(colName, value);
+                }
+                summaryList.add(summaryRow);
+            }
+
+            metadataResponse.setSummary(summaryList);
+            summarizeResult.close();
+        } catch (SQLException summarizeEx) {
+            log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+        }
+
+        resultSet.close();
+        countResult.close();
+
+        return metadataResponse;
+
+    } catch (SQLException e) {
+        throw new RuntimeException("Failed to get file metadata", e);
+    }
+});
+
+    }
     public float[][] getUmap(float[][] data) {
         Umap umap = new Umap();
         umap.setNumberComponents(2);
