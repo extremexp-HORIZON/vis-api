@@ -17,7 +17,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").permitAll() // Allow all requests to /api**/
                 .requestMatchers("/experiments/**").permitAll() // Allow all requests to /api**/
                 .requestMatchers("/data-management/**").permitAll() // Allow all requests to /api**/
-                .requestMatchers("/error").permitAll());
+                .requestMatchers("/error").permitAll()
+                .requestMatchers(
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**"
+                ).permitAll());
         return http.build();
     }
 }
