@@ -528,16 +528,24 @@ public class DataHelperV2 {
                 throw new RuntimeException("Failed to read file", e);
             }
 
-            String rawVisSql = String.format(
-                    "SELECT " +
-                            "MIN(radio_timestamp) AS min_time, " +
-                            "MAX(radio_timestamp) AS max_time, " +
-                            "MIN(longitude) AS queryXMin, " +
-                            "MAX(longitude) AS queryXMax, " +
-                            "MIN(latitude) AS queryYMin, " +
-                            "MAX(latitude) AS queryYMax " +
-                            "FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
-                    filePath.replace("\\", "\\\\"), delimiter);
+            String rawVisSql;
+            List<String> selectFields = new ArrayList<>();
+            if (metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries) {
+                selectFields.addAll(Arrays.asList(
+                    "MIN(radio_timestamp) AS min_time",
+                    "MAX(radio_timestamp) AS max_time"
+                ));
+            }
+            selectFields.addAll(Arrays.asList(
+                "MIN(longitude) AS queryXMin",
+                "MAX(longitude) AS queryXMax", 
+                "MIN(latitude) AS queryYMin",
+                "MAX(latitude) AS queryYMax"
+            ));
+
+            rawVisSql = String.format(
+                "SELECT %s FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
+                String.join(", ", selectFields), filePath.replace("\\", "\\\\"), delimiter);
             Statement rawVisStmt = duckdbConnection.createStatement();
             ResultSet rs = rawVisStmt.executeQuery(rawVisSql);
             Timestamp minTs = null;
@@ -545,8 +553,8 @@ public class DataHelperV2 {
             double queryXMin = 0, queryXMax = 0, queryYMin = 0, queryYMax = 0;
             double xMin = -157.9287779, xMax = 119.819558, yMin = 8.91667, yMax = 61.231374;
             if (rs.next()) {
-                minTs = rs.getTimestamp("min_time");
-                maxTs = rs.getTimestamp("max_time");
+                minTs = metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries ? rs.getTimestamp("min_time") : null;
+                maxTs = metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries ? rs.getTimestamp("max_time") : null;
                 queryXMin = rs.getDouble("queryXMin");
                 queryXMax = rs.getDouble("queryXMax");
                 queryYMin = rs.getDouble("queryYMin");
@@ -562,17 +570,30 @@ public class DataHelperV2 {
                 metadataResponse.setQueryYMin(queryYMin);
                 metadataResponse.setQueryYMax(queryYMax);
                 // Populate dimensions and measures depending on the columns. (hardcoded ?)
-                metadataResponse.getDimensions()
-                        .addAll(Arrays.asList("net_type", "mcc_nr", "mnc_nr", "provider", "eci_cid"));
                 // metadataResponse.getDimensions()
-                // .addAll(convertedColumns.stream()
-                // .filter(c -> isCategorical(c))
-                // .map(Column::getName).collect(Collectors.toList()));
+                //         .addAll(Arrays.asList("net_type", "mcc_nr", "mnc_nr", "provider", "eci_cid"));
+                metadataResponse.getDimensions()
+                .addAll(convertedColumns.stream()
+                .filter(c -> !c.getName().toLowerCase().contains("timestamp") && isCategorical(c))
+                .map(Column::getName).collect(Collectors.toList()));
                 metadataResponse.getMeasures().addAll(convertedColumns.stream()
                         .filter(c -> isNumerical(c))
                         .map(Column::getName).collect(Collectors.toList()));
-                metadataResponse.setMeasure0("rsrp_rscp_rssi");
-                metadataResponse.setMeasure1(dataSource.getFileName().equals("patra") ? "latency" : "cqi");
+
+                // TODO: Make this more dynamic via the metadataResponse.getMeasures()
+                // Set measure0 to the column that has "rssi" in its name (case-insensitive)
+                String measure0 = metadataResponse.getOriginalColumns().stream()
+                    .map(Column::getName)
+                    .filter(name -> name != null && name.toLowerCase().contains("rssi"))
+                    .findFirst()
+                    .orElse("rsrp");
+                metadataResponse.setMeasure0(measure0);
+                String measure1 = metadataResponse.getOriginalColumns().stream()
+                    .map(Column::getName)
+                    .filter(name -> name != null && name.toLowerCase().contains("throughput"))
+                    .findFirst()
+                    .orElse("cqi");
+                metadataResponse.setMeasure1(dataSource.getFileName().equals("patra") ? "latency" : measure1);
             }
             rs.close();
             rawVisStmt.close();
@@ -677,13 +698,15 @@ public class DataHelperV2 {
                         .collect(Collectors.joining()));
             }
 
-            if (request.getFrom() != null && request.getTo() != null) {
-                sql.append(" AND " + timestampCol + " BETWEEN '" + new Timestamp(request.getFrom()) + "' AND '"
-                        + new Timestamp(request.getTo()) + "'");
-            } else if (request.getFrom() != null) {
-                sql.append(" AND " + timestampCol + " >= '" + new Timestamp(request.getFrom()) + "'");
-            } else if (request.getTo() != null) {
-                sql.append(" AND " + timestampCol + " <= '" + new Timestamp(request.getTo()) + "'");
+            if (metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries) {
+                if (request.getFrom() != null && request.getTo() != null) {
+                    sql.append(" AND " + timestampCol + " BETWEEN '" + new Timestamp(request.getFrom()) + "' AND '"
+                            + new Timestamp(request.getTo()) + "'");
+                } else if (request.getFrom() != null) {
+                    sql.append(" AND " + timestampCol + " >= '" + new Timestamp(request.getFrom()) + "'");
+                } else if (request.getTo() != null) {
+                    sql.append(" AND " + timestampCol + " <= '" + new Timestamp(request.getTo()) + "'");
+                }
             }
             return sql.toString();
         });
@@ -737,9 +760,11 @@ public class DataHelperV2 {
 
             String groupKey = String.join(",", groupValues);
 
-            Double measureValue = resultSet.getObject(request.getMeasureCol()) != null
-                    ? resultSet.getDouble(request.getMeasureCol())
-                    : null;
+            Double measureValue = null;
+            Object measureObj = resultSet.getObject(request.getMeasureCol());
+            if (measureObj != null && !measureObj.toString().trim().isEmpty()) {
+                measureValue = resultSet.getDouble(request.getMeasureCol());
+            }
             if (measureValue != null)
                 groupStatsMap.computeIfAbsent(groupKey, k -> new StatsAccumulator()).add(measureValue);
 
