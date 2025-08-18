@@ -90,9 +90,11 @@ public class DataHelperV2 {
                 .map(col -> col.getName().toLowerCase())
                 .collect(Collectors.toSet());
 
-        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
+        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude")|| lowerColNames.contains("lat_wgs84")
+                || lowerColNames.contains("latitude_wgs84");
         boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long")
-                || lowerColNames.contains("longitude");
+                || lowerColNames.contains("longitude")|| lowerColNames.contains("lon_wgs84")
+                || lowerColNames.contains("longitude_wgs84");
 
         return hasLat && hasLon;
     }

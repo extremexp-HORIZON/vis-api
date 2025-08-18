@@ -85,13 +85,19 @@ public class CsvDataSource implements DataSource {
                 .stream()
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
-    
-        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
-        boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long") || lowerColNames.contains("longitude");
-    
+
+        boolean hasLat = lowerColNames.contains("lat")
+                || lowerColNames.contains("latitude")
+                || lowerColNames.contains("lat_wgs84");
+
+        boolean hasLon = lowerColNames.contains("lon")
+                || lowerColNames.contains("long")
+                || lowerColNames.contains("longitude")
+                || lowerColNames.contains("lon_wgs84");
+
         return hasLat && hasLon;
     }
-    
+
     @Override
     public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
         TabularResponse tabularResults = new TabularResponse();
@@ -111,7 +117,8 @@ public class CsvDataSource implements DataSource {
                 }
             }
             LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
-            // tabularResults.setFileNames(tables.stream().map(table -> table.name()).toList());
+            // tabularResults.setFileNames(tables.stream().map(table ->
+            // table.name()).toList());
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
             // tabularResults.setColumns(columns);
         } else {
@@ -126,13 +133,13 @@ public class CsvDataSource implements DataSource {
                 tabularResults.setTotalItems(table.rowCount()); // Add this line to return total items
                 tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
                 // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 // tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
                 tabularResults.setColumns(
                         resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 // tabularResults.setOriginalColumns(
-                //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
-               
+                // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+
                 // tabularResults.setUniqueColumnValues(uniqueColumnValues);
             }
         }
@@ -175,10 +182,9 @@ public class CsvDataSource implements DataSource {
     public MetadataResponseV1 getFileMetadata(MetadataRequest metadataRequest) {
         Path path = Paths.get(workingDirectory, source);
         Table table = readCsvFromFile(path);
-        
-        
+
         // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
-        //         table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+        // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
         MetadataResponseV1 metadataResponse = new MetadataResponseV1();
         metadataResponse.setFileNames(Arrays.asList(new String[] { table.name() }));
@@ -190,60 +196,58 @@ public class CsvDataSource implements DataSource {
         metadataResponse.setHasLatLonColumns(hasLatLonColumns(table));
         List<String> timeColumns = new ArrayList<>();
         DateTimeFormatter[] formatters = new DateTimeFormatter[] {
-        DateTimeFormatter.ISO_DATE_TIME,       // 2025-04-23T07:13:48.883000Z
-        DateTimeFormatter.ISO_LOCAL_DATE_TIME, // 2025-04-23T07:13:48
-        DateTimeFormatter.ISO_LOCAL_DATE,      // 2025-04-23
-        DateTimeFormatter.ISO_INSTANT          // 2025-04-23T07:13:48Z
-    };
+                DateTimeFormatter.ISO_DATE_TIME, // 2025-04-23T07:13:48.883000Z
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME, // 2025-04-23T07:13:48
+                DateTimeFormatter.ISO_LOCAL_DATE, // 2025-04-23
+                DateTimeFormatter.ISO_INSTANT // 2025-04-23T07:13:48Z
+        };
 
-   for (Column<?> column : table.columns()) {
-        ColumnType type = column.type();
+        for (Column<?> column : table.columns()) {
+            ColumnType type = column.type();
 
-        // Native time columns
-        if (type.name().equals("LOCAL_DATE_TIME") || 
-            type.name().equals("LOCAL_DATE") || 
-            type.name().equals("INSTANT")) {
-            timeColumns.add(column.name());
-            continue;
-        }
+            // Native time columns
+            if (type.name().equals("LOCAL_DATE_TIME") ||
+                    type.name().equals("LOCAL_DATE") ||
+                    type.name().equals("INSTANT")) {
+                timeColumns.add(column.name());
+                continue;
+            }
 
-        // Heuristic check for STRING columns
-        if (type.name().equals("STRING")) {
-            int validCount = 0;
-            int samplesChecked = 0;
-            int sampleLimit = Math.min(10, column.size());
+            // Heuristic check for STRING columns
+            if (type.name().equals("STRING")) {
+                int validCount = 0;
+                int samplesChecked = 0;
+                int sampleLimit = Math.min(10, column.size());
 
-            for (int i = 0; i < column.size() && samplesChecked < sampleLimit; i++) {
-                String value = column.getString(i);
-                if (value == null || value.trim().isEmpty()) continue;
+                for (int i = 0; i < column.size() && samplesChecked < sampleLimit; i++) {
+                    String value = column.getString(i);
+                    if (value == null || value.trim().isEmpty())
+                        continue;
 
-                samplesChecked++;
-                for (DateTimeFormatter formatter : formatters) {
-                    try {
-                        formatter.parse(value);
-                        validCount++;
-                        break; // stop trying other formatters
-                    } catch (Exception e) {
-                        // try next formatter
+                    samplesChecked++;
+                    for (DateTimeFormatter formatter : formatters) {
+                        try {
+                            formatter.parse(value);
+                            validCount++;
+                            break; // stop trying other formatters
+                        } catch (Exception e) {
+                            // try next formatter
+                        }
                     }
                 }
-            }
 
-            // Threshold to consider it a time column
-            if (validCount >= 3) {
-                timeColumns.add(column.name());
+                // Threshold to consider it a time column
+                if (validCount >= 3) {
+                    timeColumns.add(column.name());
+                }
             }
         }
-    }
 
-    // Set the timeColumn field
-    if (!timeColumns.isEmpty()) {
-        metadataResponse.setTimeColumn(
-            timeColumns.size() == 1 ? 
-                Collections.singletonList(timeColumns.get(0)) : 
-                timeColumns
-        );
-    }
+        // Set the timeColumn field
+        if (!timeColumns.isEmpty()) {
+            metadataResponse.setTimeColumn(
+                    timeColumns.size() == 1 ? Collections.singletonList(timeColumns.get(0)) : timeColumns);
+        }
 
         return metadataResponse;
     }
@@ -339,31 +343,30 @@ public class CsvDataSource implements DataSource {
     public Table readCsvFromFile(Path filePath) {
         String fileName = filePath.getFileName().toString();
         LOG.info("Reading CSV file: {}", fileName);
-    
+
         // Attempt 1: with sample-based type inference
         try (InputStream stream = Files.newInputStream(filePath)) {
             CsvReadOptions options = CsvReadOptions.builder(stream)
-                .header(true)
-                .sample(true)
-                .build();
+                    .header(true)
+                    .sample(true)
+                    .build();
             return Table.read().usingOptions(options).setName(fileName);
-    
+
         } catch (Exception firstException) {
             LOG.warn("Initial type inference failed for '{}'. Retrying with full parsing (sample=false)", fileName);
-    
+
             // Attempt 2: fallback to more conservative parsing
             try (InputStream retryStream = Files.newInputStream(filePath)) {
                 CsvReadOptions fallbackOptions = CsvReadOptions.builder(retryStream)
-                    .header(true)
-                    .sample(false)
-                    .build();
+                        .header(true)
+                        .sample(false)
+                        .build();
                 return Table.read().usingOptions(fallbackOptions).setName(fileName);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to read CSV file (even with fallback): " + fileName, e);
             }
         }
     }
-    
 
     public void setSource(String source) {
         this.source = source;
