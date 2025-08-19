@@ -1,0 +1,34 @@
+package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Zone {
+    @NotBlank(message = "Zone id is required")
+    private String id; // Unique identifier for the zone - REQUIRED
+    
+    @NotBlank(message = "File name is required")
+    private String fileName; // Name of the file that the zone was created from - REQUIRED
+    
+    @NotBlank(message = "Zone name is required")
+    private String name; // Name of the zone - REQUIRED
+    
+    private String type; // Type of the zone - OPTIONAL
+    
+    private String description; // Description of the zone - OPTIONAL
+    
+    private String status; // Status of the zone - OPTIONAL
+    
+    private String createdAt; // Date and time the zone was created - OPTIONAL
+    
+    private Double[] heights; // Heights of the zone - OPTIONAL
+    
+    private Rectangle rectangle; // Rectangle of the zone - OPTIONAL
+}
