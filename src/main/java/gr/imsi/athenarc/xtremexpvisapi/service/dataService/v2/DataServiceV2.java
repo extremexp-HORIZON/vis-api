@@ -20,6 +20,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.UnivariateDataPoint;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -268,6 +269,8 @@ public class DataServiceV2 {
 
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to get file metadata", e);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to get file metadata due to I/O error", e);
             }
         });
     }

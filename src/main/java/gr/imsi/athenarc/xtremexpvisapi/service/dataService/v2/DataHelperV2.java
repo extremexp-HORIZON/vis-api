@@ -452,7 +452,7 @@ public class DataHelperV2 {
             String filePath,
             DataSource dataSource,
             List<Column> convertedColumns,
-            MetadataMapResponse metadataResponse) throws SQLException {
+            MetadataMapResponse metadataResponse) throws SQLException, IOException {
 
         String tableName = dataSource.getFileName().replace("-", "_");
         String metaTableName = dataSource.getFormat().toLowerCase() + "_meta";
@@ -475,7 +475,8 @@ public class DataHelperV2 {
                         "dimensions VARCHAR, " +
                         "measures VARCHAR, " +
                         "measure0 VARCHAR, " +
-                        "measure1 VARCHAR" +
+                        "measure1 VARCHAR, " +
+                        "facets TEXT" +
                         ")",
                 metaTableName);
         createTableStmt.execute(createMetaTableSql);
@@ -512,6 +513,17 @@ public class DataHelperV2 {
             }
             metadataResponse.setMeasure0(rowRs.getString("measure0"));
             metadataResponse.setMeasure1(rowRs.getString("measure1"));
+            String facetsJson = rowRs.getString("facets");
+            if (facetsJson != null && !facetsJson.isEmpty()) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, List<String>> facets = objectMapper.readValue(facetsJson, Map.class);
+                    metadataResponse.setFacets(facets);
+                } catch (Exception e) {
+                    log.warning("Failed to parse facets JSON: " + e.getMessage());
+                    // Continue without facets if parsing fails
+                }
+            }
             foundInMeta = true;
         }
         rowRs.close();
@@ -606,7 +618,7 @@ public class DataHelperV2 {
 
             // Insert into meta table
             String upsertMetaSql = String.format(
-                    "INSERT OR REPLACE INTO %s (table_name, xMin, xMax, yMin, yMax, min_time, max_time, queryXMin, queryXMax, queryYMin, queryYMax, dimensions, measures, measure0, measure1) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT OR REPLACE INTO %s (table_name, xMin, xMax, yMin, yMax, min_time, max_time, queryXMin, queryXMax, queryYMin, queryYMax, dimensions, measures, measure0, measure1, facets) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     metaTableName);
             PreparedStatement upsertStmt = duckdbConnection.prepareStatement(upsertMetaSql);
             upsertStmt.setString(1, tableName);
@@ -624,31 +636,34 @@ public class DataHelperV2 {
             upsertStmt.setString(13, String.join(",", metadataResponse.getMeasures()));
             upsertStmt.setString(14, metadataResponse.getMeasure0());
             upsertStmt.setString(15, metadataResponse.getMeasure1());
+            // 4. Populate facets before storing
+            Map<String, List<String>> facets = new HashMap<>();
+            for (String dimension : metadataResponse.getDimensions()) {
+                String facetsSql = String.format(
+                        "SELECT DISTINCT %s FROM read_csv('%s')",
+                        dimension,
+                        filePath.replace("\\", "\\\\"));
+                Statement facetsStmt = duckdbConnection.createStatement();
+                ResultSet facetsRs = facetsStmt.executeQuery(facetsSql);
+                StringBuilder sb = new StringBuilder();
+                List<String> values = new ArrayList<>();
+                while (facetsRs.next()) {
+                    sb.append(dimension).append(": ")
+                            .append(facetsRs.getString(1)).append(System.lineSeparator());
+                    values.add(facetsRs.getString(1));
+                }
+                // log.info("Facet counts for " + dimension + ":\n" + sb.toString());
+                facets.put(dimension, values);
+                facetsRs.close();
+                facetsStmt.close();
+            }
+            metadataResponse.setFacets(facets);
+            
+            // Now store the metadata with facets
+            upsertStmt.setString(16, objectMapper.writeValueAsString(metadataResponse.getFacets()));
             upsertStmt.executeUpdate();
             upsertStmt.close();
         }
-        // 4. Populate facets
-        Map<String, List<String>> facets = new HashMap<>();
-        for (String dimension : metadataResponse.getDimensions()) {
-            String facetsSql = String.format(
-                    "SELECT DISTINCT %s FROM read_csv('%s')",
-                    dimension,
-                    filePath.replace("\\", "\\\\"));
-            Statement facetsStmt = duckdbConnection.createStatement();
-            ResultSet facetsRs = facetsStmt.executeQuery(facetsSql);
-            StringBuilder sb = new StringBuilder();
-            List<String> values = new ArrayList<>();
-            while (facetsRs.next()) {
-                sb.append(dimension).append(": ")
-                        .append(facetsRs.getString(1)).append(System.lineSeparator());
-                values.add(facetsRs.getString(1));
-            }
-            // log.info("Facet counts for " + dimension + ":\n" + sb.toString());
-            facets.put(dimension, values);
-            facetsRs.close();
-            facetsStmt.close();
-        }
-        metadataResponse.setFacets(facets);
     }
 
     /**
