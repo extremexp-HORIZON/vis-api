@@ -520,6 +520,13 @@ public class DataHelperV2 {
         if (!foundInMeta) {
             // 3. If not found, read CSV and compute metadata, then insert into meta table
             // Detect delimiter
+            String latCol = metadataResponse.getOriginalColumns().stream()
+                    .filter(c -> c.getName().toLowerCase().contains("lat"))
+                    .findFirst().get().getName();
+            String lonCol = metadataResponse.getOriginalColumns().stream()
+                    .filter(c -> c.getName().toLowerCase().contains("lon"))
+                    .findFirst().get().getName();
+            String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
             String delimiter;
             try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
                 String firstLine = br.readLine();
@@ -532,15 +539,15 @@ public class DataHelperV2 {
             List<String> selectFields = new ArrayList<>();
             if (metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries) {
                 selectFields.addAll(Arrays.asList(
-                    "MIN(radio_timestamp) AS min_time",
-                    "MAX(radio_timestamp) AS max_time"
+                    "MIN(" + timestampCol + ") AS min_time",
+                    "MAX(" + timestampCol + ") AS max_time"
                 ));
             }
             selectFields.addAll(Arrays.asList(
-                "MIN(longitude) AS queryXMin",
-                "MAX(longitude) AS queryXMax", 
-                "MIN(latitude) AS queryYMin",
-                "MAX(latitude) AS queryYMax"
+                "MIN(" + lonCol + ") AS queryXMin",
+                "MAX(" + lonCol + ") AS queryXMax", 
+                "MIN(" + latCol + ") AS queryYMin",
+                "MAX(" + latCol + ") AS queryYMax"
             ));
 
             rawVisSql = String.format(
@@ -580,13 +587,12 @@ public class DataHelperV2 {
                         .filter(c -> isNumerical(c))
                         .map(Column::getName).collect(Collectors.toList()));
 
-                // TODO: Make this more dynamic via the metadataResponse.getMeasures()
-                // Set measure0 to the column that has "rssi" in its name (case-insensitive)
+                // Set measure0 to the column that has "rsrp" in its name (case-insensitive)
                 String measure0 = metadataResponse.getOriginalColumns().stream()
                     .map(Column::getName)
-                    .filter(name -> name != null && name.toLowerCase().contains("rssi"))
+                    .filter(name -> name != null && name.toLowerCase().contains("rsrp"))
                     .findFirst()
-                    .orElse("rsrp");
+                    .orElse("rssi");
                 metadataResponse.setMeasure0(measure0);
                 String measure1 = metadataResponse.getOriginalColumns().stream()
                     .map(Column::getName)
@@ -660,9 +666,13 @@ public class DataHelperV2 {
         // TODO: Think of merging this with the buildQuery method
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
             StringBuilder sql = new StringBuilder();
-            String latCol = "latitude";
-            String lonCol = "longitude";
-            String timestampCol = "radio_timestamp";
+            String latCol = metadataResponse.getOriginalColumns().stream()
+                    .filter(c -> c.getName().toLowerCase().contains("lat"))
+                    .findFirst().get().getName();
+            String lonCol = metadataResponse.getOriginalColumns().stream()
+                    .filter(c -> c.getName().toLowerCase().contains("lon"))
+                    .findFirst().get().getName();
+            String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
 
             // SELECT clause
             sql.append("SELECT ");
@@ -729,12 +739,18 @@ public class DataHelperV2 {
         Map<String, StatsAccumulator> groupStatsMap = new HashMap<>();
         PairedStatsAccumulator pairedStatsAccumulator = new PairedStatsAccumulator();
         int rawPointCount = 0; // Initialize a counter for raw data points
+        String latCol = metadataResponse.getOriginalColumns().stream()
+                .filter(c -> c.getName().toLowerCase().contains("lat"))
+                .findFirst().get().getName();
+        String lonCol = metadataResponse.getOriginalColumns().stream()
+                .filter(c -> c.getName().toLowerCase().contains("lon"))
+                .findFirst().get().getName();
 
         while (resultSet.next()) {
             rawPointCount++;
 
-            double lat = resultSet.getDouble("latitude");
-            double lon = resultSet.getDouble("longitude");
+            double lat = resultSet.getDouble(latCol);
+            double lon = resultSet.getDouble(lonCol);
             String id = resultSet.getString("id");
 
             // get measures and handle nulls and empty strings
