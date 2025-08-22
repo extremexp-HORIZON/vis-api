@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,6 +36,11 @@ import gr.imsi.athenarc.xtremexpvisapi.service.DataSourceService;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
 import jakarta.validation.Valid;
+
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.io.File;
 
 @RestController
 @CrossOrigin
@@ -141,5 +148,30 @@ public class DataController {
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .body((Object) ("Error getting file metadata: " + throwable.getMessage()));
                 });
+    }
+
+
+    @GetMapping("/file")
+    public ResponseEntity<Resource> getFile(@RequestParam String path) {
+        File file = new File(path);
+
+        if (!file.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        FileSystemResource resource = new FileSystemResource(file);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + file.getName())
+                .contentType(MediaType.parseMediaType(getContentType(file.getName())))
+                .body(resource);
+    }
+
+    private String getContentType(String filename) {
+        if (filename.endsWith(".png")) return "image/png";
+        if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+        if (filename.endsWith(".gif")) return "image/gif";
+        
+        return "application/octet-stream";
     }
 }

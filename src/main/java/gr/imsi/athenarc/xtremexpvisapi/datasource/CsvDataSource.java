@@ -86,12 +86,18 @@ public class CsvDataSource implements DataSource {
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
 
-        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
-        boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long")
-                || lowerColNames.contains("longitude");
+        boolean hasLat = lowerColNames.contains("lat")
+                || lowerColNames.contains("latitude")
+                || lowerColNames.contains("lat_wgs84");
+
+        boolean hasLon = lowerColNames.contains("lon")
+                || lowerColNames.contains("long")
+                || lowerColNames.contains("longitude")
+                || lowerColNames.contains("lon_wgs84");
 
         return hasLat && hasLon;
     }
+
 
     @Override
     public TabularResponse fetchTabularData(TabularRequest tabularRequest) {
@@ -114,6 +120,8 @@ public class CsvDataSource implements DataSource {
             LOG.debug("{}", tables.stream().map(table -> table.name()).toList());
             // tabularResults.setFileNames(tables.stream().map(table ->
             // table.name()).toList());
+            // tabularResults.setFileNames(tables.stream().map(table ->
+            // table.name()).toList());
             tabularResults.setData("[" + String.join(",", jsonDataList) + "]");
             // tabularResults.setColumns(columns);
         } else {
@@ -129,10 +137,13 @@ public class CsvDataSource implements DataSource {
                 tabularResults.setQuerySize(queryResult.getRowCount()); // Set the filtered row count here
                 // Map<String, List<?>> uniqueColumnValues = getUniqueValuesForColumns(table,
                 // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+                // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 // tabularResults.setFileNames(Arrays.asList(new String[] { table.name() }));
                 tabularResults.setColumns(
                         resultsTable.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
                 // tabularResults.setOriginalColumns(
+                // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
+
                 // table.columns().stream().map(this::getTabularColumnFromTableSawColumn).toList());
 
                 // tabularResults.setUniqueColumnValues(uniqueColumnValues);

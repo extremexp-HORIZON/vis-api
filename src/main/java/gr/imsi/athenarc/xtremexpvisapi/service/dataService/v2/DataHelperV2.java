@@ -109,9 +109,11 @@ public class DataHelperV2 {
                 .map(col -> col.getName().toLowerCase())
                 .collect(Collectors.toSet());
 
-        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude");
+        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude")|| lowerColNames.contains("lat_wgs84")
+                || lowerColNames.contains("latitude_wgs84");
         boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long")
-                || lowerColNames.contains("longitude");
+                || lowerColNames.contains("longitude")|| lowerColNames.contains("lon_wgs84")
+                || lowerColNames.contains("longitude_wgs84");
 
         return hasLat && hasLon;
     }
@@ -318,7 +320,7 @@ public class DataHelperV2 {
 
             // Handle aggregation - if aggregations are present, build aggregation query
             if (request.getAggregations() != null && !request.getAggregations().isEmpty()) {
-                sql = buildAggregationQuery(request, sql);
+                sql = buildAggregationQuery(request, datasetPath);
             } else {
                 // Only add GROUP BY if there are no aggregations (regular grouping)
                 if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
@@ -338,6 +340,7 @@ public class DataHelperV2 {
             if (request.getOffset() != null) {
                 sql.append(" OFFSET ").append(request.getOffset());
             }
+            System.out.println("Built SQL query: " + sql.toString());
 
             return sql.toString();
         });
@@ -364,32 +367,53 @@ public class DataHelperV2 {
      * @param baseQuery the base SQL query to wrap
      * @return a StringBuilder containing the aggregation query
      */
-    private StringBuilder buildAggregationQuery(DataRequest request, StringBuilder baseQuery) {
-        StringBuilder aggQuery = new StringBuilder("SELECT ");
+   private StringBuilder buildAggregationQuery(DataRequest request, String datasetPath) {
+    StringBuilder aggQuery = new StringBuilder("SELECT ");
 
-        // Add group by columns first
-        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-            aggQuery.append(String.join(", ", request.getGroupBy())).append(", ");
-        }
+    // Detect file type
+    FileType fileType = detectFileType(datasetPath);
+    String fileTable = getFileTypeSQL(fileType, datasetPath);
+    System.out.println("Detected file type: " + fileType + ", SQL: " + fileTable);
 
-        // Add aggregation functions
-        List<String> aggSqls = request.getAggregations().stream()
-                .map(Aggregation::toSql)
-                .collect(Collectors.toList());
-        aggQuery.append(String.join(", ", aggSqls));
-
-        // Add FROM clause as subquery (base query without GROUP BY)
-        aggQuery.append(" FROM (").append(baseQuery).append(") as subquery");
-
-        // Add GROUP BY if present
-        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-            aggQuery.append(" GROUP BY ").append(String.join(", ", request.getGroupBy()));
-        }
-
-        return aggQuery;
+    // Quoted group-by columns
+    if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+        aggQuery.append(request.getGroupBy().stream()
+            .map(this::getCorrectedString)
+            .collect(Collectors.joining(", ")))
+            .append(", ");
     }
 
-    /**
+    // Aggregation functions (should already quote inside toSql())
+    List<String> aggSqls = request.getAggregations().stream()
+            .map(Aggregation::toSql)
+            .collect(Collectors.toList());
+    aggQuery.append(String.join(", ", aggSqls));
+
+    // Flat FROM clause — no subquery
+    aggQuery.append(" FROM ").append(fileTable);
+
+    // WHERE clause if filters exist
+    if (request.getFilters() != null && !request.getFilters().isEmpty()) {
+        aggQuery.append(" WHERE ")
+            .append(buildFiltersClause((List<AbstractFilter>) request.getFilters()));
+    }
+
+    // GROUP BY
+    if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+        aggQuery.append(" GROUP BY ")
+            .append(request.getGroupBy().stream()
+                .map(this::getCorrectedString)
+                .collect(Collectors.joining(", ")));
+    }
+
+    // LIMIT
+    // if (request.getLimit() != null) {
+    //     aggQuery.append(" LIMIT ").append(request.getLimit());
+    // }
+
+    return aggQuery;
+}
+ /**
      * Helper function to get the file path for both local and external datasets.
      * For local datasets, returns the source path directly.
      * For external datasets, checks cache and downloads if necessary.

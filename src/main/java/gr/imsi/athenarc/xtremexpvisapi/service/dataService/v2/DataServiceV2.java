@@ -36,7 +36,8 @@ import java.util.concurrent.CompletableFuture;
 public class DataServiceV2 {
 
     @Autowired
-    private Connection duckdbConnection;
+    private javax.sql.DataSource dataSource;
+
     private DataHelperV2 dataQueryHelper;
 
     @Autowired
@@ -69,8 +70,8 @@ public class DataServiceV2 {
             return dataQueryHelper
                     .buildMapQuery((MapDataRequest) request, authorization, (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
-                        try {
-                            Statement statement = duckdbConnection.createStatement();
+                        try (Connection connection = dataSource.getConnection();
+                                Statement statement = connection.createStatement()) {
                             ResultSet resultSet = statement.executeQuery(sql);
 
                             MapDataResponse response = new MapDataResponse();
@@ -98,8 +99,8 @@ public class DataServiceV2 {
                     .buildTimeSeriesQuery((TimeSeriesDataRequest) request, authorization,
                             (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
-                        try {
-                            Statement statement = duckdbConnection.createStatement();
+                        try (Connection connection = dataSource.getConnection();
+                                Statement statement = connection.createStatement()) {
                             ResultSet resultSet = statement.executeQuery(sql);
 
                             TimeSeriesDataResponse response = new TimeSeriesDataResponse();
@@ -134,8 +135,9 @@ public class DataServiceV2 {
 
         // Build the SQL query for the tabular view
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
-            try {
-                Statement statement = duckdbConnection.createStatement();
+            try (Connection connection = dataSource.getConnection();
+                    Statement statement = connection.createStatement()) {
+
                 String countQuery = buildCountQuery(sql);
                 ResultSet countResultSet = statement.executeQuery(countQuery);
                 int totalItems = 0;
@@ -166,45 +168,33 @@ public class DataServiceV2 {
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
             throws Exception, SQLException {
         return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
-
-            try {
-                // Build a simple SELECT query to get column information
-                String sql = "SELECT * FROM ";
-                // Detect file type and build appropriate query
+            try (
+                    Connection connection = this.dataSource.getConnection();
+                    Statement statement = connection.createStatement()) {
                 FileType fileType = dataQueryHelper.detectFileType(filePath);
 
-                sql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
-                sql += " LIMIT 10"; // Just get a few rows for metadata analysis
-
-                Statement statement = duckdbConnection.createStatement();
+                String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath) + " LIMIT 10";
                 ResultSet resultSet = statement.executeQuery(sql);
 
                 MetadataResponseV2 metadataResponse = new MetadataResponseV2();
 
-                // Get column metadata
                 var metaData = resultSet.getMetaData();
                 int columnCount = metaData.getColumnCount();
                 List<String> timeColumns = new ArrayList<>();
-
-                // Convert TabularColumn to Column for the metadata response
                 List<Column> convertedColumns = new ArrayList<>();
+
                 for (int i = 1; i <= columnCount; i++) {
                     String columnName = metaData.getColumnName(i);
                     String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
                     convertedColumns.add(new Column(columnName, columnType));
 
-                    // Check if it's a time column
                     if (dataQueryHelper.isTimeColumn(columnType)) {
                         timeColumns.add(columnName);
                     }
                 }
 
-                // Count total rows
-                String countSql = "SELECT COUNT(*) as total FROM ";
-                countSql += dataQueryHelper.getFileTypeSQL(fileType, filePath);
-
-                Statement countStatement = duckdbConnection.createStatement();
-                ResultSet countResult = countStatement.executeQuery(countSql);
+                String countSql = "SELECT COUNT(*) as total FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath);
+                ResultSet countResult = statement.executeQuery(countSql);
                 int totalItems = 0;
                 if (countResult.next()) {
                     totalItems = countResult.getInt("total");
@@ -218,7 +208,6 @@ public class DataServiceV2 {
 
                 // RawVis specific metadata
 
-                // Set metadata response fields
                 metadataResponse.setOriginalColumns(convertedColumns);
                 metadataResponse.setTotalItems(totalItems);
                 metadataResponse.setDatasetType(datasetType);
@@ -231,7 +220,7 @@ public class DataServiceV2 {
                 Boolean ifRawVis = "rawvis".equalsIgnoreCase(dataSource.getFormat());
                 MetadataMapResponse metadataMapResponse = new MetadataMapResponse(metadataResponse);
                 if (ifRawVis) {
-                    dataQueryHelper.populateRawvisMeta(duckdbConnection, filePath, dataSource,
+                    dataQueryHelper.populateRawvisMeta(connection, filePath, dataSource,
                             convertedColumns, metadataMapResponse);
                 }
                 try {
@@ -239,8 +228,7 @@ public class DataServiceV2 {
 
                     String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file
                                                                                              // loading
-                    Statement summarizeStatement = duckdbConnection.createStatement();
-                    ResultSet summarizeResult = summarizeStatement.executeQuery(summarizeSql);
+                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
                     List<Map<String, Object>> summaryList = new ArrayList<>();
                     int colCount = summarizeResult.getMetaData().getColumnCount();
                     while (summarizeResult.next()) {
@@ -254,16 +242,12 @@ public class DataServiceV2 {
                     }
                     metadataResponse.setSummary(summaryList);
                     summarizeResult.close();
-                    summarizeStatement.close();
                 } catch (SQLException summarizeEx) {
                     log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
                 }
 
-                // Close resources
                 resultSet.close();
                 countResult.close();
-                statement.close();
-                countStatement.close();
 
                 return ifRawVis ? metadataMapResponse : metadataResponse;
 
@@ -277,10 +261,11 @@ public class DataServiceV2 {
 
     public String[] fetchRow(DataSource dataSource, String objectId) throws Exception, SQLException {
 
-        try {
+        try (Connection connection = this.dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
 
-            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", dataSource.getSource(), objectId);
-            Statement statement = duckdbConnection.createStatement();
+            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", dataSource.getSource(),
+                    objectId);
             ResultSet resultSet = statement.executeQuery(sql);
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {
@@ -301,7 +286,6 @@ public class DataServiceV2 {
     }
 
     public float[][] getUmap(float[][] data) {
-        log.info("Performing dimensionality reduction");
         Umap umap = new Umap();
         umap.setNumberComponents(2);
         umap.setNumberNearestNeighbours(15);

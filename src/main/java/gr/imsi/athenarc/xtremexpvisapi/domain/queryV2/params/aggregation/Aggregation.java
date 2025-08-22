@@ -20,65 +20,73 @@ public class Aggregation {
         this.function = function;
         this.alias = function.name().toLowerCase() + "_" + column;
     }
-    
+
+    private String prepareColumn(String col) {
+    if (col == null) return "col";
+    // Add quotes if name has non-alphanumeric or underscores
+    return col.matches("[a-zA-Z_][a-zA-Z0-9_]*") ? col : "\"" + col.replace("\"", "\"\"") + "\"";
+}
+
+private String sanitizeAlias(String col) {
+    if (col == null) return "col";
+    // Replace anything not alphanumeric or underscore with underscore
+    return col.toLowerCase().replaceAll("[^a-zA-Z0-9_]", "_");
+}
+
     // Generate SQL for this aggregation
     public String toSql() {
-        StringBuilder sql = new StringBuilder();
-        
-        switch (function) {
-            case COUNT:
-                if (options != null && options.isDistinct()) {
-                    sql.append("COUNT(DISTINCT ").append(columnPreparation(column)).append(")");
-                } else {
-                    sql.append("COUNT(").append(columnPreparation(column)).append(")");
-                }
-                break;
-                
-            case COUNT_ALL:
-                sql.append("COUNT(*)");
-                break;
-                
-            case PERCENTILE:
-                if (options != null && options.getPercentileValue() != null) {
-                    sql.append("PERCENTILE_CONT(").append(options.getPercentileValue())
-                       .append(") WITHIN GROUP (ORDER BY ").append(columnPreparation(column)).append(")");
-                } else {
-                    sql.append("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ").append(columnPreparation(column)).append(")");
-                }
-                break;
-                
-            case ARRAY_AGG:
-                if (options != null && options.isDistinct()) {
-                    sql.append("ARRAY_AGG(DISTINCT ").append(columnPreparation(column)).append(")");
-                } else {
-                    sql.append("ARRAY_AGG(").append(columnPreparation(column)).append(")");
-                }
-                break;
-                
-            default:
-                // Standard aggregations: SUM, AVG, MIN, MAX, etc.
-                if (options != null && options.isDistinct()) {
-                    sql.append(function.name()).append("(DISTINCT ").append(columnPreparation(column)).append(")");
-                } else {
-                    sql.append(function.name()).append("(").append(columnPreparation(column)).append(")");
-                }
-                break;
-        }
-        
-        // Add alias - handle COUNT_ALL special case
-        String aliasName;
-        if (alias != null) {
-            aliasName = alias;
-        } else if (function == AggregationFunction.COUNT_ALL) {
-            aliasName = "count_all";
-        } else {
-            aliasName = function.name().toLowerCase() + "_" + aliasHelper(column);
-        }
-        
-        sql.append(" AS ").append(aliasName);
-        
-        return sql.toString();
+    StringBuilder sql = new StringBuilder();
+    String preparedColumn = prepareColumn(column);  // 1. Properly quoted
+
+    switch (function) {
+        case COUNT:
+            if (options != null && options.isDistinct()) {
+                sql.append("COUNT(DISTINCT ").append(preparedColumn).append(")");
+            } else {
+                sql.append("COUNT(").append(preparedColumn).append(")");
+            }
+            break;
+
+        case COUNT_ALL:
+            sql.append("COUNT(*)");
+            break;
+
+        case PERCENTILE:
+            double percentile = (options != null && options.getPercentileValue() != null)
+                ? options.getPercentileValue()
+                : 0.5;
+            sql.append("PERCENTILE_CONT(").append(percentile)
+                .append(") WITHIN GROUP (ORDER BY ").append(preparedColumn).append(")");
+            break;
+
+        case ARRAY_AGG:
+            if (options != null && options.isDistinct()) {
+                sql.append("ARRAY_AGG(DISTINCT ").append(preparedColumn).append(")");
+            } else {
+                sql.append("ARRAY_AGG(").append(preparedColumn).append(")");
+            }
+            break;
+
+        default:
+            if (options != null && options.isDistinct()) {
+                sql.append(function.name()).append("(DISTINCT ").append(preparedColumn).append(")");
+            } else {
+                sql.append(function.name()).append("(").append(preparedColumn).append(")");
+            }
+            break;
     }
+
+    // Use custom alias if provided, otherwise generate safe alias
+    String aliasName = (alias != null)
+        ? alias
+        : (function == AggregationFunction.COUNT_ALL
+            ? "count_all"
+            : function.name().toLowerCase() + "_" + sanitizeAlias(column));
+
+    sql.append(" AS ").append(sanitizeAlias(aliasName));  // 2. Alias must be safe
+    return sql.toString();
+}
+
 
     private String aliasHelper (String column) {
         // Handle special characters in column names for aliases

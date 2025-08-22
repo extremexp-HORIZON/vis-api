@@ -50,7 +50,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 ObjectMapper objectMapper = new ObjectMapper();
                 // print the request as JSON
                 jsonString = JsonFormat.printer().print(request);
-                log.info("Request: \n" + jsonString);
+                // log.info("Request: \n" + jsonString);
 
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
                                 Integer.parseInt(grpcHostPort))
@@ -61,7 +61,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
                 ExplanationsResponse response = stub.getExplanation(request);
                 jsonString = JsonFormat.printer().print(response);
-                log.info("Response: \n" + jsonString);
+                // log.info("Response: \n" + jsonString);
 
                 channel.shutdown();
 
@@ -90,34 +90,31 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 return objectMapper.readTree(jsonString);
         }
 
-        public JsonNode getFeatureImportance(String featureImportanceRequest)
-                        throws InvalidProtocolBufferException, JsonProcessingException {
+       public JsonNode getFeatureImportance(String featureImportanceRequest,String experimentId, String runId, String authorization)
+        throws InvalidProtocolBufferException, JsonProcessingException {
 
-                // 1. Build the Protobuf Request from the incoming JSON string
-                FeatureImportanceRequest.Builder requestBuilder = FeatureImportanceRequest.newBuilder();
-                JsonFormat.parser().ignoringUnknownFields().merge(featureImportanceRequest, requestBuilder);
-                FeatureImportanceRequest request = requestBuilder.build();
+    FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
+            experimentId, runId, authorization);
+        //     System.out.println("FeatureImportanceRequestRRRRn: " + request);
 
-                log.info("Built Feature Importance Request: \n" + request.toString());
 
-                // 2. Create the gRPC channel and stub
-                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
-                                .usePlaintext()
-                                .build();
-                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
+    String jsonString;
+    ObjectMapper objectMapper = new ObjectMapper();
+    jsonString = JsonFormat.printer().print(request);
+//     log.info("FeatureImportanceRequest: \n" + jsonString);
 
-                // 3. Call the gRPC method
-                FeatureImportanceResponse response = stub.getFeatureImportance(request);
+    ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
+            Integer.parseInt(grpcHostPort))
+            .usePlaintext()
+            .build();
 
-                // 4. Shutdown the channel
-                channel.shutdown();
+    ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
+    FeatureImportanceResponse response = stub.getFeatureImportance(request);
+    jsonString = JsonFormat.printer().print(response);
 
-                // 5. Convert the Protobuf Response to a JSON string and return
-                String jsonString = JsonFormat.printer().print(response);
-                log.info("Received Feature Importance Response: \n" + jsonString);
+    channel.shutdown();
 
-                ObjectMapper objectMapper = new ObjectMapper();
-                return objectMapper.readTree(jsonString);
-        }
+    return objectMapper.readTree(jsonString);
+}
 
 }
