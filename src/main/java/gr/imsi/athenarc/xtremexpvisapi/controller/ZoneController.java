@@ -24,21 +24,32 @@ public class ZoneController {
     }
 
     /**
-     * Create or update a zone
+     * Create a new zone (ID will be auto-generated)
      * POST /api/zones
+     * 
+     * Creates a new zone with an auto-generated ID. 
+     * If an ID is provided in the request, it will be rejected as zones with IDs already exist.
      */
     @PostMapping
     public ResponseEntity<Zone> createZone(@Valid @RequestBody Zone zone) {
         try {
-            log.info("REST: Creating/updating zone: " + zone);
+            log.info("REST: Creating new zone: " + zone);
             
             if (zone == null) {
                 log.warning("REST: Zone creation failed: Request body is null");
                 return ResponseEntity.badRequest().build();
             }
             
+            // Reject creation if ID is provided (zones with IDs already exist)
+            // Check if ID exists (not null, even if empty or whitespace)
+            if (zone.getId() != null) {
+                log.warning("REST: Zone creation failed: ID provided but not allowed for new zones. Use PUT endpoint to update existing zones.");
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(null);
+            }
+            
             Zone savedZone = zoneService.save(zone);
-            log.info("REST: Successfully created/updated zone with id: " + savedZone.getId());
+            log.info("REST: Successfully created new zone with auto-generated id: " + savedZone.getId());
             
             return ResponseEntity.status(HttpStatus.CREATED).body(savedZone);
             

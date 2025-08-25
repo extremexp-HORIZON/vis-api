@@ -3,6 +3,7 @@ package gr.imsi.athenarc.xtremexpvisapi.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,16 @@ public class ZoneService {
 
     public ZoneService(ZoneRepository zoneRepository) {
         this.zoneRepository = zoneRepository;
+    }
+
+    /**
+     * Check if a zone ID is empty (null, empty string, or just whitespace)
+     * 
+     * @param id the ID to check
+     * @return true if the ID is empty, false otherwise
+     */
+    private boolean isIdEmpty(String id) {
+        return id == null || id.trim().isEmpty();
     }
 
     /**
@@ -37,6 +48,13 @@ public class ZoneService {
             // Validate required fields
             validateRequiredFields(zone);
             
+            // Generate ID if not provided
+            if (isIdEmpty(zone.getId())) {
+                String generatedId = generateUniqueId();
+                zone.setId(generatedId);
+                log.info("Generated unique ID for zone: " + generatedId);
+            }
+            
             // Set default values for optional fields if not provided
             setDefaultValues(zone);
             
@@ -54,19 +72,58 @@ public class ZoneService {
     }
 
     /**
+     * Generate a unique ID for a zone
+     * 
+     * @return a unique string ID
+     */
+    private String generateUniqueId() {
+        String generatedId;
+        int attempts = 0;
+        final int maxAttempts = 10;
+        
+        do {
+            generatedId = "zone_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+            attempts++;
+            
+            // Check if this ID already exists across all files
+            if (attempts > maxAttempts) {
+                // Fallback to timestamp-based ID if UUID generation fails
+                generatedId = "zone_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000);
+                log.warning("UUID generation failed after " + maxAttempts + " attempts, using fallback ID: " + generatedId);
+                break;
+            }
+        } while (idExists(generatedId));
+        
+        return generatedId;
+    }
+    
+    /**
+     * Check if a zone ID already exists across all files
+     * 
+     * @param id the ID to check
+     * @return true if the ID exists, false otherwise
+     */
+    private boolean idExists(String id) {
+        try {
+            List<Zone> allZones = zoneRepository.findAll();
+            return allZones.stream().anyMatch(zone -> id.equals(zone.getId()));
+        } catch (Exception e) {
+            log.warning("Could not check ID uniqueness, assuming ID is unique: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Validate that all required fields are present
      * 
      * @param zone the zone to validate
      * @throws IllegalArgumentException if required fields are missing
      */
     private void validateRequiredFields(Zone zone) {
-        if (zone.getId() == null || zone.getId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Zone id is required");
-        }
-        if (zone.getFileName() == null || zone.getFileName().trim().isEmpty()) {
+        if (isIdEmpty(zone.getFileName())) {
             throw new IllegalArgumentException("Zone fileName is required");
         }
-        if (zone.getName() == null || zone.getName().trim().isEmpty()) {
+        if (isIdEmpty(zone.getName())) {
             throw new IllegalArgumentException("Zone name is required");
         }
     }
@@ -77,19 +134,19 @@ public class ZoneService {
      * @param zone the zone to set defaults for
      */
     private void setDefaultValues(Zone zone) {
-        if (zone.getStatus() == null || zone.getStatus().trim().isEmpty()) {
+        if (isIdEmpty(zone.getStatus())) {
             zone.setStatus("active"); // Default status
             log.info("Setting default status 'active' for zone: " + zone.getId());
         }
-        if (zone.getCreatedAt() == null || zone.getCreatedAt().trim().isEmpty()) {
+        if (isIdEmpty(zone.getCreatedAt())) {
             zone.setCreatedAt(LocalDateTime.now().toString()); // Default creation time
             log.info("Setting default creation time for zone: " + zone.getId());
         }
-        if (zone.getType() == null || zone.getType().trim().isEmpty()) {
+        if (isIdEmpty(zone.getType())) {
             zone.setType("general"); // Default type
             log.info("Setting default type 'general' for zone: " + zone.getId());
         }
-        if (zone.getDescription() == null || zone.getDescription().trim().isEmpty()) {
+        if (isIdEmpty(zone.getDescription())) {
             zone.setDescription("Zone created for " + zone.getFileName()); // Default description
             log.info("Setting default description for zone: " + zone.getId());
         }
@@ -123,7 +180,7 @@ public class ZoneService {
     public List<Zone> findByFileName(String fileName) {
         try {
             log.info("Finding zones by fileName: " + fileName);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
             
@@ -149,7 +206,7 @@ public class ZoneService {
     public List<Zone> findByType(String type) {
         try {
             log.info("Finding zones by type: " + type);
-            if (type == null || type.trim().isEmpty()) {
+            if (isIdEmpty(type)) {
                 throw new IllegalArgumentException("Type cannot be null or empty");
             }
             
@@ -175,7 +232,7 @@ public class ZoneService {
     public List<Zone> findByStatus(String status) {
         try {
             log.info("Finding zones by status: " + status);
-            if (status == null || status.trim().isEmpty()) {
+            if (isIdEmpty(status)) {
                 throw new IllegalArgumentException("Status cannot be null or empty");
             }
             
@@ -202,10 +259,10 @@ public class ZoneService {
     public Optional<Zone> findByFileNameAndId(String fileName, String id) {
         try {
             log.info("Finding zone by fileName: " + fileName + " and id: " + id);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
-            if (id == null || id.trim().isEmpty()) {
+            if (isIdEmpty(id)) {
                 throw new IllegalArgumentException("Zone id cannot be null or empty");
             }
             
@@ -236,10 +293,10 @@ public class ZoneService {
     public boolean deleteByFileNameAndId(String fileName, String id) {
         try {
             log.info("Deleting zone by fileName: " + fileName + " and id: " + id);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
-            if (id == null || id.trim().isEmpty()) {
+            if (isIdEmpty(id)) {
                 throw new IllegalArgumentException("Zone id cannot be null or empty");
             }
             
@@ -269,7 +326,7 @@ public class ZoneService {
     public boolean deleteByFileName(String fileName) {
         try {
             log.info("Deleting all zones for fileName: " + fileName);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
             
@@ -299,7 +356,7 @@ public class ZoneService {
     public boolean existsByFileName(String fileName) {
         try {
             log.info("Checking if zones exist for fileName: " + fileName);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
             
@@ -343,7 +400,7 @@ public class ZoneService {
     public String getZoneFilePath(String fileName) {
         try {
             log.info("Getting zone file path for fileName: " + fileName);
-            if (fileName == null || fileName.trim().isEmpty()) {
+            if (isIdEmpty(fileName)) {
                 throw new IllegalArgumentException("FileName cannot be null or empty");
             }
             

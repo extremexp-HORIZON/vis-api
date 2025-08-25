@@ -11,8 +11,7 @@ import jakarta.validation.constraints.NotBlank;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Zone {
-    @NotBlank(message = "Zone id is required")
-    private String id; // Unique identifier for the zone - REQUIRED
+    private String id; // Unique identifier for the zone - OPTIONAL (will be auto-generated if not provided)
     
     @NotBlank(message = "File name is required")
     private String fileName; // Name of the file that the zone was created from - REQUIRED
