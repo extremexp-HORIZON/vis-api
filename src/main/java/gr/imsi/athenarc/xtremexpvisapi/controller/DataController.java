@@ -31,6 +31,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TabularResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.DataRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.FetchColumnsRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.service.DataSourceService;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
@@ -131,6 +132,40 @@ public class DataController {
                     .body(null);
         } catch (Exception e) {
             LOG.error("Error retrieving row", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
+    }
+
+    @PostMapping("/fetch/{datasetId}/columns")
+    public ResponseEntity<Map<String, Object[]>> fetchColumnsValues(
+            @PathVariable String datasetId,
+            @RequestBody FetchColumnsRequest fetchColumnsRequest) {
+        LOG.info("Request for columns values for dataset {}, rectangle {}, columnNames {}",
+                datasetId,
+                fetchColumnsRequest.getRectangle(),
+                fetchColumnsRequest.getColumnNames());
+        try {
+            DataSource dataSource = dataSourceService.findByFileName(datasetId)
+                    .orElseThrow(() -> new IllegalArgumentException("Dataset not found: " + datasetId));
+            Map<String, Object[]> result = dataServiceV2.fetchColumnsValues(
+                    dataSource,
+                    fetchColumnsRequest.getRectangle(),
+                    fetchColumnsRequest.getLatCol(),
+                    fetchColumnsRequest.getLonCol(),
+                    fetchColumnsRequest.getColumnNames()
+            );
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            LOG.error("Invalid dataset: {}", datasetId, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(null);
+        } catch (SQLException e) {
+            LOG.error("SQL error fetching columns values", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(null);
+        } catch (Exception e) {
+            LOG.error("Error fetching columns values", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(null);
         }

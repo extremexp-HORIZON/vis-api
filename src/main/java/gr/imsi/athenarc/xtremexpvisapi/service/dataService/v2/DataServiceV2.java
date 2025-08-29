@@ -18,6 +18,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.TimeSeriesDataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.UnivariateDataPoint;
 
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -283,6 +285,83 @@ public class DataServiceV2 {
         }
         return null;
 
+    }
+
+    public Map<String, Object[]> fetchColumnsValues(
+            DataSource dataSource,
+            Rectangle rectangle,
+            String latCol,
+            String lonCol,
+            String[] columnNames
+    ) throws Exception, SQLException {
+        try (
+            Connection connection = this.dataSource.getConnection();
+            Statement statement = connection.createStatement()
+        ) {
+            String sql;
+            if (rectangle != null && rectangle.getLat() != null && rectangle.getLon() != null) {
+                sql = String.format(
+                    "SELECT id, %s FROM read_csv('%s') WHERE %s BETWEEN %s AND %s AND %s BETWEEN %s AND %s",
+                    String.join(", ", columnNames),
+                    dataSource.getSource(),
+                    latCol,
+                    rectangle.getLat().lowerEndpoint(),
+                    rectangle.getLat().upperEndpoint(),
+                    lonCol,
+                    rectangle.getLon().lowerEndpoint(),
+                    rectangle.getLon().upperEndpoint()
+                );
+            } else {
+                sql = String.format(
+                    "SELECT id, %s FROM read_csv('%s')",
+                    String.join(", ", columnNames),
+                    dataSource.getSource()
+                );
+            }
+            log.info("SQL: " + sql);
+            ResultSet resultSet = statement.executeQuery(sql);
+            int columnCount = resultSet.getMetaData().getColumnCount();
+            log.info("Metadata: " + resultSet.getMetaData());
+            
+            // Get column names from metadata
+            String[] allColumnNames = new String[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                allColumnNames[i] = resultSet.getMetaData().getColumnName(i + 1);
+            }
+            
+            // Initialize the map with empty arrays for each column
+            Map<String, Object[]> columnMap = new HashMap<>();
+            for (String columnName : allColumnNames) {
+                columnMap.put(columnName, new Object[0]);
+            }
+            
+            // Collect all rows
+            List<Object[]> resultsList = new ArrayList<>();
+            while (resultSet.next()) {
+                Object[] row = new Object[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = resultSet.getObject(i + 1);
+                }
+                resultsList.add(row);
+            }
+            
+            // Convert to map structure: column name -> array of values
+            int rowCount = resultsList.size();
+            for (int colIndex = 0; colIndex < columnCount; colIndex++) {
+                String columnName = allColumnNames[colIndex];
+                Object[] columnValues = new Object[rowCount];
+                
+                for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                    columnValues[rowIndex] = resultsList.get(rowIndex)[colIndex];
+                }
+                
+                columnMap.put(columnName, columnValues);
+            }
+
+            resultSet.close();
+            statement.close();
+            return columnMap;
+        }
     }
 
     public float[][] getUmap(float[][] data) {
