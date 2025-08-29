@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -90,6 +91,26 @@ public class DataHelperV2 {
         } else {
             return "\"" + input.replace("\"", "\"\"") + "\""; // quote and escape
         }
+    }
+
+    /**
+     * Helper method to log the current row of a ResultSet for testing and debugging purposes.
+     * This method iterates over all columns and logs their names and values.
+     *
+     * @param resultSet the ResultSet to log
+     * @param logMessage optional custom message prefix, defaults to "ResultSet row"
+     * @throws SQLException if there's an error accessing the ResultSet metadata
+     */
+    protected void logResultSetRow(ResultSet resultSet, String logMessage) throws SQLException {
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        StringBuilder rowString = new StringBuilder((logMessage != null ? logMessage : "ResultSet row") + ": {");
+        for (int i = 1; i <= columnCount; i++) {
+            rowString.append(metaData.getColumnName(i)).append(": ").append(resultSet.getObject(i));
+            if (i < columnCount) rowString.append(", ");
+        }
+        rowString.append("}");
+        log.info(rowString.toString());
     }
 
     /**
@@ -620,7 +641,7 @@ public class DataHelperV2 {
                 .filter(c -> !c.getName().toLowerCase().contains("timestamp") && isCategorical(c))
                 .map(Column::getName).collect(Collectors.toList()));
                 metadataResponse.getMeasures().addAll(convertedColumns.stream()
-                        .filter(c -> isNumerical(c))
+                        .filter(c -> isNumerical(c) && !c.getName().equals("id"))
                         .map(Column::getName).collect(Collectors.toList()));
 
                 // Set measure0 to the column that has "rsrp" in its name (case-insensitive)
