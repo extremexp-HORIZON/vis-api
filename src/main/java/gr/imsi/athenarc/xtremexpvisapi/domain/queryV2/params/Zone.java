@@ -28,6 +28,8 @@ public class Zone {
     private String createdAt; // Date and time the zone was created - OPTIONAL
     
     private Double[] heights; // Heights of the zone - OPTIONAL
+
+    private String[] geohashes; // Geohashes of the zone - OPTIONAL
     
     private Rectangle rectangle; // Rectangle of the zone - OPTIONAL
 }
