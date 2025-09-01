@@ -8,4 +8,6 @@ public class DataSource {
     private String format;
     private SourceType sourceType;
     private String fileName;
+    private String measure0;
+    private String measure1;
 }

@@ -641,22 +641,11 @@ public class DataHelperV2 {
                 .filter(c -> !c.getName().toLowerCase().contains("timestamp") && isCategorical(c))
                 .map(Column::getName).collect(Collectors.toList()));
                 metadataResponse.getMeasures().addAll(convertedColumns.stream()
-                        .filter(c -> isNumerical(c) && !c.getName().equals("id"))
+                        .filter(c -> isNumerical(c) && !c.getName().equals("id") && !c.getName().equals(latCol) && !c.getName().equals(lonCol))
                         .map(Column::getName).collect(Collectors.toList()));
 
-                // Set measure0 to the column that has "rsrp" in its name (case-insensitive)
-                String measure0 = metadataResponse.getOriginalColumns().stream()
-                    .map(Column::getName)
-                    .filter(name -> name != null && name.toLowerCase().contains("rsrp"))
-                    .findFirst()
-                    .orElse("rssi");
-                metadataResponse.setMeasure0(measure0);
-                String measure1 = metadataResponse.getOriginalColumns().stream()
-                    .map(Column::getName)
-                    .filter(name -> name != null && name.toLowerCase().contains("throughput"))
-                    .findFirst()
-                    .orElse("cqi");
-                metadataResponse.setMeasure1(dataSource.getFileName().equals("patra") ? "latency" : measure1);
+                metadataResponse.setMeasure0(dataSource.getMeasure0());
+                metadataResponse.setMeasure1(dataSource.getMeasure1());
             }
             rs.close();
             rawVisStmt.close();

@@ -3,6 +3,8 @@ package gr.imsi.athenarc.xtremexpvisapi.service;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.repository.DataSourceRepository;
+import gr.imsi.athenarc.xtremexpvisapi.repository.ZoneRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,9 +20,12 @@ public class DataSourceService {
 
     private final DataSourceRepository dataSourceRepository;
 
+    private final ZoneRepository zoneRepository;
+
     @Autowired
-    public DataSourceService(DataSourceRepository dataSourceRepository) {
+    public DataSourceService(DataSourceRepository dataSourceRepository, ZoneRepository zoneRepository) {
         this.dataSourceRepository = dataSourceRepository;
+        this.zoneRepository = zoneRepository;
     }
 
     /**
@@ -49,6 +54,8 @@ public class DataSourceService {
      * @return true if deletion was successful
      */
     public boolean deleteByFileName(String fileName) {
+        // TODO: Delete all metadata for this data source
+        zoneRepository.deleteByFileName(fileName);
         return dataSourceRepository.deleteByFileName(fileName);
     }
 
