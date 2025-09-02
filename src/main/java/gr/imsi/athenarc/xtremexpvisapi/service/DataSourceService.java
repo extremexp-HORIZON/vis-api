@@ -4,6 +4,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.repository.DataSourceRepository;
 import gr.imsi.athenarc.xtremexpvisapi.repository.ZoneRepository;
+import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,14 +20,17 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class DataSourceService {
 
+    private final DataServiceV2 dataServiceV2;
+
     private final DataSourceRepository dataSourceRepository;
 
     private final ZoneRepository zoneRepository;
 
     @Autowired
-    public DataSourceService(DataSourceRepository dataSourceRepository, ZoneRepository zoneRepository) {
+    public DataSourceService(DataSourceRepository dataSourceRepository, ZoneRepository zoneRepository, DataServiceV2 dataServiceV2) {
         this.dataSourceRepository = dataSourceRepository;
         this.zoneRepository = zoneRepository;
+        this.dataServiceV2 = dataServiceV2;
     }
 
     /**
@@ -52,9 +57,11 @@ public class DataSourceService {
      * 
      * @param fileName the fileName to delete
      * @return true if deletion was successful
+     * @throws Exception 
+     * @throws SQLException 
      */
-    public boolean deleteByFileName(String fileName) {
-        // TODO: Delete all metadata for this data source
+    public boolean deleteByFileName(String fileName) throws SQLException, Exception {
+        dataServiceV2.deleteFileMetadata(fileName);
         zoneRepository.deleteByFileName(fileName);
         return dataSourceRepository.deleteByFileName(fileName);
     }

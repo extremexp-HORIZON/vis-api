@@ -364,6 +364,27 @@ public class DataServiceV2 {
         }
     }
 
+    public boolean deleteFileMetadata(String fileName) throws Exception, SQLException {
+        String tableName = fileName.replace("-", "_");
+        String metaTableName = "rawvis_meta";
+        log.info("Deleting file metadata for " + tableName + " from " + metaTableName);
+
+        try (Connection connection = this.dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+
+            int rowsDeleted = statement.executeUpdate("DELETE FROM " + metaTableName + " WHERE table_name = '" + tableName + "'");
+
+            statement.close();
+            connection.close();
+
+            log.info("File metadata deleted successfully, " + rowsDeleted + " rows deleted");
+            return rowsDeleted > 0;
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete file metadata for " + tableName + " from " + metaTableName, e);
+        }
+    }
+
     public float[][] getUmap(float[][] data) {
         Umap umap = new Umap();
         umap.setNumberComponents(2);
