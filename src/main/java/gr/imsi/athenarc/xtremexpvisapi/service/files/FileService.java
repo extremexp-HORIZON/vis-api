@@ -44,9 +44,10 @@ public class FileService {
      * @param uri the URI of the file to download
      * @throws Exception if an error occurs
      */
-    public String downloadAndCacheDataAsset(DataSource dataSource, String authorization) throws Exception {
-
-        Path targetPath = getTargetPathForDataAsset(dataSource);
+    public String downloadAndCacheDataAsset(String runId, DataSource dataSource, String authorization)
+            throws Exception {
+        Path targetPath = getTargetPathForDataAsset(runId, dataSource); // Pass runId along
+        System.out.println("Target path: " + targetPath.toString());
 
         // Check if file is already cached and reset timer
         if (isFileCached(targetPath.toString())) {
@@ -63,29 +64,28 @@ public class FileService {
         return targetPath.toString();
     }
 
-    private Path getTargetPathForDataAsset(DataSource dataSource) {
-        if (dataSource.getFileName() != null && !dataSource.getFileName().isEmpty()) {
-            // If a file name is provided, use it directly
-            // check if fileName has a format in its string
-            int lastDotIndex = dataSource.getFileName().lastIndexOf('.');
-            if (lastDotIndex > 0 && lastDotIndex < dataSource.getFileName().length() - 1) {
-                return Paths.get(applicationFileProperties.getDirectory(),
-                        dataSource.getFileName());
-            } else {
-                throw new IllegalArgumentException(
-                        "Data source file name must include a valid format (e.g., .csv, .json)");
-            }
-        } else {
-            if (dataSource.getFormat() == null || dataSource.getFormat().isEmpty()) {
-                throw new IllegalArgumentException("Data source format must be specified");
-            } else {
-                // Ensure the source is sanitized to prevent directory traversal attacks
-                String fileCacheDirectory = applicationFileProperties.getDirectory();
-                String sanitizedSource = dataSource.getSource().replaceAll("[^a-zA-Z0-9._-]", "_");
-                return Paths.get(fileCacheDirectory, sanitizedSource + dataSource.getFormat());
-            }
-        }
+    private Path getTargetPathForDataAsset(String runId, DataSource dataSource) {
+        String fileCacheDirectory = applicationFileProperties.getDirectory();
 
+        if (dataSource.getFileName() != null && !dataSource.getFileName().isEmpty()) {
+            // If a file name is provided, ensure it has an extension
+            int lastDotIndex = dataSource.getFileName().lastIndexOf('.');
+            String fileName = dataSource.getFileName();
+            if (lastDotIndex <= 0 || lastDotIndex >= fileName.length() - 1) {
+                // No valid extension, append .json
+                fileName = fileName + ".json";
+            }
+            return Paths.get(fileCacheDirectory, runId, fileName);
+        } else {
+            // No file name provided
+            String sanitizedSource = dataSource.getSource().replaceAll("[^a-zA-Z0-9._-]", "_");
+            String format = dataSource.getFormat();
+            if (format == null || format.isEmpty()) {
+                // Default to .json if format not set
+                format = ".json";
+            }
+            return Paths.get(fileCacheDirectory, runId, sanitizedSource + format);
+        }
     }
 
     private InputStream getInputStreamForDataAsset(DataSource dataSource, String authorization) throws Exception {
