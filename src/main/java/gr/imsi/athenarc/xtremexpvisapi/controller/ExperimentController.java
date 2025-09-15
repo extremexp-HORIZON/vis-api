@@ -14,6 +14,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.LifeCycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -74,7 +75,14 @@ public class ExperimentController {
      */
     @GetMapping("/{experimentId}/runs")
     public ResponseEntity<List<Run>> getRunsForExperiment(@PathVariable String experimentId) {
-        return experimentServiceFactory.getActiveService().getRunsForExperiment(experimentId);
+        try {
+            return experimentServiceFactory.getActiveService().getRunsForExperiment(experimentId);
+        } catch (Exception e) {
+            // Log the error
+            // log.error("Failed to fetch runs for experiment: {}", experimentId, e);
+            // Return empty list instead of 500
+            return ResponseEntity.ok(Collections.emptyList());
+        }
     }
 
     /**
