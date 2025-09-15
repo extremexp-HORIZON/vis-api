@@ -81,6 +81,12 @@ public class Run {
      */
     private Map<String, String> tags;
 
+    /**
+     * Name of the space porduced during the run.
+     */
+    private String space;
+
+
     // Constructors
 
     public Run() {
@@ -88,7 +94,7 @@ public class Run {
 
     public Run(String id, String name, String experimentId, Status status, Long startTime, Long endTime,
             List<Param> params, List<Metric> metrics, List<DataAsset> dataAssets,
-            List<Task> tasks, Map<String, String> tags) {
+            List<Task> tasks, Map<String, String> tags, String space) {
         this.id = id;
         this.name = name;
         this.experimentId = experimentId;
@@ -100,6 +106,7 @@ public class Run {
         this.dataAssets = dataAssets;
         this.tasks = tasks;
         this.tags = tags;
+        this.space = space;
     }
 
     // Getters and Setters
@@ -195,6 +202,13 @@ public class Run {
     public void setTags(Map<String, String> tags) {
         this.tags = tags;
     }
+    public String getSpace() {
+        return space;
+    }
+
+    public void setSpace(String space) {
+        this.space = space;
+    }
 
     @Override
     public String toString() {
@@ -210,6 +224,7 @@ public class Run {
                 ", dataAssets=" + dataAssets +
                 ", tasks=" + tasks +
                 ", tags=" + tags +
+                ", space='" + space + '\'' +
                 '}';
     }
 }

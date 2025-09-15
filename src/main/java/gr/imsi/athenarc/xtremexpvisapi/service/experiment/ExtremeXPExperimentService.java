@@ -520,6 +520,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
 
         run.setTags(tags);
+        if (tags.containsKey("wf_origin")) {
+            run.setSpace(tags.get("wf_origin"));
+        }
 
         // Handle metrics
         List<Map<String, Object>> metricsList = (List<Map<String, Object>>) responseObject.get("metrics");
