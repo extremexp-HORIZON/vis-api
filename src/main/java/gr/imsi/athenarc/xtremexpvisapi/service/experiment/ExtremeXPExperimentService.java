@@ -260,7 +260,8 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
+    @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId + '::' + #runId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
+
     public ResponseEntity<Run> getRunById(String experimentId, String runId) {
         try {
             HttpEntity<String> entity = new HttpEntity<>(headersInitializer());
@@ -519,6 +520,9 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
 
         run.setTags(tags);
+        if (tags.containsKey("wf_origin")) {
+            run.setSpace(tags.get("wf_origin"));
+        }
 
         // Handle metrics
         List<Map<String, Object>> metricsList = (List<Map<String, Object>>) responseObject.get("metrics");
@@ -605,7 +609,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         Object rawValue = data.get("value");
         long timestamp = getTimestampFromWorkflowData(data);
 
-        if (rawValue instanceof String) { 
+        if (rawValue instanceof String) {
             String valueStr = ((String) rawValue).trim();
             if (valueStr.startsWith("[") && valueStr.endsWith("]")) {
                 try {

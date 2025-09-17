@@ -4,6 +4,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import lombok.extern.java.Log;
 import tagbio.umap.Umap;
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType;
@@ -22,6 +27,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.UnivariateDataPoint;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -173,7 +181,16 @@ public class DataServiceV2 {
             try (
                     Connection connection = this.dataSource.getConnection();
                     Statement statement = connection.createStatement()) {
+                System.out.println("File path for metadata: " + filePath.toString());
+
                 FileType fileType = dataQueryHelper.detectFileType(filePath);
+                if (fileType == FileType.JSON) {
+                    try {
+                        filePath = preprocessJsonIfNeeded(Paths.get(filePath)).toString();
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to preprocess JSON file: " + filePath, e);
+                    }
+                }
 
                 String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath) + " LIMIT 10";
                 ResultSet resultSet = statement.executeQuery(sql);
@@ -391,6 +408,39 @@ public class DataServiceV2 {
         umap.setNumberNearestNeighbours(15);
         umap.setThreads(1);
         return umap.fitTransform(data);
+    }
+
+    private Path preprocessJsonIfNeeded(Path datasetPath) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(datasetPath.toFile());
+
+        // Detect dict-of-lists (object with array values)
+        if (root.isObject()) {
+            ObjectNode obj = (ObjectNode) root;
+            if (obj.size() > 0 && obj.elements().next().isArray()) {
+                int epochs = obj.elements().next().size(); // assume all arrays same length
+                ArrayNode array = mapper.createArrayNode();
+
+                for (int i = 0; i < epochs; i++) {
+                    final int idx = i;
+                    ObjectNode row = mapper.createObjectNode();
+                    row.put("epoch", idx + 1);
+                    obj.fieldNames().forEachRemaining(field -> {
+                        JsonNode arr = obj.get(field);
+                        row.set(field, arr.get(idx));
+                    });
+                    array.add(row);
+                }
+
+                // Write reshaped JSON to a temp file
+                Path tmpFile = Files.createTempFile("reshaped_metrics", ".json");
+                mapper.writerWithDefaultPrettyPrinter().writeValue(tmpFile.toFile(), array);
+                return tmpFile;
+            }
+        }
+
+        // Return unchanged if already row-oriented
+        return datasetPath;
     }
 
 }

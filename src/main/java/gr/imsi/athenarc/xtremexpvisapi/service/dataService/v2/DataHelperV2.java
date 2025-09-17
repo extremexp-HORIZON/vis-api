@@ -1,8 +1,11 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,7 +28,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.davidmoten.geo.GeoHash;
 import com.github.davidmoten.geo.LatLong;
 import com.google.common.math.PairedStatsAccumulator;
@@ -130,10 +136,11 @@ public class DataHelperV2 {
                 .map(col -> col.getName().toLowerCase())
                 .collect(Collectors.toSet());
 
-        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude")|| lowerColNames.contains("lat_wgs84")
+        boolean hasLat = lowerColNames.contains("lat") || lowerColNames.contains("latitude")
+                || lowerColNames.contains("lat_wgs84")
                 || lowerColNames.contains("latitude_wgs84");
         boolean hasLon = lowerColNames.contains("lon") || lowerColNames.contains("long")
-                || lowerColNames.contains("longitude")|| lowerColNames.contains("lon_wgs84")
+                || lowerColNames.contains("longitude") || lowerColNames.contains("lon_wgs84")
                 || lowerColNames.contains("longitude_wgs84");
 
         return hasLat && hasLon;
@@ -306,6 +313,7 @@ public class DataHelperV2 {
      */
     @Async
     protected CompletableFuture<String> buildQuery(DataRequest request, String authorization) throws Exception {
+
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
             StringBuilder sql = new StringBuilder();
 
@@ -320,6 +328,13 @@ public class DataHelperV2 {
 
             // FROM clause - use detected or specified file type
             FileType fileType = detectFileType(datasetPath);
+            if (fileType == FileType.JSON) {
+                try {
+                    datasetPath = preprocessJsonIfNeeded(Paths.get(datasetPath)).toString();
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to preprocess JSON file: " + datasetPath, e);
+                }
+            }
             sql.append(" FROM ");
             switch (fileType) {
                 case CSV:
@@ -388,53 +403,54 @@ public class DataHelperV2 {
      * @param baseQuery the base SQL query to wrap
      * @return a StringBuilder containing the aggregation query
      */
-   private StringBuilder buildAggregationQuery(DataRequest request, String datasetPath) {
-    StringBuilder aggQuery = new StringBuilder("SELECT ");
+    private StringBuilder buildAggregationQuery(DataRequest request, String datasetPath) {
+        StringBuilder aggQuery = new StringBuilder("SELECT ");
 
-    // Detect file type
-    FileType fileType = detectFileType(datasetPath);
-    String fileTable = getFileTypeSQL(fileType, datasetPath);
-    System.out.println("Detected file type: " + fileType + ", SQL: " + fileTable);
+        // Detect file type
+        FileType fileType = detectFileType(datasetPath);
+        String fileTable = getFileTypeSQL(fileType, datasetPath);
+        System.out.println("Detected file type: " + fileType + ", SQL: " + fileTable);
 
-    // Quoted group-by columns
-    if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-        aggQuery.append(request.getGroupBy().stream()
-            .map(this::getCorrectedString)
-            .collect(Collectors.joining(", ")))
-            .append(", ");
+        // Quoted group-by columns
+        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+            aggQuery.append(request.getGroupBy().stream()
+                    .map(this::getCorrectedString)
+                    .collect(Collectors.joining(", ")))
+                    .append(", ");
+        }
+
+        // Aggregation functions (should already quote inside toSql())
+        List<String> aggSqls = request.getAggregations().stream()
+                .map(Aggregation::toSql)
+                .collect(Collectors.toList());
+        aggQuery.append(String.join(", ", aggSqls));
+
+        // Flat FROM clause — no subquery
+        aggQuery.append(" FROM ").append(fileTable);
+
+        // WHERE clause if filters exist
+        if (request.getFilters() != null && !request.getFilters().isEmpty()) {
+            aggQuery.append(" WHERE ")
+                    .append(buildFiltersClause((List<AbstractFilter>) request.getFilters()));
+        }
+
+        // GROUP BY
+        if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
+            aggQuery.append(" GROUP BY ")
+                    .append(request.getGroupBy().stream()
+                            .map(this::getCorrectedString)
+                            .collect(Collectors.joining(", ")));
+        }
+
+        // LIMIT
+        // if (request.getLimit() != null) {
+        // aggQuery.append(" LIMIT ").append(request.getLimit());
+        // }
+
+        return aggQuery;
     }
 
-    // Aggregation functions (should already quote inside toSql())
-    List<String> aggSqls = request.getAggregations().stream()
-            .map(Aggregation::toSql)
-            .collect(Collectors.toList());
-    aggQuery.append(String.join(", ", aggSqls));
-
-    // Flat FROM clause — no subquery
-    aggQuery.append(" FROM ").append(fileTable);
-
-    // WHERE clause if filters exist
-    if (request.getFilters() != null && !request.getFilters().isEmpty()) {
-        aggQuery.append(" WHERE ")
-            .append(buildFiltersClause((List<AbstractFilter>) request.getFilters()));
-    }
-
-    // GROUP BY
-    if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {
-        aggQuery.append(" GROUP BY ")
-            .append(request.getGroupBy().stream()
-                .map(this::getCorrectedString)
-                .collect(Collectors.joining(", ")));
-    }
-
-    // LIMIT
-    // if (request.getLimit() != null) {
-    //     aggQuery.append(" LIMIT ").append(request.getLimit());
-    // }
-
-    return aggQuery;
-}
- /**
+    /**
      * Helper function to get the file path for both local and external datasets.
      * For local datasets, returns the source path directly.
      * For external datasets, checks cache and downloads if necessary.
@@ -456,7 +472,8 @@ public class DataHelperV2 {
             log.info("Internal file detected, using source path: " + targetPath);
             return CompletableFuture.completedFuture(targetPath);
         } else {
-            return CompletableFuture.completedFuture(fileService.downloadAndCacheDataAsset(dataSource, authorization));
+            return CompletableFuture.completedFuture(
+                    fileService.downloadAndCacheDataAsset(dataSource.getRunId(), dataSource, authorization));
         }
     }
 
@@ -480,6 +497,40 @@ public class DataHelperV2 {
             default:
                 throw new IllegalArgumentException("Unknown file type: " + fileType);
         }
+    }
+
+    private Path preprocessJsonIfNeeded(Path datasetPath) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(datasetPath.toFile());
+
+        // Detect dict-of-lists (object with array values)
+        if (root.isObject()) {
+            ObjectNode obj = (ObjectNode) root;
+            if (obj.size() > 0 && obj.elements().next().isArray()) {
+                int epochs = obj.elements().next().size(); // assume all arrays same length
+                ArrayNode array = mapper.createArrayNode();
+
+                for (int i = 0; i < epochs; i++) {
+                    final int idx = i;
+                    ObjectNode row = mapper.createObjectNode();
+                    row.put("epoch", idx + 1);
+                    obj.fieldNames().forEachRemaining(field -> {
+                        JsonNode arr = obj.get(field);
+                        row.set(field, arr.get(idx));
+                    });
+                    array.add(row);
+                }
+
+                // Write reshaped JSON to a temp file
+                Path tmpFile = Files.createTempFile("reshaped_metrics", ".json");
+                mapper.writerWithDefaultPrettyPrinter().writeValue(tmpFile.toFile(), array);
+                return tmpFile;
+            }
+        }
+
+        // Return unchanged if already row-oriented
+        return datasetPath;
+
     }
 
     /**
