@@ -51,11 +51,6 @@ public class MlAnalysisResourceHelper {
         return mlAnalysisFolderName;
     }
 
-    // Optional: use this method instead of accessing the field directly
-    public Path getAnalysisFolderPathForRun(String runId) {
-        return Path.of(mlEvaluationPath, runId, mlAnalysisFolderName);
-    }
-
     /**
      * Returns the path to the ML analysis resources folder for a given run.
      *
@@ -133,38 +128,6 @@ public class MlAnalysisResourceHelper {
         } else {
             return Optional.empty();
         }
-    }
-
-    public boolean hasMlAnalysisResources(Run run) {
-        return getMlResourceFolder(run).isPresent();
-    }
-
-    public Path getXTestPath(Path folder) {
-        return folder.resolve("X_test.csv");
-    }
-
-    public Path getXTrainPath(Path folder) {
-        return folder.resolve("X_train.csv");
-    }
-
-    public Path getYTrainPath(Path folder) {
-        return folder.resolve("Y_train.csv");
-    }
-
-    public Path getYTestPath(Path folder) {
-        return folder.resolve("Y_test.csv");
-    }
-
-    public Path getYPredPath(Path folder) {
-        return folder.resolve("Y_pred.csv");
-    }
-
-    public Path getModelPath(Path folder) {
-        return folder.resolve("model.pkl");
-    }
-
-    public Path getRocCurvePath(Path folder) {
-        return folder.resolve("roc_data.json");
     }
 
     /**
