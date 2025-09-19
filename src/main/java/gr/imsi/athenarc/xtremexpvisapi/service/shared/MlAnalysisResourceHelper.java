@@ -27,6 +27,8 @@ import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 public class MlAnalysisResourceHelper {
 
     private String mlAnalysisFolderName;
+    private final List<String> supportedModelExtensions = List.of(".pkl", ".pt"); // Configurable list of supported
+                                                                                  // model extensions
 
     private final String mlEvaluationPath;
     private final FileService fileService;
@@ -102,11 +104,21 @@ public class MlAnalysisResourceHelper {
     }
 
     private boolean hasFiles(List<DataAsset> dataAssets) {
-        List<String> fileNames = List.of("X_test.csv", "Y_test.csv", "Y_train.csv", "X_train.csv", "Y_pred.csv",
-                "model.pkl");
-        return fileNames.stream()
+        List<String> requiredFiles = List.of("X_test.csv", "Y_test.csv", "Y_train.csv", "X_train.csv", "Y_pred.csv");
+        boolean hasRequiredFiles = requiredFiles.stream()
                 .allMatch(fileName -> dataAssets.stream()
                         .anyMatch(asset -> asset.getName().equalsIgnoreCase(fileName)));
+
+        // Check for any supported model file
+        boolean hasModelFile = dataAssets.stream()
+                .anyMatch(asset -> {
+                    String assetName = asset.getName().toLowerCase();
+                    return assetName.startsWith("model.") &&
+                            supportedModelExtensions.stream()
+                                    .anyMatch(ext -> assetName.endsWith(ext));
+                });
+
+        return hasRequiredFiles && hasModelFile;
     }
 
     /**
@@ -137,13 +149,32 @@ public class MlAnalysisResourceHelper {
      * @return true if all required files are present
      */
     public boolean hasRequiredFiles(Path folder) {
-        return findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
+        boolean hasRequiredDataFiles = findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
                 findFileIgnoreCase(folder, "Y_test.csv").isPresent() &&
                 findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
                 findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
-                findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
-                findFileIgnoreCase(folder, "model.pkl").isPresent();
+                findFileIgnoreCase(folder, "Y_train.csv").isPresent();
+
+        // Check for any supported model file
+        boolean hasModelFile = findModelFile(folder).isPresent();
+
+        return hasRequiredDataFiles && hasModelFile;
         // findFileIgnoreCase(folder, "roc_data.json").isPresent();
+    }
+
+    private Optional<Path> findModelFile(Path folder) {
+        try {
+            return Files.list(folder)
+                    .filter(p -> {
+                        String fileName = p.getFileName().toString().toLowerCase();
+                        return fileName.startsWith("model.") &&
+                                supportedModelExtensions.stream()
+                                        .anyMatch(ext -> fileName.endsWith(ext));
+                    })
+                    .findFirst();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     /**

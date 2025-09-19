@@ -98,39 +98,32 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
+    public FeatureImportanceRequest featureImportanceRequestBuilder(String experimentId, String runId,
+            String authorization) {
+        // Fetch metadata, paths, etc. like you do in requestBuilder
+        // Pseudo-code example:
 
-    public FeatureImportanceRequest featureImportanceRequestBuilder(String experimentId, String runId, String authorization) {
-    // Fetch metadata, paths, etc. like you do in requestBuilder
-    // Pseudo-code example:
+        // Create a DataPaths object from the loaded data paths
+        Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
+                "feature");
+        if (dataPaths.isEmpty()) {
+            throw new IllegalArgumentException("No data paths found for experimentId this experiment");
+        }
+        DataPaths data = buildDataPaths(dataPaths.get());
 
-   // Create a DataPaths object from the loaded data paths
-            Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
-                    "feature");
-            if (dataPaths.isEmpty()) {
-                throw new IllegalArgumentException("No data paths found for experimentId this experiment");
-            }
-            DataPaths data = buildDataPaths(dataPaths.get());
+        // Get model path using the helper method
+        String modelPath = findModelPath(dataPaths.get());
 
-            // Get model path, try "model.pkl" first, then "model"
-            String modelPath = dataPaths.get().get("model.pkl");
-            if (modelPath == null) {
-                modelPath = dataPaths.get().get("model");
-            }
+        System.out.println("Model path: " + modelPath);
+        // System.out.println("data {}"+data);
 
-            if (modelPath == null) {
-                throw new IllegalArgumentException("Missing model path: expected either 'model.pkl' or 'model'");
-            }
-
-            System.out.println("Model path: " + modelPath);
-            // System.out.println("data {}"+data);
-
-            // Add model to request
-            List<String> model = List.of(modelPath.toString());
-    return FeatureImportanceRequest.newBuilder()
-        .addModel(modelPath)
-        .setData(data)
-        .build();
-}
+        // Add model to request
+        List<String> model = List.of(modelPath);
+        return FeatureImportanceRequest.newBuilder()
+                .addModel(modelPath)
+                .setData(data)
+                .build();
+    }
 
     protected ExplanationsRequest requestBuilder(String explainabilityRequest, String experimentId, String runId,
             String authorization)
@@ -151,19 +144,11 @@ public class ExplainabilityRunHelper {
             DataPaths data = buildDataPaths(dataPaths.get());
             requestBuilder.setData(data);
 
-            // Get model path, try "model.pkl" first, then "model"
-            String modelPath = dataPaths.get().get("model.pkl");
-            if (modelPath == null) {
-                modelPath = dataPaths.get().get("model");
-            }
-
-            if (modelPath == null) {
-                throw new IllegalArgumentException("Missing model path: expected either 'model.pkl' or 'model'");
-            }
+            // Get model path using the helper method
+            String modelPath = findModelPath(dataPaths.get());
 
             // Add model to request
-            List<String> model = List.of(modelPath.toString());
-            requestBuilder.addAllModel(model);
+            requestBuilder.addAllModel(List.of(modelPath));
             // System.out.println("requstbuildr "+requestBuilder);
 
         } else if (requestBuilder.getExplanationType().equals("hyperparameterExplanation")) {
@@ -179,15 +164,9 @@ public class ExplainabilityRunHelper {
                 requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
             }
-            List<String> model = new ArrayList<>();
-            if (service.getClass().getSimpleName().equals("MLflowExperimentService")) {
-                model.add(dataPaths.get().get("model.pkl").toString());
-                requestBuilder.addAllModel(model);
-            } else {
-                model.add(dataPaths.get().get("model").toString());
-                requestBuilder.addAllModel(model);
-
-            }
+            // Get model path using the helper method and add to request
+            String modelPath = findModelPath(dataPaths.get());
+            requestBuilder.addAllModel(List.of(modelPath));
 
             for (Run similarRun : similarRuns) {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
@@ -211,11 +190,9 @@ public class ExplainabilityRunHelper {
                 }
 
                 Hyperparameters hyperparameters = hyperparametersBuilder.build();
-                if(service.getClass().getSimpleName().equals("MLflowExperimentService")) {
-                    requestBuilder.putHyperConfigs(dataPaths.get().get("model.pkl").toString(), hyperparameters);
-                } else {
-                    requestBuilder.putHyperConfigs(dataPaths.get().get("model").toString(), hyperparameters);
-                }
+                // Get model path using the helper method and add to hyper configs
+                String hyperModelPath = findModelPath(dataPaths.get());
+                requestBuilder.putHyperConfigs(hyperModelPath, hyperparameters);
             }
             LOG.info("Similar runs: " + similarRuns.size());
 
@@ -288,12 +265,28 @@ public class ExplainabilityRunHelper {
     }
 
     private static final Map<String, List<String>> ALIASES = new HashMap<>();
+    private static final List<String> MODEL_FILES = Arrays.asList("model.pkl", "model.pt", "model");
     static {
         ALIASES.put("xTest", Arrays.asList("X_test.csv", "x_test"));
         ALIASES.put("xTrain", Arrays.asList("X_train.csv", "x_train"));
         ALIASES.put("yTest", Arrays.asList("Y_test.csv", "y_test"));
         ALIASES.put("yTrain", Arrays.asList("Y_train.csv", "y_train"));
         ALIASES.put("yPred", Arrays.asList("Y_pred.csv", "y_pred"));
+    }
+
+    /**
+     * Finds the first available model file from the data paths.
+     * 
+     * @param dataPaths Map of file names to their paths
+     * @return The path to the first found model file
+     * @throws IllegalArgumentException if no model file is found
+     */
+    private String findModelPath(Map<String, String> dataPaths) {
+        return MODEL_FILES.stream()
+                .map(dataPaths::get)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Missing model path: expected one of " + MODEL_FILES));
     }
 
     private String resolve(Map<String, String> map, String logicalKey) {
