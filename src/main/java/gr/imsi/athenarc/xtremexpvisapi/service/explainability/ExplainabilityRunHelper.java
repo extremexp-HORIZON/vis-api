@@ -172,8 +172,7 @@ public class ExplainabilityRunHelper {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId(), authorization, "hyperparameter");
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
-                hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
-
+                hyperparametersBuilder.setMetricValue((float) similarRun.getMetrics().get(0).getValue());
                 List<Param> params = similarRun.getParams();
                 for (Param param : params) {
                     // Create a new builder for each parameter
