@@ -400,7 +400,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     requestUrl, HttpMethod.POST, entity, List.class);
             List<Map<String, Object>> responseList = response.getBody();
             if (responseList == null || responseList.isEmpty()) {
-                System.out.println("No metrics found for the given experiment and run.");
+                // System.out.println("No metrics found for the given experiment and run.");
                 String putUrl = workflowsApiUrl + "/metrics";
                 Map<String, Object> putBody = new HashMap<>();
                 // putBody.put("experimentId", experimentId);

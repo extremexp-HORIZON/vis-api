@@ -96,7 +96,7 @@ public class DataServiceV2 {
             try (
                     Connection connection = this.dataSource.getConnection();
                     Statement statement = connection.createStatement()) {
-                System.out.println("File path for metadata: " + filePath.toString());
+                // System.out.println("File path for metadata: " + filePath.toString());
 
                 FileType fileType = dataQueryHelper.detectFileType(filePath);
                 if (fileType == FileType.JSON) {

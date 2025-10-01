@@ -308,7 +308,7 @@ public class DataHelperV2 {
             if (request.getOffset() != null) {
                 sql.append(" OFFSET ").append(request.getOffset());
             }
-            System.out.println("Built SQL query: " + sql.toString());
+            // System.out.println("Built SQL query: " + sql.toString());
 
             return sql.toString();
         });
@@ -341,7 +341,7 @@ public class DataHelperV2 {
         // Detect file type
         FileType fileType = detectFileType(datasetPath);
         String fileTable = getFileTypeSQL(fileType, datasetPath);
-        System.out.println("Detected file type: " + fileType + ", SQL: " + fileTable);
+        // System.out.println("Detected file type: " + fileType + ", SQL: " + fileTable);
 
         // Quoted group-by columns
         if (request.getGroupBy() != null && !request.getGroupBy().isEmpty()) {

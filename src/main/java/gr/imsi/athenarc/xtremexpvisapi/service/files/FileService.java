@@ -47,7 +47,7 @@ public class FileService {
     public String downloadAndCacheDataAsset(String runId, DataSource dataSource, String authorization)
             throws Exception {
         Path targetPath = getTargetPathForDataAsset(runId, dataSource); // Pass runId along
-        System.out.println("Target path: " + targetPath.toString());
+        // System.out.println("Target path: " + targetPath.toString());
 
         // Check if file is already cached and reset timer
         if (isFileCached(targetPath.toString())) {

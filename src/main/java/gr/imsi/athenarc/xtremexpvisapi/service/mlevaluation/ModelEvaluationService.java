@@ -119,7 +119,7 @@ public class ModelEvaluationService {
     }
 
     private Path modelAnalysisResourceToPath(String filePath) {
-        System.out.println("oooooook" + filePath);
+        // System.out.println("oooooook" + filePath);
         return Paths.get(filePath);
     }
 

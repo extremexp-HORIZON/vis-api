@@ -114,7 +114,7 @@ public class ExplainabilityRunHelper {
         // Get model path using the helper method
         String modelPath = findModelPath(dataPaths.get());
 
-        System.out.println("Model path: " + modelPath);
+        // System.out.println("Model path: " + modelPath);
         // System.out.println("data {}"+data);
 
         // Add model to request
