@@ -93,6 +93,10 @@ message ExplanationsResponse {
     float TotalEffectiveness = 16;
     float TotalCost = 17;
     map<string, TableContents> actions = 18;
+    map<string, TableContents> features_table = 19;
+    map<string, TableContents> attributions_table = 20;
+    repeated string features_table_columns = 21;
+    repeated string attributions_table_columns = 22;
 }
 
 //------------------ Apply Affected Actions --------------------------------------------------
