@@ -662,6 +662,12 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
 
+        // Set status from API response if present
+        Object statusObj = data.get("status");
+        if (statusObj != null) {
+            experiment.setStatus(statusObj.toString());
+        }
+
         return experiment;
     }
 

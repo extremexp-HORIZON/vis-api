@@ -42,6 +42,12 @@ public class Experiment {
      */
     private Map<String, String> tags;
 
+    /**
+    *  Status of the experiment (e.g., "completed", "deleted").
+    */
+
+    private String status ;
+
     
     // Constructors
 
@@ -49,13 +55,14 @@ public class Experiment {
     }
 
     public Experiment(String id, String name, Long creationTime, Long lastUpdateTime,
-            List<MetricDefinition> metricDefinitions, Map<String, String> tags) {
+            List<MetricDefinition> metricDefinitions, Map<String, String> tags, String status) {
         this.id = id;
         this.name = name;
         this.creationTime = creationTime;
         this.lastUpdateTime = lastUpdateTime;
         this.metricDefinitions = metricDefinitions;
         this.tags = tags;
+        this.status = status;
     }
 
     // Getters and Setters
@@ -108,6 +115,13 @@ public class Experiment {
         this.tags = tags;
     }
 
+    public String getStatus() {
+        return status;
+    }
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     // toString() Method for Debugging
 
     @Override
@@ -119,6 +133,7 @@ public class Experiment {
                 ", lastUpdateTime=" + lastUpdateTime +
                 ", metricDefinitions=" + metricDefinitions +
                 ", tags=" + tags +
+                ", status='" + status + '\'' +
                 '}';
     }
 }

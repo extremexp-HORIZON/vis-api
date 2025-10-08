@@ -370,6 +370,19 @@ public class MLflowExperimentService implements ExperimentService {
         }
         experiment.setTags(tags);
 
+        // Set status if present. MLflow experiments may not have a direct "status" field;
+        // prefer explicit "status" if provided, then fall back to lifecycle_stage, then to tags.
+        Object statusObj = data.get("status");
+        if (statusObj == null) {
+            statusObj = data.get("lifecycle_stage");
+        }
+        if (statusObj == null && tags.containsKey("status")) {
+            statusObj = tags.get("status");
+        }
+        if (statusObj != null) {
+            experiment.setStatus(statusObj.toString());
+        }
+
         return experiment;
     }
 
