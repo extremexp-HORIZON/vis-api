@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 
@@ -98,10 +100,19 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
-    public FeatureImportanceRequest featureImportanceRequestBuilder(String experimentId, String runId,
+    public FeatureImportanceRequest featureImportanceRequestBuilder(String featureImportanceRequest,
+            String experimentId, String runId,
             String authorization) {
         // Fetch metadata, paths, etc. like you do in requestBuilder
         // Pseudo-code example:
+        ObjectMapper mapper = new ObjectMapper();
+        String type;
+        try {
+            JsonNode jsonNode = mapper.readTree(featureImportanceRequest);
+            type = jsonNode.has("type") ? jsonNode.get("type").asText() : "FeatureImportance";
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid featureImportanceRequest JSON", e);
+        }
 
         // Create a DataPaths object from the loaded data paths
         Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
@@ -122,6 +133,7 @@ public class ExplainabilityRunHelper {
         return FeatureImportanceRequest.newBuilder()
                 .addModel(modelPath)
                 .setData(data)
+                .setType(type)
                 .build();
     }
 

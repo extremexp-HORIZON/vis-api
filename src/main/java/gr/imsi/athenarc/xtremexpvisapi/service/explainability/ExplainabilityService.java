@@ -90,31 +90,31 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 return objectMapper.readTree(jsonString);
         }
 
-       public JsonNode getFeatureImportance(String featureImportanceRequest,String experimentId, String runId, String authorization)
-        throws InvalidProtocolBufferException, JsonProcessingException {
+        public JsonNode getFeatureImportance(String featureImportanceRequest, String experimentId, String runId,
+                        String authorization)
+                        throws InvalidProtocolBufferException, JsonProcessingException {
 
-    FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
-            experimentId, runId, authorization);
-        //     System.out.println("FeatureImportanceRequestRRRRn: " + request);
+                FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
+                                featureImportanceRequest, experimentId, runId, authorization);
+                // System.out.println("FeatureImportanceRequestRRRRn: " + request);
 
+                String jsonString;
+                ObjectMapper objectMapper = new ObjectMapper();
+                jsonString = JsonFormat.printer().print(request);
+                // log.info("FeatureImportanceRequest: \n" + jsonString);
 
-    String jsonString;
-    ObjectMapper objectMapper = new ObjectMapper();
-    jsonString = JsonFormat.printer().print(request);
-//     log.info("FeatureImportanceRequest: \n" + jsonString);
+                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
+                                Integer.parseInt(grpcHostPort))
+                                .usePlaintext()
+                                .build();
 
-    ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
-            Integer.parseInt(grpcHostPort))
-            .usePlaintext()
-            .build();
+                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
+                FeatureImportanceResponse response = stub.getFeatureImportance(request);
+                jsonString = JsonFormat.printer().print(response);
 
-    ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
-    FeatureImportanceResponse response = stub.getFeatureImportance(request);
-    jsonString = JsonFormat.printer().print(response);
+                channel.shutdown();
 
-    channel.shutdown();
-
-    return objectMapper.readTree(jsonString);
-}
+                return objectMapper.readTree(jsonString);
+        }
 
 }

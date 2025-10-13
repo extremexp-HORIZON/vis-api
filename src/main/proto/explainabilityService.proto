@@ -119,12 +119,10 @@ message FeatureImportance {
 
 message FeatureImportanceRequest {
     DataPaths data = 1; // Path to dataset file
-    string target_column = 2; // The target variable in the dataset
-    repeated int32 test_index = 3;
-    repeated string model = 4; // path to model file
+    string type = 2; 
+    repeated string model = 3; // path to model file
 }
 
 message FeatureImportanceResponse {
     repeated FeatureImportance feature_importances = 1; // List of top 5 important features
 }
-
