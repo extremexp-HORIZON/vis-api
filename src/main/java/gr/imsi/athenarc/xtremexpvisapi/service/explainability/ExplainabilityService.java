@@ -1,6 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.explainability;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +8,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import org.springframework.cache.annotation.Cacheable;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import explainabilityService.ApplyAffectedActionsRequest;
 import explainabilityService.ApplyAffectedActionsResponse;
@@ -31,7 +34,6 @@ public class ExplainabilityService extends ExplanationsImplBase {
         private final String grpcHostPort;
         private final ExplainabilityRunHelper explainabilityRunHelper;
 
-        @Autowired
         public ExplainabilityService(@Value("${app.grpc.host.name}") String grpcHostName,
                         @Value("${app.grpc.host.port}") String grpcHostPort,
                         ExplainabilityRunHelper explainabilityRunHelper) {
@@ -40,9 +42,34 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 this.explainabilityRunHelper = explainabilityRunHelper;
         }
 
+        // Helper used by SpEL in @Cacheable key expression
+        public static String explainKey(String explainabilityRequest, String experimentId, String runId, String authorization) {
+                String raw = (explainabilityRequest == null ? "" : explainabilityRequest)
+                                + "|" + (experimentId == null ? "" : experimentId)
+                                + "|" + (runId == null ? "" : runId)
+                                + "|" + (authorization == null ? "" : authorization);
+                return "GetExplains:" + sha256Hex(raw);
+        }
+
+        private static String sha256Hex(String input) {
+                try {
+                        MessageDigest md = MessageDigest.getInstance("SHA-256");
+                        byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+                        StringBuilder sb = new StringBuilder();
+                        for (byte b : digest) sb.append(String.format("%02x", b));
+                        return sb.toString();
+                } catch (NoSuchAlgorithmException e) {
+                        return Integer.toString(input.hashCode());
+                }
+        }
+
+        @Cacheable(value = "explanations", key = "T(gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService).explainKey(#explainabilityRequest,#experimentId,#runId,#authorization)")
         public JsonNode GetExplains(String explainabilityRequest,
                         String experimentId, String runId, String authorization)
                         throws InvalidProtocolBufferException, JsonProcessingException {
+
+                // cache key is built from the method arguments; Spring will cache method result
+                // using the cache name 'explanations' configured in CacheConfig
 
                 ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest,
                                 experimentId, runId, authorization);
@@ -55,6 +82,8 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
                                 Integer.parseInt(grpcHostPort))
                                 .usePlaintext()
+                                .maxInboundMessageSize(50 * 1024 * 1024)  // allow responses up to 50 MB
+                                .maxInboundMetadataSize(50 * 1024 * 1024) // optional, for large headers
                                 .build();
 
                 ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
@@ -75,6 +104,8 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
                                 .usePlaintext()
+                                .maxInboundMessageSize(50 * 1024 * 1024)  // allow responses up to 50 MB
+                                .maxInboundMetadataSize(50 * 1024 * 1024) // optional, for large headers
                                 .build();
 
                 ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
