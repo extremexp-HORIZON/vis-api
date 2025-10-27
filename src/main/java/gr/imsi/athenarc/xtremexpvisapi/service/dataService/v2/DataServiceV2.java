@@ -128,6 +128,29 @@ public class DataServiceV2 {
             }
         });
     }
+// NEW NEW
+    public CompletableFuture<Map<String, Object>> getImageMetadata(DataSource dataSource, String authorization)
+            throws Exception, SQLException {
+        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(localFilePath -> {
+            log.info("Image file downloaded and cached at: " + localFilePath);
+            
+            Map<String, Object> imageMetadata = Map.of(
+                "datasetType", "IMAGE",
+                // "isImage", true,
+                "imageUrl", dataSource.getSource(),
+                "localPath", localFilePath,
+                "fileNames", localFilePath,
+                "contentType", getContentTypeFromUrl(dataSource.getSource()),
+                "totalItems", 1,
+                "originalColumns", java.util.Collections.emptyList(),
+                "hasLatLonColumns", false
+            );
+            
+            log.info("Created image metadata for: " + dataSource.getSource());
+            return imageMetadata;
+        });
+    }
+    // Till here
 
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
             throws Exception, SQLException {
@@ -289,4 +312,34 @@ public class DataServiceV2 {
         return datasetPath;
     }
 
+   // NEW
+    private String extractFileName(String url) {
+        if (url == null) return "unknown";
+        
+        // Remove query parameters if any
+        String cleanUrl = url.split("\\?")[0];
+        
+        // Extract filename from URL
+        int lastSlash = cleanUrl.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < cleanUrl.length() - 1) {
+            return cleanUrl.substring(lastSlash + 1);
+        }
+        
+        return "image";
+    }
+
+    private String getContentTypeFromUrl(String url) {
+        if (url == null) return "application/octet-stream";
+        
+        String lowerUrl = url.toLowerCase();
+        if (lowerUrl.contains(".png")) return "image/png";
+        if (lowerUrl.contains(".jpg") || lowerUrl.contains(".jpeg")) return "image/jpeg";
+        if (lowerUrl.contains(".gif")) return "image/gif";
+        if (lowerUrl.contains(".webp")) return "image/webp";
+        if (lowerUrl.contains(".bmp")) return "image/bmp";
+        if (lowerUrl.contains(".svg")) return "image/svg+xml";
+        
+        return "image/*";
+    }
+// Till here
 }

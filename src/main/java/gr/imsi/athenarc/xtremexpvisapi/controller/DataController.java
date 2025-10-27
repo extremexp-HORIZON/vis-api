@@ -111,6 +111,20 @@ public class DataController {
     @PostMapping("/meta")
     public CompletableFuture<ResponseEntity<Object>> getFileMeta(@RequestBody DataSource dataSource,@RequestHeader(value = "Authorization", required = false) String authorization) throws SQLException, Exception {
         LOG.info("Getting metadata for file {}", dataSource.getSource());
+        
+        // Check if this is an image file NEW NEW
+        if (isImageFile(dataSource)) {
+            LOG.info("Detected image file, processing with download for: {}", dataSource.getSource());
+            return dataServiceV2.getImageMetadata(dataSource, authorization)
+                .thenApply(response -> ResponseEntity.ok((Object) response))
+                .exceptionally(throwable -> {
+                    LOG.error("Error getting image metadata", throwable);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body((Object) ("Error getting image metadata: " + throwable.getMessage()));
+                });
+        }
+        
+        // For non-image files, use the existing metadata service TILL HERE TILL HERE
         return dataServiceV2.getFileMetadata(dataSource, authorization)
                 .thenApply(response -> ResponseEntity.ok((Object) response))
                 .exceptionally(throwable -> {
@@ -144,4 +158,14 @@ public class DataController {
         
         return "application/octet-stream";
     }
+// NEW NEW
+    private boolean isImageFile(DataSource dataSource) {
+        String source = dataSource.getFormat();
+        if (source == null) return false;
+        
+        // Check by file extension in source URL or filename
+        String lowerSource = source.toLowerCase();
+        return lowerSource.matches(".*\\.(png|jpg|jpeg|gif|webp|bmp|tiff?|svg)($|\\?.*)");
+    }
+    // Till here
 }
