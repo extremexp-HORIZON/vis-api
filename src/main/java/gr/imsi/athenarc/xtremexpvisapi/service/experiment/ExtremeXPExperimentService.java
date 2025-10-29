@@ -145,7 +145,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null")
+    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
     public ResponseEntity<Experiment> getExperimentById(String experimentId) {
         String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
 
