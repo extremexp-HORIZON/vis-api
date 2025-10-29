@@ -390,9 +390,29 @@ public class MLflowExperimentService implements ExperimentService {
         List<Map<String, Object>> runs = (List<Map<String, Object>>) data.get("runs");
         if (runs == null) return new ArrayList<>();
         
-        return runs.stream()
-            .map(this::mapToRun)
-            .collect(Collectors.toList());
+        List<Run> result = new ArrayList<>();
+        for (Map<String, Object> run : runs) {
+            String runId = null;
+            try {
+                // Try to extract run id for better logging context
+                if (run.get("info") instanceof Map) {
+                    Map<String, Object> info = (Map<String, Object>) run.get("info");
+                    Object idObj = info.get("run_id");
+                    if (idObj != null) runId = String.valueOf(idObj);
+                }
+                Run mapped = mapToRun(run);
+                if (mapped != null) result.add(mapped);
+            } catch (Exception e) {
+                if (runId != null) {
+                    LOG.error("Failed to map run with id {}. Aborting.", runId, e);
+                    throw new RuntimeException("Failed to map run with id " + runId, e);
+                } else {
+                    LOG.error("Failed to map a run (id unknown). Aborting.", e);
+                    throw new RuntimeException("Failed to map a run (id unknown).", e);
+                }
+            }
+        }
+        return result;
     }
 
     private Run mapToRun(Map<String, Object> data) {
@@ -433,13 +453,18 @@ public class MLflowExperimentService implements ExperimentService {
             List<Map<String, Object>> metrics = (List<Map<String, Object>>) data2.get("metrics");
             run.setMetrics(
                 metrics.stream()
-                .map(m -> new Metric(
-                    (String) m.get("key"),
-                    (Double) m.get("value"),
-                    ((Number) m.get("timestamp")).longValue(),
-                    (Integer) m.get("step"),
-                    (String) m.get("producedByTask"))
-                )
+                .map(m -> {
+                    Double value = parseMetricValue(m.get("value"));
+                    long timestamp = m.get("timestamp") instanceof Number ? ((Number) m.get("timestamp")).longValue() : 0L;
+                    Integer step = m.get("step") instanceof Number ? ((Number) m.get("step")).intValue() : null;
+                    return new Metric(
+                        (String) m.get("key"),
+                        value,
+                        timestamp,
+                        step,
+                        (String) m.get("producedByTask")
+                    );
+                })
                 .collect(Collectors.toList()));
         }
 
@@ -603,14 +628,43 @@ public class MLflowExperimentService implements ExperimentService {
         if (metrics == null) return new ArrayList<>();
         
         return metrics.stream()
-            .map(m -> new Metric(
-                (String) m.get("key"),
-                (Double) m.get("value"),
-                ((Number) m.get("timestamp")).longValue(), // Timestamp is already in milliseconds
-                (Integer) m.get("step"),
-                (String) m.get("producedByTask"))
-            )
+            .map(m -> {
+                Double value = parseMetricValue(m.get("value"));
+                long timestamp = m.get("timestamp") instanceof Number ? ((Number) m.get("timestamp")).longValue() : 0L;
+                Integer step = m.get("step") instanceof Number ? ((Number) m.get("step")).intValue() : null;
+                return new Metric(
+                    (String) m.get("key"),
+                    value,
+                    timestamp, // Timestamp is already in milliseconds
+                    step,
+                    (String) m.get("producedByTask")
+                );
+            })
             .collect(Collectors.toList());
+    }
+
+    // Helper to safely parse metric values which may be Number or the string "NaN"
+    private Double parseMetricValue(Object val) {
+        if (val == null) {
+            return Double.NaN;
+        }
+        if (val instanceof Number) {
+            return ((Number) val).doubleValue();
+        }
+        if (val instanceof String) {
+            String s = ((String) val).trim();
+            if (s.equalsIgnoreCase("nan")) {
+                return Double.NaN;
+            }
+            try {
+                return Double.parseDouble(s);
+            } catch (NumberFormatException e) {
+                LOG.warn("Unable to parse metric value '{}', using NaN.", s);
+                return Double.NaN;
+            }
+        }
+        LOG.warn("Unexpected metric value type {}. Using NaN.", val.getClass().getName());
+        return Double.NaN;
     }
 
     private Metric mapToMetric(Map<String, Object> data) {
