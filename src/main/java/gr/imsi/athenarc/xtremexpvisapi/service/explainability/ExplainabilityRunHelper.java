@@ -206,6 +206,93 @@ public class ExplainabilityRunHelper {
                 requestBuilder.putHyperConfigs(hyperModelPath, hyperparameters);
             }
             LOG.info("Similar runs: " + similarRuns.size());
+        
+        } else if (requestBuilder.getExplanationType().equals("experimentExplanation")) {
+            ExperimentService service = experimentServiceFactory.getActiveService();
+            
+            ResponseEntity<List<Run>> resp = service.getRunsForExperiment(experimentId);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                throw new IllegalArgumentException("Could not fetch runs for experimentId: " + experimentId);
+            }
+            List<Run> runs = resp.getBody().stream()
+                .filter(run -> run.getStatus() == Run.Status.COMPLETED)
+                .collect(Collectors.toList());
+
+            // // find variability points / hyperparams common to all runs
+            // Set<String> commonParamKeys = runs.stream()
+            //     .map(this::getParamNames)
+            //     .filter(keys -> !keys.isEmpty())
+            //     .reduce((set1, set2) -> {
+            //         set1.retainAll(set2);
+            //         return set1;
+            //     })
+            //     .orElseThrow(() -> new IllegalArgumentException("No runs with parameters found in experiment: " + experimentId));
+            // LOG.info("Common parameter keys across all runs: " + commonParamKeys);
+
+            // if method is ALE and no feature specified, find first differing param
+            // if no differing param found, throw error
+            if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
+                requestBuilder.setFeature1(
+                    findFirstDifferingParameter(runs)
+                        .orElseThrow(() -> new IllegalArgumentException("No differing parameters found"))
+                );
+            }
+
+            // build request that includes all common hyperparams
+
+            List<String> runs_target_metric_names = new ArrayList<>();
+            List<Double> runs_target_metric_values = new ArrayList<>();
+            for (Run run : runs) {
+                // Set<String> runParamKeys = getParamNames(run);
+                // if (!runParamKeys.containsAll(commonParamKeys)) {
+                //     LOG.warn("Run " + run.getId() + " does not contain all common parameters, skipping.");
+                //     continue;
+                // }
+
+                Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(
+                    run.getExperimentId(),
+                    run.getId(),
+                    authorization,
+                    "hyperparameter"
+                );
+                if (dataPaths.isEmpty()) {
+                    LOG.warn("No data paths found for run: " + run.getId() + ", skipping.");
+                    continue;
+                }
+
+                Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
+                hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
+                runs_target_metric_names.add(run.getMetrics().get(0).getName());
+                runs_target_metric_values.add(run.getMetrics().get(0).getValue());
+
+                List<Param> params = run.getParams();
+                for (Param param : params) {
+                    // String paramName = param.getName();
+                    // if (!commonParamKeys.contains(paramName)) {
+                    //     continue; // skip params not in common keys
+                    // }
+
+                    // Create a new builder for each parameter
+                    HyperparameterList.Builder hyperparameterListBuilder = HyperparameterList.newBuilder();
+                    hyperparameterListBuilder.setValues(param.getValue());
+                    try {
+                        Double.parseDouble(param.getValue());
+                        hyperparameterListBuilder.setType("numeric");
+                    } catch (NumberFormatException e) {
+                        hyperparameterListBuilder.setType("categorical");
+                    }
+                    HyperparameterList hyperparameterList = hyperparameterListBuilder.build();
+                    hyperparametersBuilder.putHyperparameter(param.getName(), hyperparameterList);
+                }
+
+                Hyperparameters hyperparameters = hyperparametersBuilder.build();
+                // Get model path using the helper method and add to hyper configs
+                String hyperModelPath = findModelPath(dataPaths.get());
+                requestBuilder.putExperimentConfigs(hyperModelPath, hyperparameters);
+            }
+            LOG.info("Number of runs: " + runs.size());
+            LOG.info("Runs target metric names: " + runs_target_metric_names);
+            LOG.info("Runs target metric values: " + runs_target_metric_values);
 
         } else {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());

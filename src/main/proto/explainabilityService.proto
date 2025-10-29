@@ -54,8 +54,12 @@ message ExplanationsRequest {
     int32 gcf_size = 10;  // Global Counterfactual (GCF) size
     string cf_generator = 11;  // Counterfactual generator method
     string cluster_action_choice_algo = 12;  // Algorithm for choosing clusters' actions
+
+    // Segmenation Explainability
     int32 instance_index = 13;
 
+    // Experiment Explainability - specific
+    map<string, Hyperparameters> experiment_configs = 14; // map with variability point configs and respective metrics
 }
 
 
@@ -105,7 +109,6 @@ message ExplanationsResponse {
     repeated string features_table_columns = 21;
     repeated string attributions_table_columns = 22;
     repeated ShapContributions shap_contributions = 23;
-
 }
 
 //------------------ Apply Affected Actions --------------------------------------------------
@@ -128,7 +131,7 @@ message FeatureImportance {
 
 message FeatureImportanceRequest {
     DataPaths data = 1; // Path to dataset file
-    string type = 2; 
+    string type = 2;
     repeated string model = 3; // path to model file
 }
 
