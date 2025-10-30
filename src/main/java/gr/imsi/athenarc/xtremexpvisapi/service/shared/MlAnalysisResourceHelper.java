@@ -91,8 +91,9 @@ public class MlAnalysisResourceHelper {
                 dataSource.setFormat(dataAsset.getFormat());
                 dataSource.setFileName(dataAsset.getName());
                 dataSource.setRunId(run.getId());
+                dataSource.setExperimentId(run.getExperimentId());
                 try {
-                    String filePath = fileService.downloadAndCacheDataAsset(run.getId(), dataSource, authorization);
+                    String filePath = fileService.downloadAndCacheDataAsset(run.getExperimentId(), run.getId(), dataSource, authorization);
                     requiredFilePaths.put(assetNameWithoutExtension, filePath);
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to download data asset: " + dataAsset.getName(), e);

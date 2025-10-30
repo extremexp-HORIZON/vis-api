@@ -734,7 +734,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 if (uri.contains(".")) {
                     return uri.lastIndexOf(".") != -1 ? uri.substring(uri.lastIndexOf(".")) : null;
                 } else {
-                    log.warning("No file extension found in URI: " + uri);
+                    // log.warning("No file extension found in URI: " + uri);
                     return null;
                 }
             } else {

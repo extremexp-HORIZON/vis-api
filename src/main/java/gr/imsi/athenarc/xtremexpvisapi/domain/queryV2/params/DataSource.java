@@ -9,4 +9,5 @@ public class DataSource {
     private SourceType sourceType;
     private String fileName;
     private String runId;
+    private String experimentId;
 }

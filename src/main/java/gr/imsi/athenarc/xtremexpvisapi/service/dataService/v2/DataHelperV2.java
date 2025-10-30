@@ -405,7 +405,7 @@ public class DataHelperV2 {
             return CompletableFuture.completedFuture(targetPath);
         } else {
             return CompletableFuture.completedFuture(
-                    fileService.downloadAndCacheDataAsset(dataSource.getRunId(), dataSource, authorization));
+                    fileService.downloadAndCacheDataAsset(dataSource, authorization));
         }
     }
 

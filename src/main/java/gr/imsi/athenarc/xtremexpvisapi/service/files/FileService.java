@@ -41,12 +41,21 @@ public class FileService {
      * certain period.
      * If the file already exists in the cache, resets the deletion timer.
      *
-     * @param uri the URI of the file to download
+     * @param experimentId the experiment ID to organize files by experiment
+     * @param runId the run ID within the experiment
+     * @param dataSource the data source information
+     * @param authorization authorization token for downloading
      * @throws Exception if an error occurs
      */
-    public String downloadAndCacheDataAsset(String runId, DataSource dataSource, String authorization)
+    public String downloadAndCacheDataAsset(String experimentId, String runId, DataSource dataSource, String authorization)
             throws Exception {
-        Path targetPath = getTargetPathForDataAsset(runId, dataSource); // Pass runId along
+        // Use experimentId from parameter if provided, otherwise try to get from dataSource
+        String effectiveExperimentId = experimentId != null ? experimentId : 
+                                     (dataSource.getExperimentId() != null ? dataSource.getExperimentId() : "unknown-experiment");
+        String effectiveRunId = runId != null ? runId : 
+                               (dataSource.getRunId() != null ? dataSource.getRunId() : "unknown-run");
+        
+        Path targetPath = getTargetPathForDataAsset(effectiveExperimentId, effectiveRunId, dataSource);
         // System.out.println("Target path: " + targetPath.toString());
 
         // Check if file is already cached and reset timer
@@ -64,7 +73,32 @@ public class FileService {
         return targetPath.toString();
     }
 
-    private Path getTargetPathForDataAsset(String runId, DataSource dataSource) {
+    /**
+     * Convenience method that extracts experiment and run IDs from the DataSource object.
+     * If experimentId is not available in DataSource, uses "unknown-experiment" as default.
+     * 
+     * @param dataSource the data source information containing runId and optionally experimentId
+     * @param authorization authorization token for downloading
+     * @throws Exception if an error occurs
+     */
+    public String downloadAndCacheDataAsset(DataSource dataSource, String authorization) throws Exception {
+        String experimentId = dataSource.getExperimentId() != null ? dataSource.getExperimentId() : "unknown-experiment";
+        String runId = dataSource.getRunId() != null ? dataSource.getRunId() : "unknown-run";
+        return downloadAndCacheDataAsset(experimentId, runId, dataSource, authorization);
+    }
+
+    /**
+     * @deprecated Use {@link #downloadAndCacheDataAsset(String, String, DataSource, String)} instead.
+     * This method is kept for backward compatibility but will organize files under
+     * a default "unknown-experiment" folder.
+     */
+    @Deprecated
+    public String downloadAndCacheDataAsset(String runId, DataSource dataSource, String authorization)
+            throws Exception {
+        return downloadAndCacheDataAsset("unknown-experiment", runId, dataSource, authorization);
+    }
+
+    private Path getTargetPathForDataAsset(String experimentId, String runId, DataSource dataSource) {
         String fileCacheDirectory = applicationFileProperties.getDirectory();
 
         if (dataSource.getFileName() != null && !dataSource.getFileName().isEmpty()) {
@@ -75,7 +109,7 @@ public class FileService {
                 // No valid extension, append .json
                 fileName = fileName + ".json";
             }
-            return Paths.get(fileCacheDirectory, runId, fileName);
+            return Paths.get(fileCacheDirectory, experimentId, runId, fileName);
         } else {
             // No file name provided
             String sanitizedSource = dataSource.getSource().replaceAll("[^a-zA-Z0-9._-]", "_");
@@ -84,9 +118,11 @@ public class FileService {
                 // Default to .json if format not set
                 format = ".json";
             }
-            return Paths.get(fileCacheDirectory, runId, sanitizedSource + format);
+            return Paths.get(fileCacheDirectory, experimentId, runId, sanitizedSource + format);
         }
     }
+
+
 
     private InputStream getInputStreamForDataAsset(DataSource dataSource, String authorization) throws Exception {
         // TODO: Add support for other data source types if needed
