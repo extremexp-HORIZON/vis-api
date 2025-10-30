@@ -100,6 +100,50 @@ public class ExplainabilityRunHelper {
         return paramNames;
     }
 
+    /**
+     * Gets metric value by name, or uses index 0 as fallback
+     */
+    private double getMetricValue(Run run, String targetMetricName) {
+        if (run.getMetrics() == null || run.getMetrics().isEmpty()) {
+            throw new IllegalArgumentException("No metrics found for run: " + run.getId());
+        }
+        
+        if (targetMetricName == null || targetMetricName.trim().isEmpty()) {
+            return run.getMetrics().get(0).getValue();
+        }
+        
+        return run.getMetrics().stream()
+                .filter(metric -> metric.getName().equalsIgnoreCase(targetMetricName.trim()))
+                .findFirst()
+                .map(metric -> metric.getValue())
+                .orElse(run.getMetrics().get(0).getValue());
+    }
+
+    /**
+     * Extracts target_metric from JSON and removes it so protobuf parsing works
+     */
+    private String[] extractAndCleanTargetMetric(String explainabilityRequest) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(explainabilityRequest);
+            String targetMetric = jsonNode.has("target_metric") ? jsonNode.get("target_metric").asText() : null;
+            
+            // Remove target_metric field
+            if (jsonNode.has("target_metric")) {
+                com.fasterxml.jackson.databind.node.ObjectNode objectNode = 
+                    (com.fasterxml.jackson.databind.node.ObjectNode) jsonNode;
+                objectNode.remove("target_metric");
+                String cleanedRequest = mapper.writeValueAsString(objectNode);
+                return new String[]{targetMetric, cleanedRequest};
+            }
+            
+            return new String[]{targetMetric, explainabilityRequest};
+        } catch (Exception e) {
+            LOG.warn("Could not process target_metric: " + e.getMessage());
+            return new String[]{null, explainabilityRequest};
+        }
+    }
+
     public FeatureImportanceRequest featureImportanceRequestBuilder(String featureImportanceRequest,
             String experimentId, String runId,
             String authorization) {
@@ -129,7 +173,6 @@ public class ExplainabilityRunHelper {
         // System.out.println("data {}"+data);
 
         // Add model to request
-        List<String> model = List.of(modelPath);
         return FeatureImportanceRequest.newBuilder()
                 .addModel(modelPath)
                 .setData(data)
@@ -141,9 +184,14 @@ public class ExplainabilityRunHelper {
             String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
 
-        // Parse the JSON request into a Protobuf object
+        // Extract target_metric and clean the JSON for protobuf parsing
+        String[] result = extractAndCleanTargetMetric(explainabilityRequest);
+        String targetMetricName = result[0];
+        String cleanedRequest = result[1];
+
+        // Parse the cleaned JSON request into a Protobuf object
         ExplanationsRequest.Builder requestBuilder = ExplanationsRequest.newBuilder();
-        JsonFormat.parser().merge(explainabilityRequest, requestBuilder);
+        JsonFormat.parser().merge(cleanedRequest, requestBuilder);
 
         if (requestBuilder.getExplanationType().equals("featureExplanation")) {
 
@@ -184,7 +232,8 @@ public class ExplainabilityRunHelper {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId(), authorization, "hyperparameter");
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
-                hyperparametersBuilder.setMetricValue((float) similarRun.getMetrics().get(0).getValue());
+                double metricValue = getMetricValue(similarRun, targetMetricName);
+                hyperparametersBuilder.setMetricValue((float) metricValue);
                 List<Param> params = similarRun.getParams();
                 for (Param param : params) {
                     // Create a new builder for each parameter
@@ -261,9 +310,20 @@ public class ExplainabilityRunHelper {
                 }
 
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
-                hyperparametersBuilder.setMetricValue((float) run.getMetrics().get(0).getValue());
-                runs_target_metric_names.add(run.getMetrics().get(0).getName());
-                runs_target_metric_values.add(run.getMetrics().get(0).getValue());
+                double metricValue = getMetricValue(run, targetMetricName);
+                hyperparametersBuilder.setMetricValue((float) metricValue);
+                
+                // Get the metric name that was actually used
+                String actualMetricName = (targetMetricName != null && !targetMetricName.trim().isEmpty()) ? 
+                    run.getMetrics().stream()
+                        .filter(metric -> metric.getName().equalsIgnoreCase(targetMetricName.trim()))
+                        .findFirst()
+                        .map(metric -> metric.getName())
+                        .orElse(run.getMetrics().get(0).getName()) :
+                    run.getMetrics().get(0).getName();
+                    
+                runs_target_metric_names.add(actualMetricName);
+                runs_target_metric_values.add(metricValue);
 
                 List<Param> params = run.getParams();
                 for (Param param : params) {
