@@ -12,6 +12,7 @@ import org.springframework.cache.annotation.Cacheable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
 
 import explainabilityService.ApplyAffectedActionsRequest;
 import explainabilityService.ApplyAffectedActionsResponse;
@@ -24,6 +25,7 @@ import explainabilityService.FeatureImportanceRequest;
 import explainabilityService.FeatureImportanceResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.java.Log;
 
 @Service
@@ -33,6 +35,8 @@ public class ExplainabilityService extends ExplanationsImplBase {
         private final String grpcHostName;
         private final String grpcHostPort;
         private final ExplainabilityRunHelper explainabilityRunHelper;
+        private final ManagedChannel channel;
+        private final ExplanationsBlockingStub stub;
 
         public ExplainabilityService(@Value("${app.grpc.host.name}") String grpcHostName,
                         @Value("${app.grpc.host.port}") String grpcHostPort,
@@ -40,6 +44,17 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 this.grpcHostName = grpcHostName;
                 this.grpcHostPort = grpcHostPort;
                 this.explainabilityRunHelper = explainabilityRunHelper;
+                this.channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
+                .usePlaintext()
+                .maxInboundMessageSize(50 * 1024 * 1024)
+                .maxInboundMetadataSize(50 * 1024 * 1024)
+                // Add keep-alive settings for connection reuse
+                .keepAliveTime(60, TimeUnit.SECONDS)
+                .keepAliveTimeout(5, TimeUnit.SECONDS)
+                .keepAliveWithoutCalls(true)
+                .build();
+                
+                this.stub = ExplanationsGrpc.newBlockingStub(channel);
         }
 
         // Helper used by SpEL in @Cacheable key expression
@@ -63,89 +78,60 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 }
         }
 
-        @Cacheable(value = "explanations", key = "T(gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService).explainKey(#explainabilityRequest,#experimentId,#runId,#authorization)")
-        public JsonNode GetExplains(String explainabilityRequest,
-                        String experimentId, String runId, String authorization)
-                        throws InvalidProtocolBufferException, JsonProcessingException {
+       @Cacheable(value = "explanations", key = "T(gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService).explainKey(#explainabilityRequest,#experimentId,#runId,#authorization)")
+    public JsonNode GetExplains(String explainabilityRequest,
+                    String experimentId, String runId, String authorization)
+                    throws InvalidProtocolBufferException, JsonProcessingException {
 
-                // cache key is built from the method arguments; Spring will cache method result
-                // using the cache name 'explanations' configured in CacheConfig
+        ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest,
+                        experimentId, runId, authorization);
 
-                ExplanationsRequest request = explainabilityRunHelper.requestBuilder(explainabilityRequest,
-                                experimentId, runId, authorization);
-                String jsonString;
-                ObjectMapper objectMapper = new ObjectMapper();
-                // print the request as JSON
-                jsonString = JsonFormat.printer().print(request);
-                // log.info("Request: \n" + jsonString);
+        // Use the reused stub - no channel creation/shutdown
+        ExplanationsResponse response = stub.getExplanation(request);
+        
+        String jsonString = JsonFormat.printer().print(response);
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
+    }
 
-                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
-                                Integer.parseInt(grpcHostPort))
-                                .usePlaintext()
-                                .maxInboundMessageSize(50 * 1024 * 1024)  // allow responses up to 50 MB
-                                .maxInboundMetadataSize(50 * 1024 * 1024) // optional, for large headers
-                                .build();
+    public JsonNode ApplyAffectedActions() throws InvalidProtocolBufferException, JsonProcessingException {
+        ApplyAffectedActionsRequest request = ApplyAffectedActionsRequest.newBuilder().build();
+        
+        // Use the reused stub - no channel creation/shutdown
+        ApplyAffectedActionsResponse response = stub.applyAffectedActions(request);
+        
+        String jsonString = JsonFormat.printer().print(response);
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
+    }
 
-                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
+    @Cacheable(value = "featureImportance", key = "T(gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService).explainKey(#featureImportanceRequest,#experimentId,#runId,#authorization)")
+    public JsonNode getFeatureImportance(String featureImportanceRequest, String experimentId, String runId,
+                    String authorization) throws InvalidProtocolBufferException, JsonProcessingException {
 
-                ExplanationsResponse response = stub.getExplanation(request);
-                jsonString = JsonFormat.printer().print(response);
-                // log.info("Response: \n" + jsonString);
+        FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
+                        featureImportanceRequest, experimentId, runId, authorization);
 
-                channel.shutdown();
+        // Use the reused stub - no channel creation/shutdown
+        FeatureImportanceResponse response = stub.getFeatureImportance(request);
+        
+        String jsonString = JsonFormat.printer().print(response);
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
+    }
 
-                return objectMapper.readTree(jsonString);
+    @PreDestroy
+    public void cleanup() {
+        if (channel != null && !channel.isShutdown()) {
+            channel.shutdown();
+            try {
+                if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                    channel.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                channel.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
-
-        public JsonNode ApplyAffectedActions()
-                        throws InvalidProtocolBufferException, JsonProcessingException {
-                ApplyAffectedActionsRequest request = ApplyAffectedActionsRequest.newBuilder()
-                                .build();
-
-                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
-                                .usePlaintext()
-                                .maxInboundMessageSize(50 * 1024 * 1024)  // allow responses up to 50 MB
-                                .maxInboundMetadataSize(50 * 1024 * 1024) // optional, for large headers
-                                .build();
-
-                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
-
-                ApplyAffectedActionsResponse response = stub.applyAffectedActions(request);
-
-                // Shutdown the channel
-                channel.shutdown();
-
-                String jsonString = JsonFormat.printer().print(response);
-
-                ObjectMapper objectMapper = new ObjectMapper();
-                return objectMapper.readTree(jsonString);
-        }
-
-        public JsonNode getFeatureImportance(String featureImportanceRequest, String experimentId, String runId,
-                        String authorization)
-                        throws InvalidProtocolBufferException, JsonProcessingException {
-
-                FeatureImportanceRequest request = explainabilityRunHelper.featureImportanceRequestBuilder(
-                                featureImportanceRequest, experimentId, runId, authorization);
-                // System.out.println("FeatureImportanceRequestRRRRn: " + request);
-
-                String jsonString;
-                ObjectMapper objectMapper = new ObjectMapper();
-                jsonString = JsonFormat.printer().print(request);
-                // log.info("FeatureImportanceRequest: \n" + jsonString);
-
-                ManagedChannel channel = ManagedChannelBuilder.forAddress(grpcHostName,
-                                Integer.parseInt(grpcHostPort))
-                                .usePlaintext()
-                                .build();
-
-                ExplanationsBlockingStub stub = ExplanationsGrpc.newBlockingStub(channel);
-                FeatureImportanceResponse response = stub.getFeatureImportance(request);
-                jsonString = JsonFormat.printer().print(response);
-
-                channel.shutdown();
-
-                return objectMapper.readTree(jsonString);
-        }
-
+    }
 }
