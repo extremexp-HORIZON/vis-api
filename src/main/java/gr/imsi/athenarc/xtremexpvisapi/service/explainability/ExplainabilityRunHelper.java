@@ -220,6 +220,9 @@ public class ExplainabilityRunHelper {
 
             Optional<Map<String, String>> dataPaths = loadExplainabilityDataPaths(experimentId, runId, authorization,
                     "hyperparameter");
+            if (dataPaths.isEmpty()) {
+                throw new IllegalArgumentException("No data paths found for hyperparameter explanation in experimentId: " + experimentId + ", runId: " + runId);
+            }
             if (requestBuilder.getExplanationMethod().equals("ale") && requestBuilder.getFeature1().isEmpty()) {
                 requestBuilder.setFeature1(findFirstDifferingParameter(similarRuns)
                         .orElseThrow(() -> new IllegalArgumentException("No differing parameters found")));
@@ -231,6 +234,10 @@ public class ExplainabilityRunHelper {
             for (Run similarRun : similarRuns) {
                 dataPaths = loadExplainabilityDataPaths(similarRun.getExperimentId(),
                         similarRun.getId(), authorization, "hyperparameter");
+                if (dataPaths.isEmpty()) {
+                    LOG.warn("No data paths found for similar run: " + similarRun.getId() + ", skipping.");
+                    continue;
+                }
                 Hyperparameters.Builder hyperparametersBuilder = Hyperparameters.newBuilder();
                 double metricValue = getMetricValue(similarRun, targetMetricName);
                 hyperparametersBuilder.setMetricValue((float) metricValue);
