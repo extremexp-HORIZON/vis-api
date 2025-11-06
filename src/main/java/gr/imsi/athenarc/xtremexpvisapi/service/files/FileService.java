@@ -106,8 +106,18 @@ public class FileService {
             int lastDotIndex = dataSource.getFileName().lastIndexOf('.');
             String fileName = dataSource.getFileName();
             if (lastDotIndex <= 0 || lastDotIndex >= fileName.length() - 1) {
-                // No valid extension, append .json
-                fileName = fileName + ".json";
+                // No valid extension, check if format is provided in DataSource
+                String format = dataSource.getFormat();
+                if (format != null && !format.isEmpty()) {
+                    // Use the format from DataSource, ensure it starts with a dot
+                    if (!format.startsWith(".")) {
+                        format = "." + format;
+                    }
+                    fileName = fileName + format;
+                } else {
+                    // Default to .json if format not set
+                    fileName = fileName + ".json";
+                }
             }
             return Paths.get(fileCacheDirectory, experimentId, runId, fileName);
         } else {
@@ -117,6 +127,9 @@ public class FileService {
             if (format == null || format.isEmpty()) {
                 // Default to .json if format not set
                 format = ".json";
+            } else if (!format.startsWith(".")) {
+                // Ensure format starts with a dot
+                format = "." + format;
             }
             return Paths.get(fileCacheDirectory, experimentId, runId, sanitizedSource + format);
         }
