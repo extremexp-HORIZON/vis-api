@@ -95,7 +95,7 @@ public class ExplainabilityRunHelper {
                 .map(Param::getName)
                 .filter(Objects::nonNull) // Filter out any null names
                 .collect(Collectors.toSet());
-        log.info("Parameter names: " + paramNames);
+        // log.info("Parameter names: " + paramNames);
 
         return paramNames;
     }
@@ -358,8 +358,8 @@ public class ExplainabilityRunHelper {
                 requestBuilder.putExperimentConfigs(hyperModelPath, hyperparameters);
             }
             LOG.info("Number of runs: " + runs.size());
-            LOG.info("Runs target metric names: " + runs_target_metric_names);
-            LOG.info("Runs target metric values: " + runs_target_metric_values);
+            // LOG.info("Runs target metric names: " + runs_target_metric_names);
+            // LOG.info("Runs target metric values: " + runs_target_metric_values);
 
         } else {
             throw new IllegalArgumentException("Invalid explanation type: " + requestBuilder.getExplanationType());
