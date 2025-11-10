@@ -27,6 +27,8 @@ import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 public class MlAnalysisResourceHelper {
 
     private String mlAnalysisFolderName;
+    private final List<String> supportedModelExtensions = List.of(".pkl", ".pt"); // Configurable list of supported
+                                                                                  // model extensions
 
     private final String mlEvaluationPath;
     private final FileService fileService;
@@ -49,11 +51,6 @@ public class MlAnalysisResourceHelper {
 
     public String getMlAnalysisFolderName() {
         return mlAnalysisFolderName;
-    }
-
-    // Optional: use this method instead of accessing the field directly
-    public Path getAnalysisFolderPathForRun(String runId) {
-        return Path.of(mlEvaluationPath, runId, mlAnalysisFolderName);
     }
 
     /**
@@ -94,8 +91,9 @@ public class MlAnalysisResourceHelper {
                 dataSource.setFormat(dataAsset.getFormat());
                 dataSource.setFileName(dataAsset.getName());
                 dataSource.setRunId(run.getId());
+                dataSource.setExperimentId(run.getExperimentId());
                 try {
-                    String filePath = fileService.downloadAndCacheDataAsset(run.getId(), dataSource, authorization);
+                    String filePath = fileService.downloadAndCacheDataAsset(run.getExperimentId(), run.getId(), dataSource, authorization);
                     requiredFilePaths.put(assetNameWithoutExtension, filePath);
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to download data asset: " + dataAsset.getName(), e);
@@ -107,11 +105,21 @@ public class MlAnalysisResourceHelper {
     }
 
     private boolean hasFiles(List<DataAsset> dataAssets) {
-        List<String> fileNames = List.of("X_test.csv", "Y_test.csv", "Y_train.csv", "X_train.csv", "Y_pred.csv",
-                "model.pkl");
-        return fileNames.stream()
+        List<String> requiredFiles = List.of("X_test.csv", "Y_test.csv", "Y_train.csv", "X_train.csv", "Y_pred.csv");
+        boolean hasRequiredFiles = requiredFiles.stream()
                 .allMatch(fileName -> dataAssets.stream()
                         .anyMatch(asset -> asset.getName().equalsIgnoreCase(fileName)));
+
+        // Check for any supported model file
+        boolean hasModelFile = dataAssets.stream()
+                .anyMatch(asset -> {
+                    String assetName = asset.getName().toLowerCase();
+                    return assetName.startsWith("model.") &&
+                            supportedModelExtensions.stream()
+                                    .anyMatch(ext -> assetName.endsWith(ext));
+                });
+
+        return hasRequiredFiles && hasModelFile;
     }
 
     /**
@@ -135,38 +143,6 @@ public class MlAnalysisResourceHelper {
         }
     }
 
-    public boolean hasMlAnalysisResources(Run run) {
-        return getMlResourceFolder(run).isPresent();
-    }
-
-    public Path getXTestPath(Path folder) {
-        return folder.resolve("X_test.csv");
-    }
-
-    public Path getXTrainPath(Path folder) {
-        return folder.resolve("X_train.csv");
-    }
-
-    public Path getYTrainPath(Path folder) {
-        return folder.resolve("Y_train.csv");
-    }
-
-    public Path getYTestPath(Path folder) {
-        return folder.resolve("Y_test.csv");
-    }
-
-    public Path getYPredPath(Path folder) {
-        return folder.resolve("Y_pred.csv");
-    }
-
-    public Path getModelPath(Path folder) {
-        return folder.resolve("model.pkl");
-    }
-
-    public Path getRocCurvePath(Path folder) {
-        return folder.resolve("roc_data.json");
-    }
-
     /**
      * Checks that all required evaluation files exist in the folder.
      *
@@ -174,13 +150,32 @@ public class MlAnalysisResourceHelper {
      * @return true if all required files are present
      */
     public boolean hasRequiredFiles(Path folder) {
-        return findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
+        boolean hasRequiredDataFiles = findFileIgnoreCase(folder, "X_test.csv").isPresent() &&
                 findFileIgnoreCase(folder, "Y_test.csv").isPresent() &&
                 findFileIgnoreCase(folder, "Y_pred.csv").isPresent() &&
                 findFileIgnoreCase(folder, "X_train.csv").isPresent() &&
-                findFileIgnoreCase(folder, "Y_train.csv").isPresent() &&
-                findFileIgnoreCase(folder, "model.pkl").isPresent();
+                findFileIgnoreCase(folder, "Y_train.csv").isPresent();
+
+        // Check for any supported model file
+        boolean hasModelFile = findModelFile(folder).isPresent();
+
+        return hasRequiredDataFiles && hasModelFile;
         // findFileIgnoreCase(folder, "roc_data.json").isPresent();
+    }
+
+    private Optional<Path> findModelFile(Path folder) {
+        try {
+            return Files.list(folder)
+                    .filter(p -> {
+                        String fileName = p.getFileName().toString().toLowerCase();
+                        return fileName.startsWith("model.") &&
+                                supportedModelExtensions.stream()
+                                        .anyMatch(ext -> fileName.endsWith(ext));
+                    })
+                    .findFirst();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     /**

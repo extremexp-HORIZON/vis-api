@@ -9,6 +9,7 @@ public class DataSource {
     private SourceType sourceType;
     private String fileName;
     private String runId;
+    private String experimentId;
     private String measure0;
     private String measure1;
 }

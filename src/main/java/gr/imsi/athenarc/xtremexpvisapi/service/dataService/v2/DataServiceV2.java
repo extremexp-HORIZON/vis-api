@@ -1,8 +1,13 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
+// ...existing imports...
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,9 +55,17 @@ public class DataServiceV2 {
 
     private DataHelperV2 dataQueryHelper;
 
+    private final Executor dataProcessingExecutor;
+
+    private final Semaphore duckDbSemaphore;
+
     @Autowired
-    public DataServiceV2(DataHelperV2 dataQueryHelper) {
+    public DataServiceV2(DataHelperV2 dataQueryHelper,
+            @Qualifier("dataProcessingExecutor") Executor dataProcessingExecutor,
+            @Qualifier("duckDbSemaphore") Semaphore duckDbSemaphore) {
         this.dataQueryHelper = dataQueryHelper;
+        this.dataProcessingExecutor = dataProcessingExecutor;
+        this.duckDbSemaphore = duckDbSemaphore;
     }
 
     private String buildCountQuery(String originalQuery) {
@@ -65,7 +78,6 @@ public class DataServiceV2 {
         return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
     }
 
-    @Async
     public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
             throws SQLException, Exception {
 
@@ -145,135 +157,217 @@ public class DataServiceV2 {
 
         // Build the SQL query for the tabular view
         return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
-            try (Connection connection = dataSource.getConnection();
-                    Statement statement = connection.createStatement()) {
+            try {
+                // Submit DB work to bounded executor to avoid exhausting request threads
+                return CompletableFuture.supplyAsync(() -> {
+                    boolean permitAcquired = false;
+                    try {
+                        try {
+                            // try to acquire permit quickly; tune timeout as needed
+                            permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Interrupted while waiting for DB permit", ie);
+                        }
 
-                String countQuery = buildCountQuery(sql);
-                ResultSet countResultSet = statement.executeQuery(countQuery);
-                int totalItems = 0;
-                if (countResultSet.next()) {
-                    totalItems = countResultSet.getInt(1);
-                }
-                countResultSet.close();
+                        if (!permitAcquired) {
+                            throw new RuntimeException("Server overloaded: too many concurrent DB queries");
+                        }
 
-                ResultSet resultSet = statement.executeQuery(sql);
+                        try (Connection connection = dataSource.getConnection();
+                                Statement statement = connection.createStatement()) {
 
-                DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
-                response.setTotalItems(totalItems);
+                            String countQuery = buildCountQuery(sql);
+                            ResultSet countResultSet = statement.executeQuery(countQuery);
+                            int totalItems = 0;
+                            if (countResultSet.next()) {
+                                totalItems = countResultSet.getInt(1);
+                            }
+                            countResultSet.close();
 
-                // Close resources
-                resultSet.close();
-                statement.close();
+                            ResultSet resultSet = statement.executeQuery(sql);
 
-                return CompletableFuture.completedFuture(response);
-            } catch (SQLException e) {
-                CompletableFuture<DataResponse> failedFuture = new CompletableFuture<>();
-                failedFuture.completeExceptionally(e);
-                return failedFuture;
+                            DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
+                            response.setTotalItems(totalItems);
+
+                            // Close resources
+                            resultSet.close();
+                            statement.close();
+
+                            return response;
+                        }
+
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        if (permitAcquired) {
+                            duckDbSemaphore.release();
+                        }
+                    }
+                }, dataProcessingExecutor);
+            } catch (RejectedExecutionException rej) {
+                CompletableFuture<DataResponse> failed = new CompletableFuture<>();
+                failed.completeExceptionally(new RuntimeException("Server busy: too many concurrent requests", rej));
+                return failed;
             }
         });
     }
 
-    @Async
+    // NEW NEW
+    public CompletableFuture<Map<String, Object>> getImageMetadata(DataSource dataSource, String authorization)
+            throws Exception, SQLException {
+        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(localFilePath -> {
+            log.info("Image file downloaded and cached at: " + localFilePath);
+
+            Map<String, Object> imageMetadata = Map.of(
+                    "datasetType", "IMAGE",
+                    // "isImage", true,
+                    "imageUrl", dataSource.getSource(),
+                    "localPath", localFilePath,
+                    "fileNames", localFilePath,
+                    "contentType", getContentTypeFromUrl(dataSource.getSource()),
+                    "totalItems", 1,
+                    "originalColumns", java.util.Collections.emptyList(),
+                    "hasLatLonColumns", false);
+
+            log.info("Created image metadata for: " + dataSource.getSource());
+            return imageMetadata;
+        });
+    }
+    // Till here
+
     public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
             throws Exception, SQLException {
-        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(filePath -> {
-            try (
-                    Connection connection = this.dataSource.getConnection();
-                    Statement statement = connection.createStatement()) {
-                System.out.println("File path for metadata: " + filePath.toString());
-
-                FileType fileType = dataQueryHelper.detectFileType(filePath);
-                if (fileType == FileType.JSON) {
+        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenCompose(filePath -> {
+            try {
+                return CompletableFuture.supplyAsync(() -> {
+                    boolean permitAcquired = false;
                     try {
-                        filePath = preprocessJsonIfNeeded(Paths.get(filePath)).toString();
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to preprocess JSON file: " + filePath, e);
-                    }
-                }
-
-                String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath) + " LIMIT 10";
-                ResultSet resultSet = statement.executeQuery(sql);
-
-                MetadataResponseV2 metadataResponse = new MetadataResponseV2();
-
-                var metaData = resultSet.getMetaData();
-                int columnCount = metaData.getColumnCount();
-                List<String> timeColumns = new ArrayList<>();
-                List<Column> convertedColumns = new ArrayList<>();
-
-                for (int i = 1; i <= columnCount; i++) {
-                    String columnName = metaData.getColumnName(i);
-                    String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
-                    convertedColumns.add(new Column(columnName, columnType));
-
-                    if (dataQueryHelper.isTimeColumn(columnType)) {
-                        timeColumns.add(columnName);
-                    }
-                }
-
-                String countSql = "SELECT COUNT(*) as total FROM " + dataQueryHelper.getFileTypeSQL(fileType, filePath);
-                ResultSet countResult = statement.executeQuery(countSql);
-                int totalItems = 0;
-                if (countResult.next()) {
-                    totalItems = countResult.getInt("total");
-                }
-
-                // Check for lat/lon columns
-                // Set metadata response fields
-
-                // Detect dataset type based on time columns and data ordering
-                DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
-
-                // RawVis specific metadata
-
-                metadataResponse.setOriginalColumns(convertedColumns);
-                metadataResponse.setTotalItems(totalItems);
-                metadataResponse.setDatasetType(datasetType);
-                metadataResponse.setHasLatLonColumns(dataQueryHelper.hasLatLonColumns(convertedColumns));
-
-                if (!timeColumns.isEmpty()) {
-                    metadataResponse.setTimeColumn(timeColumns);
-                }
-
-                Boolean ifRawVis = "rawvis".equalsIgnoreCase(dataSource.getFormat());
-                MetadataMapResponse metadataMapResponse = new MetadataMapResponse(metadataResponse);
-                if (ifRawVis) {
-                    dataQueryHelper.populateRawvisMeta(connection, filePath, dataSource,
-                            convertedColumns, metadataMapResponse);
-                }
-                try {
-                    sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
-
-                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it matches file
-                                                                                             // loading
-                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
-                    List<Map<String, Object>> summaryList = new ArrayList<>();
-                    int colCount = summarizeResult.getMetaData().getColumnCount();
-                    while (summarizeResult.next()) {
-                        Map<String, Object> summaryRow = new java.util.HashMap<>();
-                        for (int i = 1; i <= colCount; i++) {
-                            String colName = summarizeResult.getMetaData().getColumnName(i);
-                            Object value = summarizeResult.getObject(i);
-                            summaryRow.put(colName, value);
+                        try {
+                            permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Interrupted while waiting for DB permit", ie);
                         }
-                        summaryList.add(summaryRow);
+
+                        if (!permitAcquired) {
+                            throw new RuntimeException("Server overloaded: too many concurrent DB queries");
+                        }
+
+                        try (
+                                Connection connection = this.dataSource.getConnection();
+                                Statement statement = connection.createStatement()) {
+                            // System.out.println("File path for metadata: " + filePath.toString());
+                            // Use a mutable local copy because lambda capture requires effectively final
+                            String resolvedPath = filePath;
+
+                            FileType fileType = dataQueryHelper.detectFileType(resolvedPath);
+                            if (fileType == FileType.JSON) {
+                                try {
+                                    resolvedPath = preprocessJsonIfNeeded(Paths.get(resolvedPath)).toString();
+                                } catch (IOException e) {
+                                    throw new RuntimeException("Failed to preprocess JSON file: " + resolvedPath, e);
+                                }
+                            }
+
+                            String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath)
+                                    + " LIMIT 10";
+                            ResultSet resultSet = statement.executeQuery(sql);
+
+                            MetadataResponseV2 metadataResponse = new MetadataResponseV2();
+
+                            var metaData = resultSet.getMetaData();
+                            int columnCount = metaData.getColumnCount();
+                            List<String> timeColumns = new ArrayList<>();
+                            List<Column> convertedColumns = new ArrayList<>();
+
+                            for (int i = 1; i <= columnCount; i++) {
+                                String columnName = metaData.getColumnName(i);
+                                String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
+                                convertedColumns.add(new Column(columnName, columnType));
+
+                                if (dataQueryHelper.isTimeColumn(columnType)) {
+                                    timeColumns.add(columnName);
+                                }
+                            }
+
+                            String countSql = "SELECT COUNT(*) as total FROM "
+                                    + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath);
+                            ResultSet countResult = statement.executeQuery(countSql);
+                            int totalItems = 0;
+                            if (countResult.next()) {
+                                totalItems = countResult.getInt("total");
+                            }
+
+                            // Check for lat/lon columns
+                            // Set metadata response fields
+
+                            // Detect dataset type based on time columns and data ordering
+                            DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns,
+                                    statement, sql);
+
+                            // RawVis specific metadata
+
+                            metadataResponse.setOriginalColumns(convertedColumns);
+                            metadataResponse.setTotalItems(totalItems);
+                            metadataResponse.setDatasetType(datasetType);
+                            metadataResponse.setHasLatLonColumns(dataQueryHelper.hasLatLonColumns(convertedColumns));
+
+                            if (!timeColumns.isEmpty()) {
+                                metadataResponse.setTimeColumn(timeColumns);
+                            }
+
+                            Boolean ifRawVis = "rawvis".equalsIgnoreCase(dataSource.getFormat());
+                            MetadataMapResponse metadataMapResponse = new MetadataMapResponse(metadataResponse);
+                            if (ifRawVis) {
+                                dataQueryHelper.populateRawvisMeta(connection, filePath, dataSource,
+                                        convertedColumns, metadataMapResponse);
+                            }
+                            try {
+                                sql = sql.replace(" LIMIT 10", ""); // Remove limit for summarization
+
+                                String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM")); // ensures it
+                                                                                                         // matches file
+                                                                                                         // loading
+                                ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+                                List<Map<String, Object>> summaryList = new ArrayList<>();
+                                int colCount = summarizeResult.getMetaData().getColumnCount();
+                                while (summarizeResult.next()) {
+                                    Map<String, Object> summaryRow = new java.util.HashMap<>();
+                                    for (int i = 1; i <= colCount; i++) {
+                                        String colName = summarizeResult.getMetaData().getColumnName(i);
+                                        Object value = summarizeResult.getObject(i);
+                                        summaryRow.put(colName, value);
+                                    }
+                                    summaryList.add(summaryRow);
+                                }
+                                metadataResponse.setSummary(summaryList);
+                                summarizeResult.close();
+                            } catch (SQLException summarizeEx) {
+                                log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+                            }
+
+                            resultSet.close();
+                            countResult.close();
+
+                            return ifRawVis ? metadataMapResponse : metadataResponse;
+
+                        } catch (SQLException e) {
+                            throw new RuntimeException("Failed to get file metadata", e);
+                        } catch (IOException e) {
+                            throw new RuntimeException("Failed to get file metadata due to I/O error", e);
+                        }
+
+                    } finally {
+                        if (permitAcquired) {
+                            duckDbSemaphore.release();
+                        }
                     }
-                    metadataResponse.setSummary(summaryList);
-                    summarizeResult.close();
-                } catch (SQLException summarizeEx) {
-                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
-                }
-
-                resultSet.close();
-                countResult.close();
-
-                return ifRawVis ? metadataMapResponse : metadataResponse;
-
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to get file metadata", e);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to get file metadata due to I/O error", e);
+                }, dataProcessingExecutor);
+            } catch (RejectedExecutionException rej) {
+                CompletableFuture<MetadataResponseV2> failed = new CompletableFuture<>();
+                failed.completeExceptionally(new RuntimeException("Server busy: too many concurrent requests", rej));
+                return failed;
             }
         });
     }
@@ -309,49 +403,45 @@ public class DataServiceV2 {
             Rectangle rectangle,
             String latCol,
             String lonCol,
-            String[] columnNames
-    ) throws Exception, SQLException {
+            String[] columnNames) throws Exception, SQLException {
         try (
-            Connection connection = this.dataSource.getConnection();
-            Statement statement = connection.createStatement()
-        ) {
+                Connection connection = this.dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
             String sql;
             if (rectangle != null && rectangle.getLat() != null && rectangle.getLon() != null) {
                 sql = String.format(
-                    "SELECT id, %s FROM read_csv('%s') WHERE %s BETWEEN %s AND %s AND %s BETWEEN %s AND %s",
-                    String.join(", ", columnNames),
-                    dataSource.getSource(),
-                    latCol,
-                    rectangle.getLat().lowerEndpoint(),
-                    rectangle.getLat().upperEndpoint(),
-                    lonCol,
-                    rectangle.getLon().lowerEndpoint(),
-                    rectangle.getLon().upperEndpoint()
-                );
+                        "SELECT id, %s FROM read_csv('%s') WHERE %s BETWEEN %s AND %s AND %s BETWEEN %s AND %s",
+                        String.join(", ", columnNames),
+                        dataSource.getSource(),
+                        latCol,
+                        rectangle.getLat().lowerEndpoint(),
+                        rectangle.getLat().upperEndpoint(),
+                        lonCol,
+                        rectangle.getLon().lowerEndpoint(),
+                        rectangle.getLon().upperEndpoint());
             } else {
                 sql = String.format(
-                    "SELECT id, %s FROM read_csv('%s')",
-                    String.join(", ", columnNames),
-                    dataSource.getSource()
-                );
+                        "SELECT id, %s FROM read_csv('%s')",
+                        String.join(", ", columnNames),
+                        dataSource.getSource());
             }
             log.info("SQL: " + sql);
             ResultSet resultSet = statement.executeQuery(sql);
             int columnCount = resultSet.getMetaData().getColumnCount();
             log.info("Metadata: " + resultSet.getMetaData());
-            
+
             // Get column names from metadata
             String[] allColumnNames = new String[columnCount];
             for (int i = 0; i < columnCount; i++) {
                 allColumnNames[i] = resultSet.getMetaData().getColumnName(i + 1);
             }
-            
+
             // Initialize the map with empty arrays for each column
             Map<String, Object[]> columnMap = new HashMap<>();
             for (String columnName : allColumnNames) {
                 columnMap.put(columnName, new Object[0]);
             }
-            
+
             // Collect all rows
             List<Object[]> resultsList = new ArrayList<>();
             while (resultSet.next()) {
@@ -361,17 +451,17 @@ public class DataServiceV2 {
                 }
                 resultsList.add(row);
             }
-            
+
             // Convert to map structure: column name -> array of values
             int rowCount = resultsList.size();
             for (int colIndex = 0; colIndex < columnCount; colIndex++) {
                 String columnName = allColumnNames[colIndex];
                 Object[] columnValues = new Object[rowCount];
-                
+
                 for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
                     columnValues[rowIndex] = resultsList.get(rowIndex)[colIndex];
                 }
-                
+
                 columnMap.put(columnName, columnValues);
             }
 
@@ -389,7 +479,8 @@ public class DataServiceV2 {
         try (Connection connection = this.dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
 
-            int rowsDeleted = statement.executeUpdate("DELETE FROM " + metaTableName + " WHERE table_name = '" + tableName + "'");
+            int rowsDeleted = statement
+                    .executeUpdate("DELETE FROM " + metaTableName + " WHERE table_name = '" + tableName + "'");
 
             statement.close();
             connection.close();
@@ -443,4 +534,42 @@ public class DataServiceV2 {
         return datasetPath;
     }
 
+    // NEW
+    private String extractFileName(String url) {
+        if (url == null)
+            return "unknown";
+
+        // Remove query parameters if any
+        String cleanUrl = url.split("\\?")[0];
+
+        // Extract filename from URL
+        int lastSlash = cleanUrl.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < cleanUrl.length() - 1) {
+            return cleanUrl.substring(lastSlash + 1);
+        }
+
+        return "image";
+    }
+
+    private String getContentTypeFromUrl(String url) {
+        if (url == null)
+            return "application/octet-stream";
+
+        String lowerUrl = url.toLowerCase();
+        if (lowerUrl.contains(".png"))
+            return "image/png";
+        if (lowerUrl.contains(".jpg") || lowerUrl.contains(".jpeg"))
+            return "image/jpeg";
+        if (lowerUrl.contains(".gif"))
+            return "image/gif";
+        if (lowerUrl.contains(".webp"))
+            return "image/webp";
+        if (lowerUrl.contains(".bmp"))
+            return "image/bmp";
+        if (lowerUrl.contains(".svg"))
+            return "image/svg+xml";
+
+        return "image/*";
+    }
+    // Till here
 }

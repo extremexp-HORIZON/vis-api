@@ -145,7 +145,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null")
+    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
     public ResponseEntity<Experiment> getExperimentById(String experimentId) {
         String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
 
@@ -400,7 +400,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                     requestUrl, HttpMethod.POST, entity, List.class);
             List<Map<String, Object>> responseList = response.getBody();
             if (responseList == null || responseList.isEmpty()) {
-                System.out.println("No metrics found for the given experiment and run.");
+                // System.out.println("No metrics found for the given experiment and run.");
                 String putUrl = workflowsApiUrl + "/metrics";
                 Map<String, Object> putBody = new HashMap<>();
                 // putBody.put("experimentId", experimentId);
@@ -662,6 +662,12 @@ public class ExtremeXPExperimentService implements ExperimentService {
         experiment.setCreationTime(parseIsoDateToMillis((String) data.get("start")));
         experiment.setLastUpdateTime(parseIsoDateToMillis((String) data.get("end")));
 
+        // Set status from API response if present
+        Object statusObj = data.get("status");
+        if (statusObj != null) {
+            experiment.setStatus(statusObj.toString());
+        }
+
         return experiment;
     }
 
@@ -728,7 +734,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
                 if (uri.contains(".")) {
                     return uri.lastIndexOf(".") != -1 ? uri.substring(uri.lastIndexOf(".")) : null;
                 } else {
-                    log.warning("No file extension found in URI: " + uri);
+                    // log.warning("No file extension found in URI: " + uri);
                     return null;
                 }
             } else {

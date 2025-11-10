@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
-        return new ConcurrentMapCacheManager("datasetCache", "modelEvaluationData", "explainabilityDataPaths", "experimentFiles", "runsCache", "experimentCache");
+        return new ConcurrentMapCacheManager("datasetCache", "modelEvaluationData", "explainabilityDataPaths", "experimentFiles", "runsCache", "experimentCache", "explanations", "featureImportance");
     }
 }
+
