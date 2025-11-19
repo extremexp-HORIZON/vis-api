@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -479,14 +480,25 @@ public class DataServiceV2 {
         try (Connection connection = this.dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
 
-            int rowsDeleted = statement
-                    .executeUpdate("DELETE FROM " + metaTableName + " WHERE table_name = '" + tableName + "'");
+            DatabaseMetaData metaData = connection.getMetaData();
+            ResultSet resultSet = metaData.getTables(null, null, metaTableName, null);
+            if (resultSet.next()) {
+                log.info("Table " + metaTableName + " exists");
+                
+                int rowsDeleted = statement
+                .executeUpdate("DELETE FROM " + metaTableName + " WHERE table_name = '" + tableName + "'");
+                
+                statement.close();
+                connection.close();
+                
+                log.info("File metadata deleted successfully, " + rowsDeleted + " rows deleted");
+                return rowsDeleted > 0;
+            }
 
+            log.info("Table " + metaTableName + " does not exist");
             statement.close();
             connection.close();
-
-            log.info("File metadata deleted successfully, " + rowsDeleted + " rows deleted");
-            return rowsDeleted > 0;
+            return false;
 
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete file metadata for " + tableName + " from " + metaTableName, e);
