@@ -2,10 +2,12 @@ package gr.imsi.athenarc.xtremexpvisapi.repository.drone;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.drone.DroneData;
 import gr.imsi.athenarc.xtremexpvisapi.domain.drone.DroneTelemetryRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.sync.SyncResult;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.java.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
@@ -23,6 +25,7 @@ import java.util.Optional;
 public class DroneDataRepository {
 
     @Autowired
+    @Qualifier("droneDuckDBDataSource")
     private DataSource dataSource;
 
     @Value("${duckdb.drone.database.path:}")
@@ -32,7 +35,7 @@ public class DroneDataRepository {
     private String tableName;
 
     @Value("${duckdb.drone.jsonl.path:}")
-    private String jsonlPath;
+    private String jsonlPath; // Only used for sync operations
 
     /**
      * Initialize the DuckDB connection and create table if needed.
@@ -42,16 +45,9 @@ public class DroneDataRepository {
     @PostConstruct
     public void init() {
         try (Connection connection = dataSource.getConnection()) {
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                log.info("DroneDataRepository initialized with JSONL path: " + jsonlPath);
-            } else if (droneDatabasePath != null && !droneDatabasePath.isBlank()) {
-                // Create persistent database connection
-                try (Statement stmt = connection.createStatement()) {
-                    // Attach or create persistent database
-                    String attachSql = String.format("ATTACH '%s' AS drone_db (READ_ONLY)", droneDatabasePath);
-                    stmt.execute(attachSql);
-                    log.info("DroneDataRepository initialized with persistent database: " + droneDatabasePath);
-                }
+            if (droneDatabasePath != null && !droneDatabasePath.isBlank()) {
+                createTableInPersistentDB();
+                log.info("DroneDataRepository initialized with persistent database: " + droneDatabasePath);
             } else {
                 // Use in-memory table - create schema
                 createTableIfNotExists(connection);
@@ -61,6 +57,213 @@ public class DroneDataRepository {
             log.warning("Failed to initialize DroneDataRepository: " + e.getMessage());
             // Don't throw - allow application to start even if table doesn't exist yet
         }
+    }
+
+    /**
+     * Create the drone_telemetry table in persistent DuckDB database.
+     * This is called during initialization if persistent DB is configured.
+     */
+    public void createTableInPersistentDB() throws SQLException {
+        if (droneDatabasePath == null || droneDatabasePath.isBlank()) {
+            throw new IllegalStateException("DuckDB database path not configured");
+        }
+
+        try (Connection connection = dataSource.getConnection();
+            Statement stmt = connection.createStatement()) {
+
+            // Create table with same schema as in-memory version
+            String createTableSql = String.format("""
+                CREATE TABLE IF NOT EXISTS %s (
+                    timestamp TIMESTAMP NOT NULL,
+                    drone_id VARCHAR(50) NOT NULL,
+                    gps_fix BOOLEAN,
+                    lat DOUBLE,
+                    lon DOUBLE,
+                    alt DOUBLE,
+                    speed_kmh DOUBLE,
+                    satellites INTEGER,
+                    rat_lte VARCHAR(50),
+                    op_mode_lte VARCHAR(50),
+                    mccmnc_lte VARCHAR(50),
+                    tac_lte VARCHAR(50),
+                    scell_id_lte VARCHAR(50),
+                    pcell_id_lte VARCHAR(50),
+                    band_lte VARCHAR(50),
+                    earfcn_lte INTEGER,
+                    dlbw_mhz_lte INTEGER,
+                    ulbw_mhz_lte INTEGER,
+                    rsrq_db_lte DOUBLE,
+                    rsrp_dbm_lte DOUBLE,
+                    rssi_dbm_lte DOUBLE,
+                    rssnr_db_lte DOUBLE,
+                    rat_5g VARCHAR(50),
+                    pcell_id_5g VARCHAR(50),
+                    band_5g VARCHAR(50),
+                    earfcn_5g INTEGER,
+                    rsrq_db_5g DOUBLE,
+                    rsrp_dbm_5g DOUBLE,
+                    rssnr_db_5g DOUBLE,
+                    PRIMARY KEY (timestamp, drone_id)
+                )
+                """, tableName);
+
+            stmt.execute(createTableSql);
+
+            // Create indexes
+            String index1 = String.format(
+                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
+            String index2 = String.format(
+                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
+            String index3 = String.format(
+                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
+
+            stmt.execute(index1);
+            stmt.execute(index2);
+            stmt.execute(index3);
+
+            log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
+        }
+    }
+    
+    /**
+     * Perform incremental sync from JSONL to DuckDB.
+     * Only inserts records newer than the maximum timestamp in the table.
+     *
+     * @return SyncResult containing statistics about the sync operation
+     */
+    public SyncResult syncJsonlToDuckDB() throws SQLException {
+        if (jsonlPath == null || jsonlPath.isBlank()) {
+            throw new IllegalStateException("JSONL path not configured");
+        }
+        if (droneDatabasePath == null || droneDatabasePath.isBlank()) {
+            throw new IllegalStateException("DuckDB database path not configured");
+        }
+    
+        SyncResult result = new SyncResult();
+        result.setStartTime(System.currentTimeMillis());
+    
+        try (Connection connection = dataSource.getConnection();
+             Statement stmt = connection.createStatement()) {
+    
+            // Ensure table exists
+            createTableInPersistentDB();
+    
+            // Get max timestamp from table to find new records
+            Optional<Timestamp> maxTimestamp = getMaxTimestampFromPersistentDB(connection);
+    
+            // Build INSERT query with WHERE clause to filter new records
+            String insertSql = buildIncrementalInsertQuery(maxTimestamp);
+    
+            try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
+                pstmt.setString(1, jsonlPath);
+
+                if (maxTimestamp.isPresent()) {
+                    pstmt.setTimestamp(2, maxTimestamp.get());
+                }
+    
+                int rowsInserted = pstmt.executeUpdate();
+                result.setRowsInserted(rowsInserted);
+                result.setSuccess(true);
+    
+                log.info("Synced " + rowsInserted + " new records from JSONL to DuckDB");
+            }
+    
+        } catch (SQLException e) {
+            result.setSuccess(false);
+            result.setErrorMessage(e.getMessage());
+            log.warning("Error syncing JSONL to DuckDB: " + e.getMessage());
+            throw e;
+        } finally {
+            result.setEndTime(System.currentTimeMillis());
+            result.setDurationMs(result.getEndTime() - result.getStartTime());
+        }
+    
+        return result;
+    }
+    
+    /**
+     * Get max timestamp from persistent DuckDB table.
+     */
+    private Optional<Timestamp> getMaxTimestampFromPersistentDB(Connection connection) throws SQLException {
+        String sql = String.format("SELECT MAX(timestamp) FROM %s", tableName);
+    
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+    
+            if (rs.next() && rs.getTimestamp(1) != null) {
+                return Optional.of(rs.getTimestamp(1));
+            }
+        }
+    
+        return Optional.empty();
+    }
+    
+    /**
+     * Build INSERT query for incremental sync.
+     * If maxTimestamp is present, only inserts records newer than that.
+     */
+    private String buildIncrementalInsertQuery(Optional<Timestamp> maxTimestamp) {
+        StringBuilder sql = new StringBuilder();
+
+        sql.append(String.format("""
+            INSERT OR IGNORE INTO %s
+            WITH raw_json_data AS (
+                SELECT
+                    to_timestamp(timestamp) AS timestamp,
+                    tags.drone_id AS drone_id,
+                    fields.gpsFix AS gps_fix,
+                    fields.lat AS lat,
+                    fields.lon AS lon,
+                    fields.alt AS alt,
+                    fields.speedKmh AS speed_kmh,
+                    fields.satellites AS satellites,
+                    fields.ratLte AS rat_lte,
+                    fields.opModeLte AS op_mode_lte,
+                    fields.mccmncLte AS mccmnc_lte,
+                    fields.tacLte AS tac_lte,
+                    fields.scellIdLte AS scell_id_lte,
+                    fields.pcellIdLte AS pcell_id_lte,
+                    fields.bandLte AS band_lte,
+                    fields.earfcnLte AS earfcn_lte,
+                    fields.dlbwMhzLte AS dlbw_mhz_lte,
+                    fields.ulbwMhzLte AS ulbw_mhz_lte,
+                    fields.rsrqDbLte AS rsrq_db_lte,
+                    fields.rsrpDbmLte AS rsrp_dbm_lte,
+                    fields.rssiDbmLte AS rssi_dbm_lte,
+                    fields.rssnrDbLte AS rssnr_db_lte,
+                    fields.rat5g AS rat_5g,
+                    fields.pcellId5g AS pcell_id_5g,
+                    fields.band5g AS band_5g,
+                    fields.earfcn5g AS earfcn_5g,
+                    fields.rsrqDb5g AS rsrq_db_5g,
+                    fields.rsrpDbm5g AS rsrp_dbm_5g,
+                    fields.rssnrDb5g AS rssnr_db_5g
+                FROM read_json_auto(?)
+                WHERE 1=1
+        """, tableName));
+
+        // Add WHERE clause to filter only new records on the raw data (efficient)
+        if (maxTimestamp.isPresent()) {
+            sql.append(" AND to_timestamp(timestamp) > ?");
+        }
+        
+        // Close the CTE
+        sql.append(")\n");
+        
+        // Select from CTE and use QUALIFY for de-duplication
+        sql.append("""
+                SELECT 
+                    * FROM raw_json_data
+                QUALIFY
+                    ROW_NUMBER() OVER (
+                        PARTITION BY drone_id, timestamp
+                        ORDER BY timestamp DESC -- If two records have the same time, this ensures one is chosen deterministically
+                    ) = 1
+                """);
+
+        // Important: REMOVE the old 'GROUP BY' line here!
+
+        return sql.toString();
     }
 
     /**
@@ -94,7 +297,7 @@ public class DroneDataRepository {
                 rat_5g VARCHAR(50),
                 pcell_id_5g VARCHAR(50),
                 band_5g VARCHAR(50),
-                earfcn_5g INTEGER,pom
+                earfcn_5g INTEGER,
                 rsrq_db_5g DOUBLE,
                 rsrp_dbm_5g DOUBLE,
                 rssnr_db_5g DOUBLE,
@@ -175,57 +378,13 @@ public class DroneDataRepository {
      */
     public Optional<DroneData> findLatestByDroneId(String droneId) throws SQLException {
         String sql;
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            sql = """
-            SELECT 
-                tags.drone_id as drone_id,
-                to_timestamp(timestamp) as timestamp,
-                fields.gpsFix as gps_fix,
-                fields.lat as lat,
-                fields.lon as lon,
-                fields.alt as alt,
-                fields.speedKmh as speed_kmh,
-                fields.satellites as satellites,
-                fields.ratLte as rat_lte,
-                fields.opModeLte as op_mode_lte,
-                fields.mccmncLte as mccmnc_lte,
-                fields.tacLte as tac_lte,
-                fields.scellIdLte as scell_id_lte,
-                fields.pcellIdLte as pcell_id_lte,
-                fields.bandLte as band_lte,
-                fields.earfcnLte as earfcn_lte,
-                fields.dlbwMhzLte as dlbw_mhz_lte,
-                fields.ulbwMhzLte as ulbw_mhz_lte,
-                fields.rsrqDbLte as rsrq_db_lte,
-                fields.rsrpDbmLte as rsrp_dbm_lte,
-                fields.rssiDbmLte as rssi_dbm_lte,
-                fields.rssnrDbLte as rssnr_db_lte,
-                fields.rat5g as rat_5g,
-                fields.pcellId5g as pcell_id_5g,
-                fields.band5g as band_5g,
-                fields.earfcn5g as earfcn_5g,
-                fields.rsrqDb5g as rsrq_db_5g,
-                fields.rsrpDbm5g as rsrp_dbm_5g,
-                fields.rssnrDb5g as rssnr_db_5g
-            FROM read_json_auto(?)
-            WHERE tags.drone_id = ?
-            ORDER BY to_timestamp(timestamp) DESC
-            LIMIT 1
-            """;
-        } else {
-            sql = String.format(
+        sql = String.format(
                 "SELECT * FROM %s WHERE drone_id = ? ORDER BY timestamp DESC LIMIT 1", tableName);
-        }
 
         try (Connection connection = dataSource.getConnection();
              PreparedStatement pstmt = connection.prepareStatement(sql)) {
             
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                pstmt.setString(1, jsonlPath);
-                pstmt.setString(2, droneId);
-            } else {
-                pstmt.setString(1, droneId);
-            }
+            pstmt.setString(1, droneId);
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -246,18 +405,10 @@ public class DroneDataRepository {
         List<String> droneIds = new ArrayList<>();
         String sql;
         
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            sql = "SELECT DISTINCT tags.drone_id as drone_id FROM read_json_auto(?) ORDER BY drone_id";
-        } else {
-            sql = String.format("SELECT DISTINCT drone_id FROM %s ORDER BY drone_id", tableName);
-        }
+        sql = String.format("SELECT DISTINCT drone_id FROM %s ORDER BY drone_id", tableName);
 
         try (Connection connection = dataSource.getConnection();
              PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                pstmt.setString(1, jsonlPath);
-            }
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -275,43 +426,7 @@ public class DroneDataRepository {
     private String buildQuery(DroneTelemetryRequest request) {
         StringBuilder sql = new StringBuilder();
         
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            sql.append("""
-        SELECT 
-            tags.drone_id as drone_id,
-            to_timestamp(timestamp) as timestamp,
-            fields.gpsFix as gps_fix,
-            fields.lat as lat,
-            fields.lon as lon,
-            fields.alt as alt,
-            fields.speedKmh as speed_kmh,
-            fields.satellites as satellites,
-            fields.ratLte as rat_lte,
-            fields.opModeLte as op_mode_lte,
-            fields.mccmncLte as mccmnc_lte,
-            fields.tacLte as tac_lte,
-            fields.scellIdLte as scell_id_lte,
-            fields.pcellIdLte as pcell_id_lte,
-            fields.bandLte as band_lte,
-            fields.earfcnLte as earfcn_lte,
-            fields.dlbwMhzLte as dlbw_mhz_lte,
-            fields.ulbwMhzLte as ulbw_mhz_lte,
-            fields.rsrqDbLte as rsrq_db_lte,
-            fields.rsrpDbmLte as rsrp_dbm_lte,
-            fields.rssiDbmLte as rssi_dbm_lte,
-            fields.rssnrDbLte as rssnr_db_lte,
-            fields.rat5g as rat_5g,
-            fields.pcellId5g as pcell_id_5g,
-            fields.band5g as band_5g,
-            fields.earfcn5g as earfcn_5g,
-            fields.rsrqDb5g as rsrq_db_5g,
-            fields.rsrpDbm5g as rsrp_dbm_5g,
-            fields.rssnrDb5g as rssnr_db_5g
-        FROM read_json_auto(?)
-        """);
-        } else {
-            sql.append("SELECT * FROM ").append(tableName);
-        }
+        sql.append("SELECT * FROM ").append(tableName);
         
         List<String> conditions = new ArrayList<>();
         
@@ -325,18 +440,10 @@ public class DroneDataRepository {
         
         // Time range filters
         if (request.getStartTime() != null) {
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                conditions.add("to_timestamp(timestamp) >= ?");
-            } else {
-                conditions.add("timestamp >= ?");
-            }
+            conditions.add("timestamp >= ?");
         }
         if (request.getEndTime() != null) {
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                conditions.add("to_timestamp(timestamp) <= ?");
-            } else {
-                conditions.add("timestamp <= ?");
-            }
+            conditions.add("timestamp <= ?");
         }
         
         // Geographic bounding box filters
@@ -360,18 +467,10 @@ public class DroneDataRepository {
         
         // Sorting
         String sortOrder = request.getSortOrder() != null ? request.getSortOrder() : "timestamp_desc";
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            if (sortOrder.equals("timestamp_asc")) {
-                sql.append(" ORDER BY to_timestamp(timestamp) ASC");
-            } else {
-                sql.append(" ORDER BY to_timestamp(timestamp) DESC");
-            }
+        if (sortOrder.equals("timestamp_asc")) {
+            sql.append(" ORDER BY timestamp ASC");
         } else {
-            if (sortOrder.equals("timestamp_asc")) {
-                sql.append(" ORDER BY timestamp ASC");
-            } else {
-                sql.append(" ORDER BY timestamp DESC");
-            }
+            sql.append(" ORDER BY timestamp DESC");
         }
         
         // Pagination
@@ -391,11 +490,7 @@ public class DroneDataRepository {
     private String buildCountQuery(DroneTelemetryRequest request) {
         StringBuilder sql = new StringBuilder();
         
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            sql.append("SELECT COUNT(*) FROM read_json_auto(?)");
-        } else {
-            sql.append("SELECT COUNT(*) FROM ").append(tableName);
-        }
+        sql.append("SELECT COUNT(*) FROM ").append(tableName);
         
         List<String> conditions = new ArrayList<>();
         
@@ -408,18 +503,10 @@ public class DroneDataRepository {
         }
         
         if (request.getStartTime() != null) {
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                conditions.add("to_timestamp(timestamp) >= ?");
-            } else {
-                conditions.add("timestamp >= ?");
-            }
+            conditions.add("timestamp >= ?");
         }
         if (request.getEndTime() != null) {
-            if (jsonlPath != null && !jsonlPath.isBlank()) {
-                conditions.add("to_timestamp(timestamp) <= ?");
-            } else {
-                conditions.add("timestamp <= ?");
-            }
+            conditions.add("timestamp <= ?");
         }
         if (request.getMinLat() != null) {
             conditions.add("lat >= ?");
@@ -449,11 +536,6 @@ public class DroneDataRepository {
      */
     private void setQueryParameters(PreparedStatement pstmt, DroneTelemetryRequest request, boolean includePagination) throws SQLException {
         int paramIndex = 1;
-        
-        // JSONL path parameter (if using JSONL)
-        if (jsonlPath != null && !jsonlPath.isBlank()) {
-            pstmt.setString(paramIndex++, jsonlPath);
-        }
         
         // Drone ID filter
         if (request.getDroneId() != null && !request.getDroneId().isBlank()) {
