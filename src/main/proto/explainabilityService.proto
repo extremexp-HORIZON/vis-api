@@ -106,10 +106,13 @@ message ExplanationsResponse {
     map<string, TableContents> actions = 18;
     map<string, TableContents> features_table = 19;
     map<string, TableContents> attributions_table = 20;
-    repeated string features_table_columns = 21;
-    repeated string attributions_table_columns = 22;
-    repeated ShapContributions shap_contributions = 23;
-    repeated int32 available_indices = 24;
+    map<string, TableContents> targets_table = 21;
+    repeated string features_table_columns = 22;
+    repeated string attributions_table_columns = 23;
+    repeated string targets_table_columns = 24;
+    repeated int32 available_indices = 25;
+    repeated ShapContributions shap_contributions = 26;
+
 }
 
 //------------------ Apply Affected Actions --------------------------------------------------

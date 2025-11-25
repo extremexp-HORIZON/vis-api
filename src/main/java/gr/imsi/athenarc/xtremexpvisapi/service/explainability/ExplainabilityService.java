@@ -48,10 +48,10 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 .usePlaintext()
                 .maxInboundMessageSize(50 * 1024 * 1024)
                 .maxInboundMetadataSize(50 * 1024 * 1024)
-                // Add keep-alive settings for connection reuse
-                .keepAliveTime(60, TimeUnit.SECONDS)
-                .keepAliveTimeout(5, TimeUnit.SECONDS)
-                .keepAliveWithoutCalls(true)
+                // Keep-alive settings - increased to avoid "too many pings" error
+                .keepAliveTime(120, TimeUnit.SECONDS)  // Minimum 2 minutes between pings
+                .keepAliveTimeout(20, TimeUnit.SECONDS)  // Wait longer for ping ACK
+                .keepAliveWithoutCalls(true)  // Keep connection alive even without active calls
                 .build();
                 
                 this.stub = ExplanationsGrpc.newBlockingStub(channel);
