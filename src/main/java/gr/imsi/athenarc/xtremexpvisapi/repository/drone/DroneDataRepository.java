@@ -63,7 +63,7 @@ public class DroneDataRepository {
      * Create the drone_telemetry table in persistent DuckDB database.
      * This is called during initialization if persistent DB is configured.
      */
-    public void createTableInPersistentDB() throws SQLException {
+    public synchronized void createTableInPersistentDB() throws SQLException {
         if (droneDatabasePath == null || droneDatabasePath.isBlank()) {
             throw new IllegalStateException("DuckDB database path not configured");
         }
@@ -107,21 +107,22 @@ public class DroneDataRepository {
                 )
                 """, tableName);
 
-            stmt.execute(createTableSql);
+            Boolean created = stmt.execute(createTableSql);
 
-            // Create indexes
-            String index1 = String.format(
-                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
-            String index2 = String.format(
-                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
-            String index3 = String.format(
-                "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
-
-            stmt.execute(index1);
-            stmt.execute(index2);
-            stmt.execute(index3);
-
-            log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
+            if (created) {               
+                // Create indexes
+                String index1 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
+                String index2 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
+                String index3 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
+                            
+                stmt.execute(index1);
+                stmt.execute(index2);
+                stmt.execute(index3);
+                            
+                log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
+            } else {
+                log.info("Table already exists in persistent DuckDB: " + droneDatabasePath);
+            }
         }
     }
     
@@ -144,9 +145,6 @@ public class DroneDataRepository {
     
         try (Connection connection = dataSource.getConnection();
              Statement stmt = connection.createStatement()) {
-    
-            // Ensure table exists
-            createTableInPersistentDB();
     
             // Get max timestamp from table to find new records
             Optional<Timestamp> maxTimestamp = getMaxTimestampFromPersistentDB(connection);
