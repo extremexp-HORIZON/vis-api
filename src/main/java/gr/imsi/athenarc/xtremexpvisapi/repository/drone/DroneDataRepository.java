@@ -11,6 +11,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,6 +146,13 @@ public class DroneDataRepository {
     
         SyncResult result = new SyncResult();
         result.setStartTime(System.currentTimeMillis());
+        
+        if (isJsonlPathEmpty()) {
+            result.setSuccess(true);
+            result.setRowsInserted(0);
+            log.info("JSONL file is empty (0 bytes), skipping sync attempt.");
+            return result;
+        }
     
         try (Connection connection = dataSource.getConnection();
              Statement stmt = connection.createStatement()) {
@@ -657,6 +668,18 @@ public class DroneDataRepository {
     private Integer getInteger(ResultSet rs, String columnName) throws SQLException {
         int value = rs.getInt(columnName);
         return rs.wasNull() ? null : value;
+    }
+
+    /**
+     * Helper method to check if jsonLPath is empty.
+     */
+    private Boolean isJsonlPathEmpty() {
+        try {
+            return Files.size(Paths.get(jsonlPath)) == 0;
+        } catch (IOException e) {
+            log.warning("Error checking if jsonLPath is empty: " + e.getMessage());
+            return true;
+        }
     }
 }
 
