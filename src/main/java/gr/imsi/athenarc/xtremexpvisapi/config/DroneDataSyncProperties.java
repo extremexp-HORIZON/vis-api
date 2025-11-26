@@ -25,12 +25,6 @@ public class DroneDataSyncProperties {
     private long interval = 300000;
 
     /**
-     * Perform initial full load on application startup.
-     * Default: false (only sync new data)
-     */
-    private boolean initialLoad = false;
-
-    /**
      * Maximum number of records to process per sync cycle.
      * 0 = unlimited
      * Default: 0

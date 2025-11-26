@@ -7,8 +7,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.sync.SyncStatistics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
     havingValue = "true",
     matchIfMissing = true
 )
-public class DroneDataSyncService implements ApplicationListener<ApplicationReadyEvent> {
+public class DroneDataSyncService {
 
     private final DroneDataRepository droneDataRepository;
     private final DroneDataSyncProperties syncProperties;
@@ -47,21 +45,6 @@ public class DroneDataSyncService implements ApplicationListener<ApplicationRead
             DroneDataSyncProperties syncProperties) {
         this.droneDataRepository = droneDataRepository;
         this.syncProperties = syncProperties;
-    }
-
-    @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        if (syncProperties.isInitialLoad()) {
-            log.info("Initial load is enabled, performing full data load on startup...");
-            SyncResult result = performInitialLoad();
-            if (result.isSuccess()) {
-                log.info("Initial load completed successfully: {} rows loaded", result.getRowsInserted());
-            } else {
-                log.error("Initial load failed: {}", result.getErrorMessage());
-            }
-        } else {
-            log.debug("Initial load is disabled, skipping startup load");
-        }
     }
 
     /**
@@ -124,34 +107,6 @@ public class DroneDataSyncService implements ApplicationListener<ApplicationRead
                 log.error("Unexpected error during sync", e);
                 break;
             }
-        }
-    }
-
-    /**
-     * Perform initial full load from JSONL to DuckDB.
-     * This can be called manually or on startup if configured.
-     */
-    public SyncResult performInitialLoad() {
-        log.info("Starting initial full load from JSONL to DuckDB...");
-
-        try {
-            // First, ensure table exists
-            droneDataRepository.createTableInPersistentDB();
-
-            // Perform sync (will load all records since table is empty)
-            SyncResult result = droneDataRepository.syncJsonlToDuckDB();
-            lastSyncResult = result;
-            lastSyncTime = System.currentTimeMillis();
-
-            log.info("Initial load completed: {} rows loaded", result.getRowsInserted());
-            return result;
-
-        } catch (SQLException e) {
-            log.error("Initial load failed", e);
-            SyncResult errorResult = new SyncResult();
-            errorResult.setSuccess(false);
-            errorResult.setErrorMessage(e.getMessage());
-            return errorResult;
         }
     }
 
