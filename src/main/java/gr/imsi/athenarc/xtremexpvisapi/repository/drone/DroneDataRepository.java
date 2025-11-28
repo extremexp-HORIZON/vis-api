@@ -66,6 +66,7 @@ public class DroneDataRepository {
     /**
      * Create the drone_telemetry table in persistent DuckDB database.
      * This is called during initialization if persistent DB is configured.
+     * Handles primary key changes by dropping and recreating the table if needed.
      */
     public synchronized void createTableInPersistentDB() throws SQLException {
         if (droneDatabasePath == null || droneDatabasePath.isBlank()) {
@@ -75,58 +76,64 @@ public class DroneDataRepository {
         try (Connection connection = dataSource.getConnection();
             Statement stmt = connection.createStatement()) {
 
-            // Create table with same schema as in-memory version
-            String createTableSql = String.format("""
-                CREATE TABLE IF NOT EXISTS %s (
-                    timestamp TIMESTAMP NOT NULL,
-                    drone_id VARCHAR(50) NOT NULL,
-                    gps_fix BOOLEAN,
-                    lat DOUBLE,
-                    lon DOUBLE,
-                    alt DOUBLE,
-                    speed_kmh DOUBLE,
-                    satellites INTEGER,
-                    rat_lte VARCHAR(50),
-                    op_mode_lte VARCHAR(50),
-                    mccmnc_lte VARCHAR(50),
-                    tac_lte VARCHAR(50),
-                    scell_id_lte VARCHAR(50),
-                    pcell_id_lte VARCHAR(50),
-                    band_lte VARCHAR(50),
-                    earfcn_lte INTEGER,
-                    dlbw_mhz_lte INTEGER,
-                    ulbw_mhz_lte INTEGER,
-                    rsrq_db_lte DOUBLE,
-                    rsrp_dbm_lte DOUBLE,
-                    rssi_dbm_lte DOUBLE,
-                    rssnr_db_lte DOUBLE,
-                    rat_5g VARCHAR(50),
-                    pcell_id_5g VARCHAR(50),
-                    band_5g VARCHAR(50),
-                    earfcn_5g INTEGER,
-                    rsrq_db_5g DOUBLE,
-                    rsrp_dbm_5g DOUBLE,
-                    rssnr_db_5g DOUBLE,
-                    PRIMARY KEY (timestamp, drone_id)
-                )
-                """, tableName);
+            // Check if table exists and if primary key matches expected schema
+            boolean tableExists = tableExists(connection, tableName);
+            boolean pkMatches = false;
+            
+            if (tableExists) {
+                pkMatches = DroneTelemetrySchema.checkPrimaryKeyMatches(connection, tableName);
+                
+                // If primary key changed, we need to drop and recreate the table
+                if (!pkMatches) {
+                    log.warning("Primary key schema changed. Dropping existing table to recreate with new schema.");
+                    log.warning("WARNING: All existing data will be lost. This is expected when adding new primary key fields.");
+                    stmt.execute("DROP TABLE IF EXISTS " + tableName);
+                    tableExists = false;
+                }
+            }
 
-            Boolean created = stmt.execute(createTableSql);
-
-            if (created) {               
-                // Create indexes
-                String index1 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
-                String index2 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
-                String index3 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
-                            
-                stmt.execute(index1);
-                stmt.execute(index2);
-                stmt.execute(index3);
-                            
+            // Create table if it doesn't exist
+            if (!tableExists) {
+                String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
+                stmt.execute(createTableSql);
                 log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
             } else {
                 log.info("Table already exists in persistent DuckDB: " + droneDatabasePath);
             }
+
+            // Migrate schema: add any missing columns (handles NOT NULL with defaults)
+            int columnsAdded = DroneTelemetrySchema.migrateTableSchema(connection, tableName);
+            
+            if (columnsAdded > 0) {
+                log.info("Migrated schema: added " + columnsAdded + " new column(s) to existing table");
+            }
+
+            // Create indexes (IF NOT EXISTS handles existing indexes)
+            String index1 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
+            String index2 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
+            String index3 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
+            String index4 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON %s(session_id)", tableName);
+                        
+            stmt.execute(index1);
+            stmt.execute(index2);
+            stmt.execute(index3);
+            stmt.execute(index4);
+            
+            log.info("Table schema is up to date: " + tableName);
+        }
+    }
+    
+    /**
+     * Check if a table exists in the database.
+     */
+    private boolean tableExists(Connection connection, String tableName) throws SQLException {
+        try {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getTables(null, null, tableName, null)) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            return false;
         }
     }
     
@@ -218,38 +225,10 @@ public class DroneDataRepository {
             INSERT OR IGNORE INTO %s
             WITH raw_json_data AS (
                 SELECT
-                    to_timestamp(timestamp) AS timestamp,
-                    tags.drone_id AS drone_id,
-                    fields.gpsFix AS gps_fix,
-                    fields.lat AS lat,
-                    fields.lon AS lon,
-                    fields.alt AS alt,
-                    fields.speedKmh AS speed_kmh,
-                    fields.satellites AS satellites,
-                    fields.ratLte AS rat_lte,
-                    fields.opModeLte AS op_mode_lte,
-                    fields.mccmncLte AS mccmnc_lte,
-                    fields.tacLte AS tac_lte,
-                    fields.scellIdLte AS scell_id_lte,
-                    fields.pcellIdLte AS pcell_id_lte,
-                    fields.bandLte AS band_lte,
-                    fields.earfcnLte AS earfcn_lte,
-                    fields.dlbwMhzLte AS dlbw_mhz_lte,
-                    fields.ulbwMhzLte AS ulbw_mhz_lte,
-                    fields.rsrqDbLte AS rsrq_db_lte,
-                    fields.rsrpDbmLte AS rsrp_dbm_lte,
-                    fields.rssiDbmLte AS rssi_dbm_lte,
-                    fields.rssnrDbLte AS rssnr_db_lte,
-                    fields.rat5g AS rat_5g,
-                    fields.pcellId5g AS pcell_id_5g,
-                    fields.band5g AS band_5g,
-                    fields.earfcn5g AS earfcn_5g,
-                    fields.rsrqDb5g AS rsrq_db_5g,
-                    fields.rsrpDbm5g AS rsrp_dbm_5g,
-                    fields.rssnrDb5g AS rssnr_db_5g
+                    %s
                 FROM read_json_auto(?)
                 WHERE 1=1
-        """, tableName));
+        """, tableName, DroneTelemetrySchema.generateJsonFieldMapping()));
 
         // Add WHERE clause to filter only new records on the raw data (efficient)
         if (maxTimestamp.isPresent()) {
@@ -260,59 +239,25 @@ public class DroneDataRepository {
         sql.append(")\n");
         
         // Select from CTE and use QUALIFY for de-duplication
+        // Updated to use new primary key: session_id, timestamp, drone_id
         sql.append("""
                 SELECT 
                     * FROM raw_json_data
                 QUALIFY
                     ROW_NUMBER() OVER (
-                        PARTITION BY drone_id, timestamp
+                        PARTITION BY session_id, timestamp, drone_id
                         ORDER BY timestamp DESC -- If two records have the same time, this ensures one is chosen deterministically
                     ) = 1
                 """);
-
-        // Important: REMOVE the old 'GROUP BY' line here!
 
         return sql.toString();
     }
 
     /**
-     * Create the drone_telemetry table if it doesn't exist.
+     * Create the drone_telemetry table if it doesn't exist (in-memory version).
      */
     private void createTableIfNotExists(Connection connection) throws SQLException {
-        String createTableSql = """
-            CREATE TABLE IF NOT EXISTS %s (
-                timestamp TIMESTAMP NOT NULL,
-                drone_id VARCHAR(50) NOT NULL,
-                gps_fix BOOLEAN,
-                lat DOUBLE,
-                lon DOUBLE,
-                alt DOUBLE,
-                speed_kmh DOUBLE,
-                satellites INTEGER,
-                rat_lte VARCHAR(50),
-                op_mode_lte VARCHAR(50),
-                mccmnc_lte VARCHAR(50),
-                tac_lte VARCHAR(50),
-                scell_id_lte VARCHAR(50),
-                pcell_id_lte VARCHAR(50),
-                band_lte VARCHAR(50),
-                earfcn_lte INTEGER,
-                dlbw_mhz_lte INTEGER,
-                ulbw_mhz_lte INTEGER,
-                rsrq_db_lte DOUBLE,
-                rsrp_dbm_lte DOUBLE,
-                rssi_dbm_lte DOUBLE,
-                rssnr_db_lte DOUBLE,
-                rat_5g VARCHAR(50),
-                pcell_id_5g VARCHAR(50),
-                band_5g VARCHAR(50),
-                earfcn_5g INTEGER,
-                rsrq_db_5g DOUBLE,
-                rsrp_dbm_5g DOUBLE,
-                rssnr_db_5g DOUBLE,
-                PRIMARY KEY (timestamp, drone_id)
-            )
-            """.formatted(tableName);
+        String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
 
         String createIndex1 = String.format(
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_drone_id ON %s(drone_id)", tableName);
@@ -320,12 +265,15 @@ public class DroneDataRepository {
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
         String createIndex3 = String.format(
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
+        String createIndex4 = String.format(
+            "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON %s(session_id)", tableName);
 
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(createTableSql);
             stmt.execute(createIndex1);
             stmt.execute(createIndex2);
             stmt.execute(createIndex3);
+            stmt.execute(createIndex4);
             log.info("Created drone_telemetry table and indexes");
         }
     }
@@ -594,7 +542,8 @@ public class DroneDataRepository {
     private DroneData mapResultSetToDroneData(ResultSet rs) throws SQLException {
         DroneData data = new DroneData();
         
-        // Identifiers
+        // Identifiers (Primary Keys)
+        data.setSessionId(rs.getString("session_id"));
         data.setDroneId(rs.getString("drone_id"));
         Timestamp timestamp = rs.getTimestamp("timestamp");
         if (timestamp != null) {
