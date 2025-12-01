@@ -112,7 +112,8 @@ message ExplanationsResponse {
     repeated string attributions_table_columns = 23;
     repeated string targets_table_columns = 24;
     repeated int32 available_indices = 25;
-    repeated ShapContributions shap_contributions = 26;
+    string segmentation_process_step = 26;
+    repeated ShapContributions shap_contributions = 27;
 
 }
 
