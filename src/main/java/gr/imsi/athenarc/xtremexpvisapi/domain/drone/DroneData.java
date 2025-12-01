@@ -9,7 +9,11 @@ import lombok.AllArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class DroneData {// --- Identifiers (Primary Keys for De-duplication in DuckDB) ---
+public class DroneData {
+    // --- Auto-generated ID ---
+    private Long id;                   // Auto-generated unique identifier for each entry
+    
+    // --- Identifiers (Primary Keys for De-duplication in DuckDB) ---
     private String sessionId;         // Session identifier for grouping telemetry data
     private String droneId;           // Extracted by Telegraf from the MQTT Topic (e.g., "drone_001")
     private Instant timestamp;        // Maps to the 'timestamp' field from the drone payload

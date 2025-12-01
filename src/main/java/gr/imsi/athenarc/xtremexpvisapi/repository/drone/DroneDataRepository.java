@@ -94,10 +94,26 @@ public class DroneDataRepository {
 
             // Create table if it doesn't exist
             if (!tableExists) {
+                // Create sequence for auto-increment ID first
+                String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
+                stmt.execute(createSequenceSql);
+                
+                // Then create the table
                 String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
                 stmt.execute(createTableSql);
                 log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
             } else {
+                // Ensure sequence exists even if table already exists (for migration scenarios)
+                try {
+                    String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
+                    stmt.execute(createSequenceSql);
+                } catch (SQLException e) {
+                    // Sequence might already exist, which is fine
+                    if (!e.getMessage().contains("already exists") && 
+                        !e.getMessage().contains("duplicate")) {
+                        log.warning("Could not create sequence (may already exist): " + e.getMessage());
+                    }
+                }
                 log.info("Table already exists in persistent DuckDB: " + droneDatabasePath);
             }
 
@@ -164,6 +180,12 @@ public class DroneDataRepository {
         try (Connection connection = dataSource.getConnection();
              Statement stmt = connection.createStatement()) {
     
+            // Ensure table exists before querying it
+            if (!tableExists(connection, tableName)) {
+                log.info("Table " + tableName + " does not exist, creating it...");
+                createTableInPersistentDB();
+            }
+    
             // Get max timestamp from table to find new records
             Optional<Timestamp> maxTimestamp = getMaxTimestampFromPersistentDB(connection);
     
@@ -199,8 +221,14 @@ public class DroneDataRepository {
     
     /**
      * Get max timestamp from persistent DuckDB table.
+     * Returns empty if table doesn't exist or has no rows.
      */
     private Optional<Timestamp> getMaxTimestampFromPersistentDB(Connection connection) throws SQLException {
+        // Check if table exists first
+        if (!tableExists(connection, tableName)) {
+            return Optional.empty();
+        }
+        
         String sql = String.format("SELECT MAX(timestamp) FROM %s", tableName);
     
         try (Statement stmt = connection.createStatement();
@@ -209,6 +237,13 @@ public class DroneDataRepository {
             if (rs.next() && rs.getTimestamp(1) != null) {
                 return Optional.of(rs.getTimestamp(1));
             }
+        } catch (SQLException e) {
+            // If table doesn't exist or other error, return empty
+            if (e.getMessage().contains("does not exist") || 
+                e.getMessage().contains("not found")) {
+                return Optional.empty();
+            }
+            throw e;
         }
     
         return Optional.empty();
@@ -221,14 +256,17 @@ public class DroneDataRepository {
     private String buildIncrementalInsertQuery(Optional<Timestamp> maxTimestamp) {
         StringBuilder sql = new StringBuilder();
 
+        // Get column list excluding auto-generated id
+        String columnList = DroneTelemetrySchema.generateColumnListForInsert();
+        
         sql.append(String.format("""
-            INSERT OR IGNORE INTO %s
+            INSERT OR IGNORE INTO %s (%s)
             WITH raw_json_data AS (
                 SELECT
                     %s
                 FROM read_json_auto(?)
                 WHERE 1=1
-        """, tableName, DroneTelemetrySchema.generateJsonFieldMapping()));
+        """, tableName, columnList, DroneTelemetrySchema.generateJsonFieldMapping()));
 
         // Add WHERE clause to filter only new records on the raw data (efficient)
         if (maxTimestamp.isPresent()) {
@@ -240,15 +278,16 @@ public class DroneDataRepository {
         
         // Select from CTE and use QUALIFY for de-duplication
         // Updated to use new primary key: session_id, timestamp, drone_id
-        sql.append("""
+        // Explicitly specify columns to exclude auto-generated id
+        sql.append(String.format("""
                 SELECT 
-                    * FROM raw_json_data
+                    %s FROM raw_json_data
                 QUALIFY
                     ROW_NUMBER() OVER (
                         PARTITION BY session_id, timestamp, drone_id
                         ORDER BY timestamp DESC -- If two records have the same time, this ensures one is chosen deterministically
                     ) = 1
-                """);
+                """, columnList));
 
         return sql.toString();
     }
@@ -257,6 +296,8 @@ public class DroneDataRepository {
      * Create the drone_telemetry table if it doesn't exist (in-memory version).
      */
     private void createTableIfNotExists(Connection connection) throws SQLException {
+        // Create sequence for auto-increment ID first
+        String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
         String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
 
         String createIndex1 = String.format(
@@ -269,6 +310,7 @@ public class DroneDataRepository {
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON %s(session_id)", tableName);
 
         try (Statement stmt = connection.createStatement()) {
+            stmt.execute(createSequenceSql);
             stmt.execute(createTableSql);
             stmt.execute(createIndex1);
             stmt.execute(createIndex2);
@@ -542,6 +584,9 @@ public class DroneDataRepository {
     private DroneData mapResultSetToDroneData(ResultSet rs) throws SQLException {
         DroneData data = new DroneData();
         
+        // Auto-generated ID
+        data.setId(getLong(rs, "id"));
+        
         // Identifiers (Primary Keys)
         data.setSessionId(rs.getString("session_id"));
         data.setDroneId(rs.getString("drone_id"));
@@ -616,6 +661,14 @@ public class DroneDataRepository {
      */
     private Integer getInteger(ResultSet rs, String columnName) throws SQLException {
         int value = rs.getInt(columnName);
+        return rs.wasNull() ? null : value;
+    }
+
+    /**
+     * Helper method to safely get Long from ResultSet.
+     */
+    private Long getLong(ResultSet rs, String columnName) throws SQLException {
+        long value = rs.getLong(columnName);
         return rs.wasNull() ? null : value;
     }
 

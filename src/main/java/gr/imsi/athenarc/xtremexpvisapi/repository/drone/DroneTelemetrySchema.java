@@ -22,7 +22,16 @@ public class DroneTelemetrySchema {
     // Primary key columns (must be first in the map)
     private static final String[] PRIMARY_KEY_COLUMNS = {"session_id", "timestamp", "drone_id"};
     
+    // Auto-generated ID column name (excluded from JSON inserts)
+    private static final String AUTO_ID_COLUMN = "id";
+    private static final String ID_SEQUENCE_NAME = "drone_telemetry_id_seq";
+    
     static {
+        // Auto-generated ID (first column, not part of primary key)
+        // DuckDB uses sequences with nextval() for auto-increment
+        // The DEFAULT will be set in generateCreateTableSql
+        addField("id", "BIGINT", null, "id", "nextval('" + ID_SEQUENCE_NAME + "')");
+        
         // Primary keys (always NOT NULL, no defaults needed for new tables)
         addField("session_id", "VARCHAR(100) NOT NULL", "fields.sessionId", "sessionId", null);
         addField("timestamp", "TIMESTAMP NOT NULL", "timestamp", "timestamp", null);
@@ -80,6 +89,20 @@ public class DroneTelemetrySchema {
     private static void addField(String columnName, String sqlType, String jsonPath, 
                                  String javaFieldName, String defaultValue) {
         FIELDS.put(columnName, new FieldDefinition(sqlType, jsonPath, javaFieldName, defaultValue));
+    }
+    
+    /**
+     * Get the sequence name for the auto-generated ID.
+     */
+    public static String getIdSequenceName() {
+        return ID_SEQUENCE_NAME;
+    }
+    
+    /**
+     * Generate CREATE SEQUENCE SQL for the auto-generated ID.
+     */
+    public static String generateCreateSequenceSql() {
+        return "CREATE SEQUENCE IF NOT EXISTS " + ID_SEQUENCE_NAME + " START 1";
     }
     
     /**
@@ -178,6 +201,11 @@ public class DroneTelemetrySchema {
                     continue;
                 }
                 
+                // Skip auto-generated ID column (should only be created with new tables)
+                if (columnName.equals(AUTO_ID_COLUMN)) {
+                    continue;
+                }
+                
                 // If column doesn't exist, add it
                 if (!existingColumns.contains(columnName.toLowerCase())) {
                     String alterSql = buildAlterTableAddColumnSql(tableName, columnName, field);
@@ -266,22 +294,45 @@ public class DroneTelemetrySchema {
     }
     
     /**
-     * Generate column list for SELECT/INSERT statements.
+     * Generate column list for SELECT statements.
+     * Includes all columns including the auto-generated ID.
+     * For INSERT operations, use generateColumnListForInsert() instead.
      */
     public static String generateColumnList() {
         return String.join(", ", FIELDS.keySet());
     }
     
     /**
+     * Generate column list excluding auto-generated ID (for INSERT operations).
+     */
+    public static String generateColumnListForInsert() {
+        return FIELDS.keySet().stream()
+                .filter(col -> !col.equals(AUTO_ID_COLUMN))
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+    }
+    
+    /**
      * Generate JSON field mapping for INSERT query (fields.xxx AS column_name).
+     * Excludes auto-generated ID column.
      */
     public static String generateJsonFieldMapping() {
         StringBuilder mapping = new StringBuilder();
         boolean first = true;
         for (Map.Entry<String, FieldDefinition> entry : FIELDS.entrySet()) {
+            // Skip auto-generated ID column
+            if (entry.getKey().equals(AUTO_ID_COLUMN)) {
+                continue;
+            }
+            
+            // Skip fields without JSON path (shouldn't happen for non-ID fields, but be safe)
+            FieldDefinition field = entry.getValue();
+            if (field.jsonPath == null) {
+                continue;
+            }
+            
             if (!first) mapping.append(",\n                    ");
             
-            FieldDefinition field = entry.getValue();
             // Handle special case for timestamp
             if ("timestamp".equals(entry.getKey())) {
                 mapping.append("to_timestamp(").append(field.jsonPath).append(") AS ").append(entry.getKey());
