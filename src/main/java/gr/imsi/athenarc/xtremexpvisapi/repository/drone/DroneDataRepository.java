@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.*;
 import java.util.ArrayList;
@@ -417,6 +418,70 @@ public class DroneDataRepository {
         }
 
         return droneIds;
+    }
+
+    /**
+     * Export telemetry data to CSV.
+     * @param request The telemetry request with filters
+     * @return True if successful, false otherwise
+     */
+    public Boolean exportTelemetryToCsv(DroneTelemetryRequest request) throws SQLException {
+        Path absoluteOutputPath = Paths.get(droneDatabasePath).getParent().toAbsolutePath();
+        String outputPath = absoluteOutputPath.toString() + "/drone_telemetry_" + System.currentTimeMillis() + ".csv";
+        
+        // Ensure the directory exists
+        try {
+            Path parentDir = Paths.get(outputPath).getParent();
+            if (parentDir != null && !Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+            }
+        } catch (IOException e) {
+            throw new SQLException("Failed to create export directory: " + e.getMessage(), e);
+        }
+        
+        String sql = buildQuery(request);
+        
+        // Use temporary view to handle parameterized query with COPY
+        String tempViewName = "temp_export_" + System.currentTimeMillis();
+
+        try (Connection connection = dataSource.getConnection()) {
+            // Step 1: Create TEMP VIEW with parameters bound
+            String createTempViewSql = String.format("CREATE TEMP VIEW %s AS %s", tempViewName, sql);
+            try (PreparedStatement pstmt = connection.prepareStatement(createTempViewSql)) {
+                // CRITICAL: Bind all query parameters before executing
+                setQueryParameters(pstmt, request, true);
+                pstmt.execute();
+            } catch (SQLException e) {
+                log.warning("Error creating temporary view: " + e.getMessage());
+                return false;
+            }
+
+            // Step 2: COPY from the view - file path must be in single quotes
+            String escapedPath = outputPath.replace("'", "''"); // Escape single quotes in path
+            String copySql = String.format("COPY (SELECT * FROM %s) TO '%s' (HEADER, DELIMITER ',')", 
+                    tempViewName, escapedPath);
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(copySql);
+            } catch (SQLException e) {
+                log.warning("Error copying telemetry to CSV: " + e.getMessage());
+                return false;
+            }
+
+            // Step 3: Clean up - TEMP VIEW will auto-drop when connection closes, but explicit is better
+            String dropTempViewSql = String.format("DROP VIEW IF EXISTS %s", tempViewName);
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(dropTempViewSql);
+            } catch (SQLException e) {
+                log.warning("Error dropping temporary view: " + e.getMessage());
+                // Don't fail the export if cleanup fails
+            }
+
+            log.info("Exported telemetry data to CSV: " + outputPath);
+            return true;
+        } catch (SQLException e) {
+            log.warning("Error exporting telemetry to CSV: " + e.getMessage());
+            return false;
+        }
     }
 
     /**

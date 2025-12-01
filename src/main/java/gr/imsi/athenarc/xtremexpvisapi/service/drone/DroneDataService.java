@@ -58,4 +58,13 @@ public class DroneDataService {
             throw new RuntimeException("Failed to get latest drone data", e);
         }
     }
+
+    public Boolean exportTelemetryToCsv(DroneTelemetryRequest request) {
+        try {
+            return droneDataRepository.exportTelemetryToCsv(request);
+        } catch (SQLException e) {
+            LOG.error("SQL Error exporting telemetry to CSV: {} - SQL State: {}", e.getMessage(), e.getSQLState(), e);
+            throw new RuntimeException("Failed to export telemetry to CSV", e);
+        }
+    }
 }

@@ -227,4 +227,69 @@ public class DroneDataController {
                             .build());
         }
     }
+
+    /**
+     * Export telemetry data to CSV.
+     * @param droneId Optional: Filter by single drone ID
+     * @param droneIds Optional: Filter by multiple drone IDs (can be repeated: ?droneIds=id1&droneIds=id2)
+     * @param startTime Optional: Start time for time range filter (ISO 8601 format)
+     * @param endTime Optional: End time for time range filter (ISO 8601 format)
+     * @param minLat Optional: Minimum latitude for geographic bounding box
+     * @param maxLat Optional: Maximum latitude for geographic bounding box
+     * @param minLon Optional: Minimum longitude for geographic bounding box
+     * @param maxLon Optional: Maximum longitude for geographic bounding box
+     * @param limit Optional: Maximum number of results (default: 1000, max: 10000)
+     * @param offset Optional: Number of results to skip (default: 0)
+     * @param sortOrder Optional: Sort order - "timestamp_asc" or "timestamp_desc" (default: "timestamp_desc")
+     * @return ResponseEntity with success message if successful, otherwise internal server error
+     */
+    @GetMapping("/telemetry/export")
+    public ResponseEntity<String> exportTelemetryToCsv(
+            @RequestParam(required = false) String droneId,
+            @RequestParam(required = false) List<String> droneIds,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endTime,
+            @RequestParam(required = false) Double minLat,
+            @RequestParam(required = false) Double maxLat,
+            @RequestParam(required = false) Double minLon,
+            @RequestParam(required = false) Double maxLon,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) String sortOrder   ) {
+        LOG.info("Request for exporting telemetry to CSV - droneId: {}, droneIds: {}, startTime: {}, endTime: {}, " +
+                "boundingBox: [{}, {}] x [{}, {}], limit: {}, offset: {}, sortOrder: {}",
+                droneId, droneIds, startTime, endTime, minLat, maxLat, minLon, maxLon, limit, offset, sortOrder);
+        
+        try {
+            // Validate and set defaults - for export, we want all rows
+            if (limit == null || limit <= 0) {
+                limit = null; // Set to null so no LIMIT clause is added
+            }
+            if (offset == null || offset < 0) {
+                offset = 0; // Default offset
+            }
+            DroneTelemetryRequest request = DroneTelemetryRequest.builder()
+                    .droneId(droneId)
+                    .droneIds(droneIds)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .minLat(minLat)
+                    .maxLat(maxLat)
+                    .minLon(minLon)
+                    .maxLon(maxLon)
+                    .limit(limit)
+                    .offset(offset)
+                    .sortOrder(sortOrder)
+                    .build();
+            Boolean success = droneDataService.exportTelemetryToCsv(request);
+            if (success) {
+                return ResponseEntity.ok("Telemetry exported to CSV successfully");
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to export telemetry to CSV");
+            }
+        } catch (Exception e) {
+            LOG.error("Error exporting telemetry to CSV", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
