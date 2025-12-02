@@ -150,7 +150,7 @@ public class DataSourceRepository {
 
             // Step 1: Copy the source file to the dataset directory (if it exists)
             Path sourceFilePath = Paths.get(dataSource.getSource());
-            Path targetFilePath = datasetPath.resolve(fileName + ".csv");
+            Path targetFilePath = datasetPath.resolve(fileName + "." + dataSource.getFormat());
 
             // Only try to copy if the source is a valid file path and exists
             if (dataSource.getSource() != null && !dataSource.getSource().startsWith("Uploaded file:")

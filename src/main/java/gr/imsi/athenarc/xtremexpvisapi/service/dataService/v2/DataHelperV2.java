@@ -643,7 +643,7 @@ public class DataHelperV2 {
                 throw new RuntimeException("Failed to read file", e);
             }
 
-            String rawVisSql;
+            String rawVisSql = "";
             List<String> selectFields = new ArrayList<>();
             if (metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries) {
                 selectFields.addAll(Arrays.asList(
@@ -658,9 +658,19 @@ public class DataHelperV2 {
                 "MAX(" + latCol + ") AS queryYMax"
             ));
 
-            rawVisSql = String.format(
-                "SELECT %s FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
-                String.join(", ", selectFields), filePath.replace("\\", "\\\\"), delimiter);
+            if (dataSource.getFormat().equals("csv")) {
+                rawVisSql = String.format(
+                    "SELECT %s FROM read_csv_auto('%s', delim='%s', DATEFORMAT='auto', HEADER=TRUE)",
+                    String.join(", ", selectFields), filePath.replace("\\", "\\\\"), delimiter);
+            } else if (dataSource.getFormat().equals("parquet")) {
+                rawVisSql = String.format(
+                    "SELECT %s FROM read_parquet('%s')",
+                    String.join(", ", selectFields), filePath.replace("\\", "\\\\"));
+            } else if (dataSource.getFormat().equals("json")) {
+                rawVisSql = String.format(
+                    "SELECT %s FROM read_json_auto('%s')",
+                    String.join(", ", selectFields), filePath.replace("\\", "\\\\"));
+            }
             Statement rawVisStmt = duckdbConnection.createStatement();
             ResultSet rs = rawVisStmt.executeQuery(rawVisSql);
             Timestamp minTs = null;
@@ -725,9 +735,9 @@ public class DataHelperV2 {
             Map<String, List<String>> facets = new HashMap<>();
             for (String dimension : metadataResponse.getDimensions()) {
                 String facetsSql = String.format(
-                        "SELECT DISTINCT %s FROM read_csv('%s')",
+                        "SELECT DISTINCT %s FROM %s",
                         dimension,
-                        filePath.replace("\\", "\\\\"));
+                        getFileTypeSQL(detectFileType(filePath), filePath));
                 Statement facetsStmt = duckdbConnection.createStatement();
                 ResultSet facetsRs = facetsStmt.executeQuery(facetsSql);
                 StringBuilder sb = new StringBuilder();
@@ -979,14 +989,14 @@ public class DataHelperV2 {
             long intervalSeconds = request.getFrequency();
             String sql = String.format(
                     "SELECT floor(extract(epoch from %1$s)/(%2$s)) as time_bucket, avg(%3$s) as average_value " +
-                            "FROM read_csv('%4$s') " +
+                            "FROM %4$s " +
                             "WHERE %1$s BETWEEN '%5$s' AND '%6$s' " +
                             "AND %7$s BETWEEN '%8$s' AND '%9$s' " +
                             "AND %10$s BETWEEN '%11$s' AND '%12$s' ",
                     timestampCol,
                     intervalSeconds,
                     request.getMeasureCol(),
-                    datasetPath,
+                    getFileTypeSQL(detectFileType(datasetPath), datasetPath),
                     new Timestamp(request.getFrom()),
                     new Timestamp(request.getTo()),
                     latCol,

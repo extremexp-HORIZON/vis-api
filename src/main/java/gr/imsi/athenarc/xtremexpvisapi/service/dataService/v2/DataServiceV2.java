@@ -318,7 +318,7 @@ public class DataServiceV2 {
                                 metadataResponse.setTimeColumn(timeColumns);
                             }
 
-                            Boolean ifRawVis = "rawvis".equalsIgnoreCase(dataSource.getFormat());
+                            Boolean ifRawVis = dataSource.getIsRawVis();
                             MetadataMapResponse metadataMapResponse = new MetadataMapResponse(metadataResponse);
                             if (ifRawVis) {
                                 dataQueryHelper.populateRawvisMeta(connection, filePath, dataSource,
@@ -378,7 +378,7 @@ public class DataServiceV2 {
         try (Connection connection = this.dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
 
-            String sql = String.format("SELECT * FROM read_csv('%s') WHERE id = '%s'", dataSource.getSource(),
+            String sql = String.format("SELECT * FROM %s WHERE id = '%s'", dataQueryHelper.getFileTypeSQL(dataQueryHelper.detectFileType(dataSource.getSource()), dataSource.getSource()),
                     objectId);
             ResultSet resultSet = statement.executeQuery(sql);
             int columnCount = resultSet.getMetaData().getColumnCount();

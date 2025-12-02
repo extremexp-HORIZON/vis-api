@@ -200,6 +200,7 @@ public class DataSourceController {
             @RequestParam(value = "source", required = false) String source,
             @RequestParam(value = "measure0", required = false) String measure0,
             @RequestParam(value = "measure1", required = false) String measure1,
+            @RequestParam(value = "isRawVis", required = false) Boolean isRawVis,
             @RequestParam(value = "format", required = false, defaultValue = "csv") String format,
             @RequestParam(value = "sourceType", required = false, defaultValue = "local") String sourceType) {
 
@@ -238,6 +239,7 @@ public class DataSourceController {
             dataSource.setSourceType(SourceType.valueOf(sourceType));
             dataSource.setMeasure0(measure0);
             dataSource.setMeasure1(measure1);
+            dataSource.setIsRawVis(isRawVis);
 
             // Create the DataSource and upload the file
             DataSource createdDataSource = dataSourceService.createDataSourceFromUpload(dataSource, file);

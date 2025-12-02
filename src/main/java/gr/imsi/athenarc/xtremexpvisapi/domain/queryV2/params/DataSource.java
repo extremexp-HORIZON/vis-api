@@ -12,4 +12,5 @@ public class DataSource {
     private String experimentId;
     private String measure0;
     private String measure1;
+    private Boolean isRawVis = false;
 }
