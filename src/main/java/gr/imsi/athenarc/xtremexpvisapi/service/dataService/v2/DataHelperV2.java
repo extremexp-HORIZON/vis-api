@@ -128,7 +128,8 @@ public class DataHelperV2 {
     protected boolean isTimeColumn(String columnType) {
         return columnType.equals("DATE") ||
                 columnType.equals("TIMESTAMP") ||
-                columnType.equals("TIME");
+                columnType.equals("TIME") ||
+                columnType.equals("TIMESTAMPTZ");
     }
 
     protected boolean hasLatLonColumns(List<Column> columns) {
@@ -268,6 +269,8 @@ public class DataHelperV2 {
                 return "DATE";
             case java.sql.Types.TIMESTAMP:
                 return "TIMESTAMP";
+            case java.sql.Types.TIMESTAMP_WITH_TIMEZONE:
+                return "TIMESTAMPTZ";
             case java.sql.Types.TIME:
                 return "TIME";
             default:
