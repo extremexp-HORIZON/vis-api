@@ -95,26 +95,11 @@ public class DroneDataRepository {
 
             // Create table if it doesn't exist
             if (!tableExists) {
-                // Create sequence for auto-increment ID first
-                String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
-                stmt.execute(createSequenceSql);
-                
-                // Then create the table
+                // Create the table
                 String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
                 stmt.execute(createTableSql);
                 log.info("Created drone_telemetry table in persistent DuckDB: " + droneDatabasePath);
             } else {
-                // Ensure sequence exists even if table already exists (for migration scenarios)
-                try {
-                    String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
-                    stmt.execute(createSequenceSql);
-                } catch (SQLException e) {
-                    // Sequence might already exist, which is fine
-                    if (!e.getMessage().contains("already exists") && 
-                        !e.getMessage().contains("duplicate")) {
-                        log.warning("Could not create sequence (may already exist): " + e.getMessage());
-                    }
-                }
                 log.info("Table already exists in persistent DuckDB: " + droneDatabasePath);
             }
 
@@ -130,11 +115,13 @@ public class DroneDataRepository {
             String index2 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_timestamp ON %s(timestamp)", tableName);
             String index3 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
             String index4 = String.format("CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON %s(session_id)", tableName);
+            String index5 = String.format("CREATE UNIQUE INDEX IF NOT EXISTS idx_drone_telemetry_id ON %s(id)", tableName);
                         
             stmt.execute(index1);
             stmt.execute(index2);
             stmt.execute(index3);
             stmt.execute(index4);
+            stmt.execute(index5);
             
             log.info("Table schema is up to date: " + tableName);
         }
@@ -257,8 +244,8 @@ public class DroneDataRepository {
     private String buildIncrementalInsertQuery(Optional<Timestamp> maxTimestamp) {
         StringBuilder sql = new StringBuilder();
 
-        // Get column list excluding auto-generated id
-        String columnList = DroneTelemetrySchema.generateColumnListForInsert();
+        // Get column list (includes id from tags.id)
+        String columnList = DroneTelemetrySchema.generateColumnList();
         
         sql.append(String.format("""
             INSERT OR IGNORE INTO %s (%s)
@@ -279,7 +266,6 @@ public class DroneDataRepository {
         
         // Select from CTE and use QUALIFY for de-duplication
         // Updated to use new primary key: session_id, timestamp, drone_id
-        // Explicitly specify columns to exclude auto-generated id
         sql.append(String.format("""
                 SELECT 
                     %s FROM raw_json_data
@@ -297,8 +283,6 @@ public class DroneDataRepository {
      * Create the drone_telemetry table if it doesn't exist (in-memory version).
      */
     private void createTableIfNotExists(Connection connection) throws SQLException {
-        // Create sequence for auto-increment ID first
-        String createSequenceSql = DroneTelemetrySchema.generateCreateSequenceSql();
         String createTableSql = DroneTelemetrySchema.generateCreateTableSql(tableName);
 
         String createIndex1 = String.format(
@@ -309,14 +293,16 @@ public class DroneDataRepository {
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_location ON %s(lat, lon)", tableName);
         String createIndex4 = String.format(
             "CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON %s(session_id)", tableName);
+        String createIndex5 = String.format(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_drone_telemetry_id ON %s(id)", tableName);
 
         try (Statement stmt = connection.createStatement()) {
-            stmt.execute(createSequenceSql);
             stmt.execute(createTableSql);
             stmt.execute(createIndex1);
             stmt.execute(createIndex2);
             stmt.execute(createIndex3);
             stmt.execute(createIndex4);
+            stmt.execute(createIndex5);
             log.info("Created drone_telemetry table and indexes");
         }
     }
@@ -649,8 +635,8 @@ public class DroneDataRepository {
     private DroneData mapResultSetToDroneData(ResultSet rs) throws SQLException {
         DroneData data = new DroneData();
         
-        // Auto-generated ID
-        data.setId(getLong(rs, "id"));
+        // UUID ID from tags.id
+        data.setId(rs.getString("id"));
         
         // Identifiers (Primary Keys)
         data.setSessionId(rs.getString("session_id"));
@@ -726,14 +712,6 @@ public class DroneDataRepository {
      */
     private Integer getInteger(ResultSet rs, String columnName) throws SQLException {
         int value = rs.getInt(columnName);
-        return rs.wasNull() ? null : value;
-    }
-
-    /**
-     * Helper method to safely get Long from ResultSet.
-     */
-    private Long getLong(ResultSet rs, String columnName) throws SQLException {
-        long value = rs.getLong(columnName);
         return rs.wasNull() ? null : value;
     }
 

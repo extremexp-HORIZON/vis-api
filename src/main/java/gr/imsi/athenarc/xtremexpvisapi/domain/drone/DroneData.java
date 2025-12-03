@@ -10,8 +10,8 @@ import lombok.AllArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DroneData {
-    // --- Auto-generated ID ---
-    private Long id;                   // Auto-generated unique identifier for each entry
+    // --- UUID ID from Telegraf tags.id ---
+    private String id;                 // Unique UUID identifier from Telegraf tags.id field
     
     // --- Identifiers (Primary Keys for De-duplication in DuckDB) ---
     private String sessionId;         // Session identifier for grouping telemetry data
