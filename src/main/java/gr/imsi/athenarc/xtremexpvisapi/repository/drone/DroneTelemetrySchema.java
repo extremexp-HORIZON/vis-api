@@ -20,11 +20,12 @@ public class DroneTelemetrySchema {
     private static final Map<String, FieldDefinition> FIELDS = new LinkedHashMap<>();
     
     // Primary key columns (must be first in the map)
-    private static final String[] PRIMARY_KEY_COLUMNS = {"session_id", "timestamp", "drone_id"};
+    private static final String[] PRIMARY_KEY_COLUMNS = {"id", "session_id", "timestamp", "drone_id"};
     
     static {
         // UUID ID from Telegraf tags.id field (VARCHAR to store UUID string)
-        addField("id", "VARCHAR(36)", "tags.id", "id", null);
+        // Part of PRIMARY KEY, so must be NOT NULL
+        addField("id", "VARCHAR(36) NOT NULL", "tags.id", "id", null);
         
         // Primary keys (always NOT NULL, no defaults needed for new tables)
         addField("session_id", "VARCHAR(100) NOT NULL", "fields.sessionId", "sessionId", null);

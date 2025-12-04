@@ -265,13 +265,13 @@ public class DroneDataRepository {
         sql.append(")\n");
         
         // Select from CTE and use QUALIFY for de-duplication
-        // Updated to use new primary key: session_id, timestamp, drone_id
+        // Partition by all primary key columns: id, session_id, timestamp, drone_id
         sql.append(String.format("""
                 SELECT 
                     %s FROM raw_json_data
                 QUALIFY
                     ROW_NUMBER() OVER (
-                        PARTITION BY session_id, timestamp, drone_id
+                        PARTITION BY id, session_id, timestamp, drone_id
                         ORDER BY timestamp DESC -- If two records have the same time, this ensures one is chosen deterministically
                     ) = 1
                 """, columnList));
