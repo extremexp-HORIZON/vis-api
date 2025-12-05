@@ -59,12 +59,16 @@ public class DroneDataService {
         }
     }
 
-    public Boolean exportTelemetryToCsv(DroneTelemetryRequest request) {
+    public Boolean exportTelemetry(DroneTelemetryRequest request, String format) {
         try {
-            return droneDataRepository.exportTelemetryToCsv(request);
+            if (format.equals("csv") || format.equals("parquet")) {
+                return droneDataRepository.exportTelemetry(request, format);
+            } else {
+                throw new RuntimeException("Invalid format: " + format);
+            }
         } catch (SQLException e) {
-            LOG.error("SQL Error exporting telemetry to CSV: {} - SQL State: {}", e.getMessage(), e.getSQLState(), e);
-            throw new RuntimeException("Failed to export telemetry to CSV", e);
+            LOG.error("SQL Error exporting telemetry to {}: {} - SQL State: {}", format, e.getMessage(), e.getSQLState(), e);
+            throw new RuntimeException("Failed to export telemetry to " + format, e);
         }
     }
 }

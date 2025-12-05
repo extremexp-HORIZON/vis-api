@@ -407,13 +407,14 @@ public class DroneDataRepository {
     }
 
     /**
-     * Export telemetry data to CSV.
+     * Export telemetry data to CSV or Parquet.
      * @param request The telemetry request with filters
+     * @param format The format to export to (CSV, Parquet)
      * @return True if successful, false otherwise
      */
-    public Boolean exportTelemetryToCsv(DroneTelemetryRequest request) throws SQLException {
+    public Boolean exportTelemetry(DroneTelemetryRequest request, String format) throws SQLException {
         Path absoluteOutputPath = Paths.get(droneDatabasePath).getParent().toAbsolutePath();
-        String outputPath = absoluteOutputPath.toString() + "/drone_telemetry_" + System.currentTimeMillis() + ".csv";
+        String outputPath = absoluteOutputPath.toString() + "/drone_telemetry_" + System.currentTimeMillis() + "." + format;
         
         // Ensure the directory exists
         try {
@@ -444,12 +445,17 @@ public class DroneDataRepository {
 
             // Step 2: COPY from the view - file path must be in single quotes
             String escapedPath = outputPath.replace("'", "''"); // Escape single quotes in path
-            String copySql = String.format("COPY (SELECT * FROM %s) TO '%s' (HEADER, DELIMITER ',')", 
+            String copySql = String.format("COPY (SELECT * FROM %s) TO '%s'", 
                     tempViewName, escapedPath);
+            if (format.equals("csv")) {
+                copySql += " (HEADER, DELIMITER ',')";
+            } else if (format.equals("parquet")) {
+                copySql += " (FORMAT 'parquet')"; // TODO: Check what compression is best.
+            }
             try (Statement stmt = connection.createStatement()) {
                 stmt.execute(copySql);
             } catch (SQLException e) {
-                log.warning("Error copying telemetry to CSV: " + e.getMessage());
+                log.warning("Error copying telemetry to " + format + ": " + e.getMessage());
                 return false;
             }
 
@@ -462,10 +468,10 @@ public class DroneDataRepository {
                 // Don't fail the export if cleanup fails
             }
 
-            log.info("Exported telemetry data to CSV: " + outputPath);
+            log.info("Exported telemetry data to " + format + ": " + outputPath);
             return true;
         } catch (SQLException e) {
-            log.warning("Error exporting telemetry to CSV: " + e.getMessage());
+            log.warning("Error exporting telemetry to " + format + ": " + e.getMessage());
             return false;
         }
     }

@@ -244,7 +244,8 @@ public class DroneDataController {
      * @return ResponseEntity with success message if successful, otherwise internal server error
      */
     @GetMapping("/telemetry/export")
-    public ResponseEntity<String> exportTelemetryToCsv(
+    public ResponseEntity<String> exportTelemetry(
+            @RequestParam(required = true) String format,
             @RequestParam(required = false) String droneId,
             @RequestParam(required = false) List<String> droneIds,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startTime,
@@ -281,15 +282,15 @@ public class DroneDataController {
                     .offset(offset)
                     .sortOrder(sortOrder)
                     .build();
-            Boolean success = droneDataService.exportTelemetryToCsv(request);
+            Boolean success = droneDataService.exportTelemetry(request, format);
             if (success) {
-                return ResponseEntity.ok("Telemetry exported to CSV successfully");
+                return ResponseEntity.ok("Telemetry exported to " + format + " successfully");
             } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to export telemetry to CSV");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to export telemetry to " + format);
             }
         } catch (Exception e) {
-            LOG.error("Error exporting telemetry to CSV", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            LOG.error("Error exporting telemetry to " + format, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to export telemetry to " + format);
         }
     }
 }
