@@ -4,6 +4,7 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params;
 public enum FileType {
     CSV(".csv"),
     PARQUET(".parquet"),
+    DUCKDB(".duckdb"),
     JSON(".json");
 
     private String extension;

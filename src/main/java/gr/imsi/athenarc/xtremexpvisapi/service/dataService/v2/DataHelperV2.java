@@ -349,6 +349,9 @@ public class DataHelperV2 {
                 case JSON:
                     sql.append("read_json_auto('").append(datasetPath).append("')");
                     break;
+                case DUCKDB:
+                    sql.append(getFileTypeSQL(fileType, datasetPath));
+                    break;
             }
 
             // WHERE clause (filters)
@@ -497,6 +500,8 @@ public class DataHelperV2 {
                 return "read_parquet('" + filePath + "')";
             case JSON:
                 return "read_json_auto('" + filePath + "')";
+            case DUCKDB:
+                return filePath.replace(".duckdb", ""); // Remove .duckdb extension as the table name is the same as the file name
             default:
                 throw new IllegalArgumentException("Unknown file type: " + fileType);
         }
@@ -638,12 +643,14 @@ public class DataHelperV2 {
                     .filter(c -> c.getName().toLowerCase().contains("lon"))
                     .findFirst().get().getName();
             String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
-            String delimiter;
-            try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-                String firstLine = br.readLine();
-                delimiter = firstLine.contains("\t") ? "\t" : ",";
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to read file", e);
+            String delimiter = ",";
+            if (!dataSource.getFormat().equals("duckdb")) {
+                try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+                    String firstLine = br.readLine();
+                    delimiter = firstLine.contains("\t") ? "\t" : ",";
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to read file", e);
+                }
             }
 
             String rawVisSql = "";
@@ -673,6 +680,10 @@ public class DataHelperV2 {
                 rawVisSql = String.format(
                     "SELECT %s FROM read_json_auto('%s')",
                     String.join(", ", selectFields), filePath.replace("\\", "\\\\"));
+            } else if (dataSource.getFormat().equals("duckdb")) {
+                rawVisSql = String.format(
+                    "SELECT %s FROM %s",
+                    String.join(", ", selectFields), getFileTypeSQL(detectFileType(filePath), filePath));
             }
             Statement rawVisStmt = duckdbConnection.createStatement();
             ResultSet rs = rawVisStmt.executeQuery(rawVisSql);
@@ -805,6 +816,9 @@ public class DataHelperV2 {
                     break;
                 case JSON:
                     sql.append("read_json_auto('").append(datasetPath).append("')");
+                    break;
+                case DUCKDB:
+                    sql.append(getFileTypeSQL(fileType, datasetPath));
                     break;
             }
 
@@ -985,9 +999,13 @@ public class DataHelperV2 {
             MetadataMapResponse metadataResponse) throws Exception {
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
 
-            String latCol = "latitude";
-            String lonCol = "longitude";
-            String timestampCol = "radio_timestamp";
+            String latCol = metadataResponse.getOriginalColumns().stream()
+                        .filter(c -> c.getName().toLowerCase().contains("lat"))
+                        .findFirst().get().getName();
+            String lonCol = metadataResponse.getOriginalColumns().stream()
+                        .filter(c -> c.getName().toLowerCase().contains("lon"))
+                        .findFirst().get().getName();   
+            String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
 
             long intervalSeconds = request.getFrequency();
             String sql = String.format(
