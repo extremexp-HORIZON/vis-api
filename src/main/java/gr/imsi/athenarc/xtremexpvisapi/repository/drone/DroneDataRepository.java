@@ -190,6 +190,14 @@ public class DroneDataRepository {
                 int rowsInserted = pstmt.executeUpdate();
                 result.setRowsInserted(rowsInserted);
                 result.setSuccess(true);
+
+                // Temporary fix to delete metadata for the table after sync.
+                if (result.getRowsInserted() > 0) {
+                    String metaTableName = "duckdb_meta";
+                    log.info("Deleting metadata for table " + tableName + " from " + metaTableName);
+                    String emptyDuckDbMetadataSql = String.format("DELETE FROM %s WHERE table_name = '%s'", metaTableName, tableName);
+                    stmt.execute(emptyDuckDbMetadataSql);
+                }
     
                 log.info("Synced " + rowsInserted + " new records from JSONL to DuckDB");
             }
