@@ -11,6 +11,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 
@@ -184,4 +186,13 @@ public class ExperimentController {
         return experimentServiceFactory.getActiveService().reorderWorkflows(reorderRequest);
     }
 
+    @PostMapping("/{experimentId}/runs/create")
+    public ResponseEntity<CreateRunResponse> createRun(
+            @PathVariable String experimentId,
+            @RequestBody CreateRunRequest request) {
+
+        request.setExperimentId(experimentId);
+
+        return experimentServiceFactory.getActiveService().createRun(request);
+    }
 }

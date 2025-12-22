@@ -2,6 +2,7 @@ package gr.imsi.athenarc.xtremexpvisapi.service.experiment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -21,8 +22,11 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
+import gr.imsi.athenarc.xtremexpvisapi.service.kubeflow.KubeflowService;
 
 import java.util.List;
 import java.util.Map;
@@ -46,10 +50,14 @@ public class MLflowExperimentService implements ExperimentService {
 
     private final RestTemplate restTemplate;
 
+    private final KubeflowService kubeflowService;
+
+
     private static final Logger LOG = LoggerFactory.getLogger(MLflowExperimentService.class);
 
-    public MLflowExperimentService(RestTemplate restTemplate) {
+    public MLflowExperimentService(RestTemplate restTemplate, KubeflowService kubeflowService) {
         this.restTemplate = restTemplate;
+        this .kubeflowService = kubeflowService;
     }
 
     @Override
@@ -677,8 +685,43 @@ public class MLflowExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest) {
-       throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
+    public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest req) {
+        ControlResponse resp = new ControlResponse();
+
+        if (req == null || req.getAction() == null) {
+            resp.setMessage("Missing action.");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        if (!"kill".equalsIgnoreCase(req.getAction())) {
+            resp.setMessage("Unsupported action: " + req.getAction() + " (only 'kill' supported)");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        String mlflowRunId = req.getRunId();
+        if (mlflowRunId == null || mlflowRunId.isBlank()) {
+            resp.setMessage("Missing runId (MLflow run id).");
+            return ResponseEntity.badRequest().body(resp);
+        }
+
+        ResponseEntity<Run> runResp = getRunById(req.getExperimentId(), mlflowRunId);
+        Run run = runResp.getBody();
+
+        if (run == null) {
+            resp.setMessage("MLflow run not found: " + mlflowRunId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+        }
+
+        String kfpRunId = (run.getTags() != null) ? run.getTags().get("kfp.run_id") : null;
+        if (kfpRunId == null || kfpRunId.isBlank()) {
+            resp.setMessage("Cannot kill: MLflow run has no tag 'kfp.run_id'.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+        }
+
+        kubeflowService.terminateRun(kfpRunId);
+
+        resp.setMessage("Terminate requested. Kubeflow run id=" + kfpRunId + ".");
+        return ResponseEntity.ok(resp);
     }
 
     @Override
@@ -775,5 +818,60 @@ public class MLflowExperimentService implements ExperimentService {
             LOG.error("Error fetching artifacts for run {} at path {}", runId, path, e);
             return assets;
         }
+    }
+
+    @Override
+    public ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request) {
+    
+        CreateRunResponse resp = new CreateRunResponse();
+    
+        if (request == null || request.getExperimentId() == null || request.getExperimentId().isBlank()) {
+            resp.setMessage("Missing experimentId.");
+            return ResponseEntity.badRequest().body(resp);
+        }
+        if (request.getRunName() == null || request.getRunName().isBlank()) {
+            resp.setMessage("Missing runName.");
+            return ResponseEntity.badRequest().body(resp);
+        }
+    
+        Experiment experiment = getExperimentById(request.getExperimentId()).getBody();
+        if (experiment == null) {
+            resp.setMessage("Experiment not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+        }
+    
+        Map<String, String> tags = experiment.getTags();
+        if (tags == null) {
+            resp.setMessage("Experiment has no tags.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+        }
+    
+        String pipelineName = tags.get("kfp.pipeline_name");
+        if (pipelineName == null || pipelineName.isBlank()) {
+            resp.setMessage("Missing experiment tag 'kfp.pipeline_name'.");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+        }
+    
+        String pipelineId = kubeflowService.findPipelineIdByName(pipelineName);
+        if (pipelineId == null) {
+            resp.setMessage("Kubeflow pipeline not found: " + pipelineName);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+        }
+    
+        String kfpRunId = kubeflowService.createRun(
+                pipelineId,
+                request.getRunName(),
+                request.getParams()
+        );
+    
+        if (kfpRunId == null || kfpRunId.isBlank()) {
+            resp.setMessage("Kubeflow run creation failed.");
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+        }
+    
+        resp.setKfpRunId(kfpRunId);
+        resp.setRunName(request.getRunName());
+        resp.setMessage("Run created successfully.");
+        return ResponseEntity.ok(resp);
     }
 }

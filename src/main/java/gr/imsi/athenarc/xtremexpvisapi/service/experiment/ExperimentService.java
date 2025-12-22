@@ -9,6 +9,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 
 import java.util.List;
@@ -27,4 +29,5 @@ public interface ExperimentService {
     ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
     ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest);
     ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest);
+    ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request);
 }

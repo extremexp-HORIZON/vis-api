@@ -21,6 +21,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run.Status;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import lombok.extern.java.Log;
@@ -777,5 +779,10 @@ public class ExtremeXPExperimentService implements ExperimentService {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+    
+    @Override
+    public ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request) {
+        throw new UnsupportedOperationException("This operation has not been implemented yet for ExtremeXp.");
     }
 }
