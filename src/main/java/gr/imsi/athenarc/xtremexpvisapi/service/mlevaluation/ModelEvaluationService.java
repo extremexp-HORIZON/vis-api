@@ -227,7 +227,7 @@ public class ModelEvaluationService {
         // System.out.println("filePaths MODEL SERVICE: " + filePaths);
         ExperimentService service = experimentServiceFactory.getActiveService();
         if (service.getClass().getSimpleName().equals("MLflowExperimentService")) {
-            Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("roc_data.json"));
+            Path rocPath = modelAnalysisResourceToPath(filePaths.get().get("roc_data"));
             if (!Files.exists(rocPath)) {
             return Optional.empty();
         }

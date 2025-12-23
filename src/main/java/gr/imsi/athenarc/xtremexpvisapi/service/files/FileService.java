@@ -1,7 +1,15 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.files;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.core.io.Resource;
 
 import gr.imsi.athenarc.xtremexpvisapi.config.ApplicationFileProperties;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
@@ -9,6 +17,7 @@ import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -24,6 +33,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Log4j2
 public class FileService {
+
+    @Value("${mlflow.tracking.url}")
+    private String mlflowTrackingUrl;
+
+    @Value("${mlflow.tracking.token:}")
+    private String mlflowTrackingToken;
+
+    private final RestTemplate restTemplate;
+
     private static final List<String> UNITS = Arrays.asList("B", "KB", "MB", "GB", "TB", "PB", "EB");
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
@@ -31,9 +49,10 @@ public class FileService {
     private final FileHelper fileHelper;
 
     @Autowired
-    public FileService(ApplicationFileProperties applicationFileProperties, FileHelper fileHelper) {
+    public FileService(ApplicationFileProperties applicationFileProperties, FileHelper fileHelper, RestTemplate restTemplate) {
         this.applicationFileProperties = applicationFileProperties;
         this.fileHelper = fileHelper;
+        this.restTemplate = restTemplate;
     }
 
     /**
@@ -362,4 +381,130 @@ public class FileService {
         return false;
     }
 
+    public String downloadMlflowArtifact(DataSource ds, Path targetPath, String authorization) {
+        try {
+            if (ds == null) throw new IllegalArgumentException("DataSource is null");
+            if (ds.getSource() == null || ds.getSource().isBlank()) {
+                throw new IllegalArgumentException("DataSource.source is empty");
+            }
+
+            if (targetPath.getParent() != null) Files.createDirectories(targetPath.getParent());
+
+            String source = ds.getSource().replace('\\', '/');
+
+            String runId = ds.getRunId();
+            if (runId == null || runId.isBlank()) {
+                throw new IllegalStateException("Cannot download MLflow artifact: runId missing");
+            }
+
+            String artifactPath = extractArtifactPath(source);
+            if (artifactPath == null || artifactPath.isBlank()) {
+                throw new IllegalStateException("Cannot download MLflow artifact: artifact path empty. source=" + source);
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            if (authorization != null && !authorization.isBlank()) {
+                headers.set("Authorization", authorization);
+            } else if (mlflowTrackingToken != null && !mlflowTrackingToken.isBlank()) {
+                headers.set("Authorization", "Bearer " + mlflowTrackingToken);
+            }
+
+            String runsGetUrl = UriComponentsBuilder
+                    .fromHttpUrl(mlflowTrackingUrl)
+                    .path("/api/2.0/mlflow/runs/get")
+                    .queryParam("run_id", runId)
+                    .build()
+                    .toUriString();
+
+            ResponseEntity<Map> runResp = restTemplate.exchange(
+                    runsGetUrl, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+            if (!runResp.getStatusCode().is2xxSuccessful() || runResp.getBody() == null) {
+                throw new RuntimeException("MLflow runs/get failed: " + runResp.getStatusCode());
+            }
+
+            String artifactUri = extractArtifactUri(runResp.getBody());
+            if (artifactUri == null || artifactUri.isBlank()) {
+                throw new RuntimeException("MLflow runs/get returned empty artifact_uri for runId=" + runId);
+            }
+
+            log.info("MLflow artifact_uri for run {}: {}", runId, artifactUri);
+
+            if (artifactUri.startsWith("file:")) {
+                Path root = Paths.get(URI.create(artifactUri));
+                Path sourcePath = root.resolve(artifactPath).normalize();
+
+                log.info("Copying MLflow artifact from filesystem: {} -> {}", sourcePath, targetPath);
+
+                if (!Files.exists(sourcePath)) {
+                    throw new RuntimeException("Artifact not found on filesystem at: " + sourcePath);
+                }
+
+                Path tmp = targetPath.resolveSibling(targetPath.getFileName().toString() + ".part");
+                Files.copy(sourcePath, tmp, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tmp, targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+                return targetPath.toString();
+            }
+
+            if (artifactUri.startsWith("mlflow-artifacts:")) {
+                String p = artifactPath.replace('\\', '/');
+
+                String downloadUrl = UriComponentsBuilder.fromHttpUrl(mlflowTrackingUrl)
+                        .path("/get-artifact")
+                        .queryParam("run_id", runId)
+                        .queryParam("path", p)
+                        .build()
+                        .toUriString();
+
+                log.info("Downloading MLflow artifact: {}", downloadUrl);
+
+                ResponseEntity<Resource> resp = restTemplate.exchange(
+                        downloadUrl, HttpMethod.GET, new HttpEntity<>(headers), Resource.class);
+
+                if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                    throw new RuntimeException("MLflow get-artifact failed: status=" + resp.getStatusCode() + " url=" + downloadUrl);
+                }
+
+                writeResourceToFile(resp.getBody(), targetPath);
+                return targetPath.toString();
+            }
+
+            throw new RuntimeException("Unsupported artifact_uri scheme: " + artifactUri);
+
+        } catch (Exception e) {
+            log.error("Failed to download MLflow artifact. source={} target={}",
+                    ds != null ? ds.getSource() : null, targetPath, e);
+            throw new RuntimeException("Failed to download MLflow artifact for source="
+                    + (ds != null ? ds.getSource() : "null"), e);
+        }
+    }
+
+    private String extractArtifactPath(String source) {
+        String s = source.replace('\\', '/');
+        int idx = s.indexOf("/artifacts/");
+        if (idx >= 0) return s.substring(idx + "/artifacts/".length());
+        if (s.startsWith("artifacts/")) return s.substring("artifacts/".length());
+        return s;
+    }
+
+    private String extractArtifactUri(Map body) {
+        Object runObj = body.get("run");
+        if (!(runObj instanceof Map)) return null;
+        Map run = (Map) runObj;
+
+        Object infoObj = run.get("info");
+        if (!(infoObj instanceof Map)) return null;
+        Map info = (Map) infoObj;
+
+        Object uri = info.get("artifact_uri");
+        return uri != null ? uri.toString() : null;
+    }
+    private void writeResourceToFile(Resource resource, Path targetPath) throws Exception {
+        Path tmp = targetPath.resolveSibling(targetPath.getFileName().toString() + ".part");
+        try (InputStream in = resource.getInputStream()) {
+            Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+        }
+        Files.move(tmp, targetPath, StandardCopyOption.REPLACE_EXISTING);
+    }
 }

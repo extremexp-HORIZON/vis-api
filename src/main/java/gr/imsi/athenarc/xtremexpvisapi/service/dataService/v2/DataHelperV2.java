@@ -16,8 +16,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +33,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.FileType;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.aggregation.Aggregation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.filter.AbstractFilter;
 import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
@@ -42,6 +44,14 @@ public class DataHelperV2 {
 
     private final ObjectMapper objectMapper;
     private final FileService fileService;
+
+    @Value("${experiment.engine:extremeXP}")
+    private String experimentEngine;
+    
+    @Value("${app.working.directory.mlflow}")
+    private String mlflowWorkingDirectory;
+    
+    private static final Logger LOG = LoggerFactory.getLogger(DataHelperV2.class);
 
     @Autowired
     public DataHelperV2(ObjectMapper objectMapper, FileService fileService) {
@@ -393,20 +403,33 @@ public class DataHelperV2 {
      * @throws Exception if download fails
      */
     @Async
-    protected CompletableFuture<String> getFilePathForDataset(DataSource dataSource, String authorization)
-            throws Exception {
-        // Assuming request has a method to get DatasetMeta and file type
-        String targetPath;
-        SourceType fileType = dataSource.getSourceType(); // Assuming this method exists
+    protected CompletableFuture<String> getFilePathForDataset(
+            DataSource dataSource,
+            String authorization) throws Exception {
 
-        if (fileType.equals(SourceType.local)) {
-            targetPath = dataSource.getSource();
-            log.info("Internal file detected, using source path: " + targetPath);
-            return CompletableFuture.completedFuture(targetPath);
-        } else {
-            return CompletableFuture.completedFuture(
-                    fileService.downloadAndCacheDataAsset(dataSource, authorization));
+        if ("mlflow".equalsIgnoreCase(experimentEngine)) {
+
+            Path p = Paths.get(dataSource.getSource());
+
+            if (!p.isAbsolute()) {
+                p = Paths.get(mlflowWorkingDirectory).resolve(p).normalize();
+            }
+
+            if (Files.exists(p)) {
+                LOG.info("MLflow local file exists: {}", p);
+                return CompletableFuture.completedFuture(p.toString());
+            }
+
+            LOG.info("MLflow file missing, downloading and caching to: {}", p);
+            String downloadedPath =
+                    fileService.downloadMlflowArtifact(dataSource, p, authorization);
+
+            return CompletableFuture.completedFuture(downloadedPath);
         }
+
+        return CompletableFuture.completedFuture(
+                fileService.downloadAndCacheDataAsset(dataSource, authorization)
+        );
     }
 
     /**
