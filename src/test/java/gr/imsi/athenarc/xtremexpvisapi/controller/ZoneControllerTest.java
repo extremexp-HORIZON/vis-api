@@ -777,41 +777,6 @@ class ZoneControllerTest {
     }
 
     @Test
-    void testGetZoneFilePathSuccessfully() {
-        // Arrange
-        String fileName = "test.csv";
-        String filePath = "/path/to/zones/test.csv.json";
-        
-        when(zoneService.getZoneFilePath(fileName)).thenReturn(filePath);
-        
-        // Act
-        ResponseEntity<String> response = zoneController.getZoneFilePath(fileName);
-        
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(filePath, response.getBody());
-        
-        // Verify service was called
-        verify(zoneService).getZoneFilePath(fileName);
-    }
-
-    @Test
-    void testGetZoneFilePathWithEmptyFileName() {
-        // Arrange
-        String fileName = "";
-        
-        // Act
-        ResponseEntity<String> response = zoneController.getZoneFilePath(fileName);
-        
-        // Assert
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        
-        // Verify service was NOT called
-        verify(zoneService, never()).getZoneFilePath(any());
-    }
-
-    @Test
     void testHealthCheck() {
         // Act
         ResponseEntity<String> response = zoneController.healthCheck();

@@ -1,55 +1,115 @@
 package gr.imsi.athenarc.xtremexpvisapi.repository;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Repository;
-import jakarta.annotation.PostConstruct;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 @Repository
 public class ZoneRepository {
 
-    @Value("${app.zone.directory:${user.home}/zones}")
-    private String zoneDirectory;
+    private final JdbcTemplate jdbcTemplate;
+    private ObjectMapper objectMapper;
 
-    private final ObjectMapper objectMapper;
-
-    public ZoneRepository() {
-        this.objectMapper = new ObjectMapper();
-        // Configure ObjectMapper to pretty-print JSON
-        this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    public ZoneRepository(
+            @Qualifier("postgresqlJdbcTemplate") JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
     }
 
-    @PostConstruct
-    private void init() {
-        if (zoneDirectory == null || zoneDirectory.isBlank()) {
-            throw new IllegalStateException("Zone directory is not configured properly.");
+    private final RowMapper<Zone> zoneRowMapper = (rs, rowNum) -> {
+        Zone zone = new Zone();
+        zone.setId(rs.getString("id"));
+        zone.setFileName(rs.getString("file_name"));
+        zone.setName(rs.getString("name"));
+        zone.setType(rs.getString("type"));
+        zone.setDescription(rs.getString("description"));
+        zone.setStatus(rs.getString("status"));
+
+        // Handle timestamp
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            zone.setCreatedAt(createdAt.toLocalDateTime().toString());
         }
 
-        // Create the base directory if it doesn't exist
+        // Deserialize JSONB fields
         try {
-            Path basePath = Paths.get(zoneDirectory);
-            if (!Files.exists(basePath)) {
-                Files.createDirectories(basePath);
-                System.out.println("Created Zone base directory: " + basePath);
+            String heightsJson = rs.getString("heights");
+            if (heightsJson != null) {
+                zone.setHeights(objectMapper.readValue(heightsJson, Double[].class));
             }
-        } catch (IOException e) {
-            System.err.println("Failed to create Zone base directory: " + zoneDirectory);
-            e.printStackTrace();
-            throw new IllegalStateException("Cannot create Zone directory: " + zoneDirectory, e);
+
+            String geohashesJson = rs.getString("geohashes");
+            if (geohashesJson != null) {
+                zone.setGeohashes(objectMapper.readValue(geohashesJson, String[].class));
+            }
+
+            String rectangleJson = rs.getString("rectangle");
+            if (rectangleJson != null) {
+                zone.setRectangle(objectMapper.readValue(rectangleJson, Rectangle.class));
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to deserialize JSON fields", e);
         }
 
-        System.out.println("Zone directory initialized: " + zoneDirectory);
+        return zone;
+    };
+
+    private void insert(Zone zone) throws DataAccessException, JsonProcessingException {
+        String sql = """
+            INSERT INTO zones (id, file_name, name, type, description, status, created_at, heights, geohashes, rectangle)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
+            """;
+        
+        jdbcTemplate.update(sql,
+            zone.getId(),
+            zone.getFileName(),
+            zone.getName(),
+            zone.getType(),
+            zone.getDescription(),
+            zone.getStatus(),
+            // Handle createdAt - use current time if not provided
+            zone.getCreatedAt() != null ? 
+                Timestamp.valueOf(java.time.LocalDateTime.parse(zone.getCreatedAt())) : 
+                Timestamp.valueOf(java.time.LocalDateTime.now()),
+            // Serialize JSONB fields
+            zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
+            zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
+            zone.getRectangle() != null ? objectMapper.writeValueAsString(zone.getRectangle()) : null
+        );
+    }
+
+    private void update(Zone zone) throws DataAccessException, JsonProcessingException {
+        String sql = """
+            UPDATE zones 
+            SET name = ?, type = ?, description = ?, status = ?, 
+                heights = ?::jsonb, geohashes = ?::jsonb, rectangle = ?::jsonb
+            WHERE id = ? AND file_name = ?
+            """;
+        
+        jdbcTemplate.update(sql,
+            zone.getName(),
+            zone.getType(),
+            zone.getDescription(),
+            zone.getStatus(),
+            zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
+            zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
+            zone.getRectangle() != null ? objectMapper.writeValueAsString(zone.getRectangle()) : null,
+            zone.getId(),
+            zone.getFileName()
+        );
     }
 
     /**
@@ -60,9 +120,9 @@ public class ZoneRepository {
      * @return Optional containing the Zone if found, empty otherwise
      */
     public Optional<Zone> findByFileNameAndId(String fileName, String zoneId) {
-        List<Zone> zones = findByFileName(fileName);
-        return zones.stream()
-                .filter(zone -> zoneId.equals(zone.getId()))
+        String sql = "SELECT * FROM zones WHERE file_name = ? AND id = ?";
+        return jdbcTemplate.query(sql, zoneRowMapper, fileName, zoneId)
+                .stream()
                 .findFirst();
     }
 
@@ -73,18 +133,8 @@ public class ZoneRepository {
      * @return List of all Zones for the specified fileName
      */
     public List<Zone> findByFileName(String fileName) {
-        Path zonePath = Paths.get(zoneDirectory, fileName + ".json");
-
-        if (!Files.exists(zonePath)) {
-            return new ArrayList<>();
-        }
-
-        try {
-            Zone[] zones = objectMapper.readValue(zonePath.toFile(), Zone[].class);
-            return List.of(zones);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read zones for fileName: " + fileName, e);
-        }
+        String sql = "SELECT * FROM zones WHERE file_name = ?";
+        return jdbcTemplate.query(sql, zoneRowMapper, fileName);
     }
 
     /**
@@ -93,30 +143,8 @@ public class ZoneRepository {
      * @return List of all Zones from all files
      */
     public List<Zone> findAll() {
-        List<Zone> allZones = new ArrayList<>();
-
-        Path basePath = Paths.get(zoneDirectory);
-        if (!Files.exists(basePath) || !Files.isDirectory(basePath)) {
-            return allZones;
-        }
-
-        try (Stream<Path> paths = Files.list(basePath)) {
-            paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".json"))
-                    .forEach(filePath -> {
-                        try {
-                            Zone[] zones = objectMapper.readValue(filePath.toFile(), Zone[].class);
-                            allZones.addAll(List.of(zones));
-                        } catch (IOException e) {
-                            System.err.println("Failed to read zone file: " + filePath);
-                            e.printStackTrace();
-                        }
-                    });
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read zone directory", e);
-        }
-
-        return allZones;
+        String sql = "SELECT * FROM zones";
+        return jdbcTemplate.query(sql, zoneRowMapper);
     }
 
     /**
@@ -124,48 +152,31 @@ public class ZoneRepository {
      * 
      * @param zone the Zone to save
      * @return the saved Zone
+     * @throws JsonProcessingException 
+     * @throws DataAccessException 
      */
-    public Zone save(Zone zone) {
+    public Zone save(Zone zone) throws DataAccessException, JsonProcessingException {
         if (zone.getFileName() == null || zone.getFileName().trim().isEmpty()) {
             throw new IllegalArgumentException("Zone fileName cannot be null or empty");
         }
 
-        String fileName = zone.getFileName();
-        Path zonePath = Paths.get(zoneDirectory, fileName + ".json");
-
-        try {
-            // Create the directory if it doesn't exist
-            Files.createDirectories(zonePath.getParent());
-
-            // Read existing zones or create new list
-            List<Zone> zones = new ArrayList<>();
-            if (Files.exists(zonePath)) {
-                Zone[] existingZones = objectMapper.readValue(zonePath.toFile(), Zone[].class);
-                zones = new ArrayList<>(List.of(existingZones));
-            }
-
-            // Update existing zone or add new one
-            boolean updated = false;
-            for (int i = 0; i < zones.size(); i++) {
-                if (zone.getId() != null && zone.getId().equals(zones.get(i).getId())) {
-                    zones.set(i, zone);
-                    updated = true;
-                    break;
-                }
-            }
-            
-            if (!updated) {
-                zones.add(zone);
-            }
-
-            // Write the updated zones array back to file
-            objectMapper.writeValue(zonePath.toFile(), zones);
-            System.out.println("Saved Zone for fileName: " + fileName + ", zoneId: " + zone.getId());
-
-            return zone;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to save zone for fileName: " + fileName, e);
+        // Generate ID if not provided
+        if (zone.getId() == null || zone.getId().trim().isEmpty()) {
+            zone.setId(java.util.UUID.randomUUID().toString());
         }
+
+        // Check if zone already exists
+        Optional<Zone> existing = findByFileNameAndId(zone.getFileName(), zone.getId());
+        
+        if (existing.isPresent()) {
+            // Update existing zone
+            update(zone);
+        } else {
+            // Insert new zone
+            insert(zone);
+        }
+
+        return zone;
     }
 
     /**
@@ -176,30 +187,8 @@ public class ZoneRepository {
      * @return true if deletion was successful, false if the Zone doesn't exist
      */
     public boolean deleteByFileNameAndId(String fileName, String zoneId) {
-        Path zonePath = Paths.get(zoneDirectory, fileName + ".json");
-
-        if (!Files.exists(zonePath)) {
-            return false;
-        }
-
-        try {
-            // Read existing zones
-            Zone[] existingZones = objectMapper.readValue(zonePath.toFile(), Zone[].class);
-            List<Zone> zones = new ArrayList<>(List.of(existingZones));
-
-            // Remove the zone with matching id
-            boolean removed = zones.removeIf(zone -> zoneId.equals(zone.getId()));
-
-            if (removed) {
-                // Write the updated zones array back to file
-                objectMapper.writeValue(zonePath.toFile(), zones);
-                return true;
-            }
-
-            return false;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to delete zone for fileName: " + fileName + ", zoneId: " + zoneId, e);
-        }
+        String sql = "DELETE FROM zones WHERE file_name = ? AND id = ?";
+        return jdbcTemplate.update(sql, fileName, zoneId) > 0;
     }
 
     /**
@@ -209,18 +198,8 @@ public class ZoneRepository {
      * @return true if deletion was successful, false if the file doesn't exist
      */
     public boolean deleteByFileName(String fileName) {
-        Path zonePath = Paths.get(zoneDirectory, fileName + ".json");
-
-        if (!Files.exists(zonePath)) {
-            return false;
-        }
-
-        try {
-            Files.delete(zonePath);
-            return true;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to delete zones file: " + fileName, e);
-        }
+        String sql = "DELETE FROM zones WHERE file_name = ?";
+        return jdbcTemplate.update(sql, fileName) > 0;
     }
 
     /**
@@ -230,18 +209,8 @@ public class ZoneRepository {
      * @return true if zones exist for the fileName, false otherwise
      */
     public boolean existsByFileName(String fileName) {
-        Path zonePath = Paths.get(zoneDirectory, fileName + ".json");
-        return Files.exists(zonePath);
-    }
-
-    /**
-     * Get the file path for a given fileName
-     * 
-     * @param fileName the fileName
-     * @return Path to the zones JSON file
-     */
-    public Path getZoneFilePath(String fileName) {
-        return Paths.get(zoneDirectory, fileName + ".json");
+        String sql = "SELECT COUNT(*) from zones WHERE file_name = ?";
+        return jdbcTemplate.queryForObject(sql, Integer.class) > 0;
     }
 
     /**
@@ -251,9 +220,8 @@ public class ZoneRepository {
      * @return List of zones with the specified type
      */
     public List<Zone> findByType(String type) {
-        return findAll().stream()
-                .filter(zone -> type.equals(zone.getType()))
-                .toList();
+        String sql = "SELECT * FROM zones WHERE type = ?";
+        return jdbcTemplate.query(sql, zoneRowMapper, type);
     }
 
     /**
@@ -263,9 +231,8 @@ public class ZoneRepository {
      * @return List of zones with the specified status
      */
     public List<Zone> findByStatus(String status) {
-        return findAll().stream()
-                .filter(zone -> status.equals(zone.getStatus()))
-                .toList();
+        String sql = "SELECT * FROM zones WHERE status = ?";
+        return jdbcTemplate.query(sql, zoneRowMapper, status);
     }
 
     /**
@@ -274,24 +241,7 @@ public class ZoneRepository {
      * @return List of unique fileNames
      */
     public List<String> getAllFileNames() {
-        List<String> fileNames = new ArrayList<>();
-
-        Path basePath = Paths.get(zoneDirectory);
-        if (!Files.exists(basePath) || !Files.isDirectory(basePath)) {
-            return fileNames;
-        }
-
-        try (Stream<Path> paths = Files.list(basePath)) {
-            paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".json"))
-                    .forEach(filePath -> {
-                        String fileName = filePath.getFileName().toString().replace(".json", "");
-                        fileNames.add(fileName);
-                    });
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to read zone directory", e);
-        }
-
-        return fileNames;
+        String sql = "SELECT DISTINCT file_name FROM zones";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> rs.getString("file_name"));
     }
 }

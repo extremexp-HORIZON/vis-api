@@ -369,34 +369,6 @@ public class ZoneController {
     }
 
     /**
-     * Get the file path for a given fileName
-     * GET /api/zones/filePath/{fileName}
-     */
-    @GetMapping("/filePath/{fileName}")
-    public ResponseEntity<String> getZoneFilePath(@PathVariable String fileName) {
-        try {
-            log.info("REST: Getting zone file path for fileName: " + fileName);
-            
-            if (fileName == null || fileName.trim().isEmpty()) {
-                log.warning("REST: Invalid fileName parameter: " + fileName);
-                return ResponseEntity.badRequest().build();
-            }
-            
-            String filePath = zoneService.getZoneFilePath(fileName);
-            log.info("REST: Zone file path for fileName " + fileName + ": " + filePath);
-            
-            return ResponseEntity.ok(filePath);
-            
-        } catch (IllegalArgumentException e) {
-            log.warning("REST: Failed to get zone file path due to validation error: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.severe("REST: Failed to get zone file path for fileName: " + fileName + ". Error: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
      * Health check endpoint
      * GET /api/zones/health
      */

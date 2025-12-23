@@ -389,30 +389,4 @@ public class ZoneService {
             throw new RuntimeException("Failed to retrieve all fileNames", e);
         }
     }
-
-    /**
-     * Get the file path for a given fileName
-     * 
-     * @param fileName the fileName
-     * @return path to the zones JSON file
-     * @throws RuntimeException if retrieval fails
-     */
-    public String getZoneFilePath(String fileName) {
-        try {
-            log.info("Getting zone file path for fileName: " + fileName);
-            if (isIdEmpty(fileName)) {
-                throw new IllegalArgumentException("FileName cannot be null or empty");
-            }
-            
-            String filePath = zoneRepository.getZoneFilePath(fileName).toString();
-            log.info("Zone file path for fileName " + fileName + ": " + filePath);
-            return filePath;
-        } catch (IllegalArgumentException e) {
-            log.severe("Validation error while getting zone file path: " + e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.severe("Failed to get zone file path for fileName: " + fileName + ". Error: " + e.getMessage());
-            throw new RuntimeException("Failed to get zone file path for fileName: " + fileName, e);
-        }
-    }
 }
