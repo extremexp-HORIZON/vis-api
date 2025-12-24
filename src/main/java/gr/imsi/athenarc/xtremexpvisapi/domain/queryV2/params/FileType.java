@@ -5,6 +5,7 @@ public enum FileType {
     CSV(".csv"),
     PARQUET(".parquet"),
     DUCKDB(".duckdb"),
+    POSTGRESQL(".postgresql"),
     JSON(".json");
 
     private String extension;

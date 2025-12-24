@@ -15,6 +15,20 @@ public class HikariDuckDBConfig {
     @Value("${duckdb.drone.database.path:}")
     private String droneDatabasePath;
 
+    @Value("${spring.datasource.host}")
+    private String postgresHost;
+    @Value("${spring.datasource.port}")
+    private String postgresPort;
+    @Value("${spring.datasource.database}")
+    private String postgresDatabase;
+
+    @Value("${spring.datasource.username}")
+    private String postgresUsername;
+    @Value("${spring.datasource.password}")
+    private String postgresPassword;
+    @Value("${spring.datasource.driver-class-name}")
+    private String postgresDriverClassName;
+
     /**
      * Primary DataSource for general DuckDB operations (in-memory).
      * Used by DataServiceV2 and other services that need temporary queries.
@@ -29,6 +43,10 @@ public class HikariDuckDBConfig {
         config.setDriverClassName("org.duckdb.DuckDBDriver");
         config.setMaximumPoolSize(5);
         config.setPoolName("DuckDBHikariPool-InMemory");
+
+        // Initialize PostgreSQL extension on each new connection
+        String initSql = buildPostgresInitSql();
+        config.setConnectionInitSql(initSql);
 
         return new HikariDataSource(config);
     }
@@ -56,5 +74,14 @@ public class HikariDuckDBConfig {
         config.setMaximumPoolSize(5);
 
         return new HikariDataSource(config);
+    }
+
+    private String buildPostgresInitSql() {
+        return String.format(
+            "INSTALL postgres;" +
+            "LOAD postgres;" +
+            " ATTACH 'dbname=%s user=%s password=%s host=%s port=%s' AS postgres_db (TYPE postgres, READ_ONLY);",
+            postgresDatabase, postgresUsername, postgresPassword, postgresHost, postgresPort
+        );
     }
 }

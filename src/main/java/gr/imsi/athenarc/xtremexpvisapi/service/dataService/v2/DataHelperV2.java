@@ -502,6 +502,8 @@ public class DataHelperV2 {
                 return "read_json_auto('" + filePath + "')";
             case DUCKDB:
                 return filePath.replace(".duckdb", ""); // Remove .duckdb extension as the table name is the same as the file name
+            case POSTGRESQL:
+                return "postgres_db." + filePath.replace(".postgresql", ""); // Remove .postgresql extension as the table name is the same as the file name
             default:
                 throw new IllegalArgumentException("Unknown file type: " + fileType);
         }
@@ -644,7 +646,8 @@ public class DataHelperV2 {
                     .findFirst().get().getName();
             String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
             String delimiter = ",";
-            if (!dataSource.getFormat().equals("duckdb")) {
+            // Check if dataSource format is a file type not a database type
+            if (!dataSource.getFormat().equals("duckdb") && !dataSource.getFormat().equals("postgresql")) {
                 try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
                     String firstLine = br.readLine();
                     delimiter = firstLine.contains("\t") ? "\t" : ",";
@@ -680,7 +683,7 @@ public class DataHelperV2 {
                 rawVisSql = String.format(
                     "SELECT %s FROM read_json_auto('%s')",
                     String.join(", ", selectFields), filePath.replace("\\", "\\\\"));
-            } else if (dataSource.getFormat().equals("duckdb")) {
+            } else if (dataSource.getFormat().equals("duckdb") || dataSource.getFormat().equals("postgresql")) {
                 rawVisSql = String.format(
                     "SELECT %s FROM %s",
                     String.join(", ", selectFields), getFileTypeSQL(detectFileType(filePath), filePath));
@@ -818,6 +821,7 @@ public class DataHelperV2 {
                     sql.append("read_json_auto('").append(datasetPath).append("')");
                     break;
                 case DUCKDB:
+                case POSTGRESQL:
                     sql.append(getFileTypeSQL(fileType, datasetPath));
                     break;
             }
