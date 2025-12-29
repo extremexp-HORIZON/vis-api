@@ -55,7 +55,8 @@ public class DataController {
     }
 
     @PostMapping("/umap")
-    public float[][] dimensionalityReduction(@RequestBody float[][] data)
+    public float[][] dimensionalityReduction(@RequestBody float[][] data,
+    @RequestHeader(value = "Authorization", required = false) String authorization)
             throws JsonProcessingException, InvalidProtocolBufferException {
         LOG.info("Request for dimensionality reduction");
         return dataServiceV2.getUmap(data);
