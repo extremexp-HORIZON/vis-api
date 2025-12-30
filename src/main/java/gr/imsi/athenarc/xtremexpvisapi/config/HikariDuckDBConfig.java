@@ -12,9 +12,6 @@ import javax.sql.DataSource;
 @Configuration
 public class HikariDuckDBConfig {
 
-    @Value("${duckdb.drone.database.path:}")
-    private String droneDatabasePath;
-
     @Value("${spring.datasource.host}")
     private String postgresHost;
     @Value("${spring.datasource.port}")
@@ -47,31 +44,6 @@ public class HikariDuckDBConfig {
         // Initialize PostgreSQL extension on each new connection
         String initSql = buildPostgresInitSql();
         config.setConnectionInitSql(initSql);
-
-        return new HikariDataSource(config);
-    }
-
-    /**
-     * Dedicated DataSource for drone telemetry data (file-based).
-     * Only created if drone database path is configured.
-     * Used by DroneDataRepository.
-     */
-    @Bean(name = "droneDuckDBDataSource")
-    public DataSource droneDuckDBDataSource() {
-        HikariConfig config = new HikariConfig();
-
-        // Connect directly to persistent file if configured
-        if (droneDatabasePath != null && !droneDatabasePath.isBlank()) {
-            config.setJdbcUrl("jdbc:duckdb:" + droneDatabasePath);
-            config.setPoolName("DuckDBHikariPool-Drone");
-        } else {
-            // Fallback to in-memory if not configured
-            config.setJdbcUrl("jdbc:duckdb:");
-            config.setPoolName("DuckDBHikariPool-Drone-InMemory");
-        }
-        
-        config.setDriverClassName("org.duckdb.DuckDBDriver");
-        config.setMaximumPoolSize(5);
 
         return new HikariDataSource(config);
     }

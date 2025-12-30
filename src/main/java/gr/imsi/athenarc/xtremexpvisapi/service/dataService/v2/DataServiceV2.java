@@ -54,10 +54,6 @@ public class DataServiceV2 {
     @Autowired
     private javax.sql.DataSource dataSource;
 
-    @Autowired
-    @Qualifier("droneDuckDBDataSource")
-    private javax.sql.DataSource duckDBDataSource;
-
     private DataHelperV2 dataQueryHelper;
 
     private final Executor dataProcessingExecutor;
@@ -97,7 +93,7 @@ public class DataServiceV2 {
             return dataQueryHelper
                     .buildMapQuery((MapDataRequest) request, authorization, (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
-                        try (Connection connection = request.getDataSource().getFormat().equals("duckdb") ? duckDBDataSource.getConnection() : dataSource.getConnection();
+                        try (Connection connection = dataSource.getConnection();
                                 Statement statement = connection.createStatement()) {
                             ResultSet resultSet = statement.executeQuery(sql);
 
@@ -126,7 +122,7 @@ public class DataServiceV2 {
                     .buildTimeSeriesQuery((TimeSeriesDataRequest) request, authorization,
                             (MetadataMapResponse) metadataResponse)
                     .thenCompose(sql -> {
-                        try (Connection connection = request.getDataSource().getFormat().equals("duckdb") ? duckDBDataSource.getConnection() : dataSource.getConnection();
+                        try (Connection connection = dataSource.getConnection();
                                 Statement statement = connection.createStatement()) {
                             ResultSet resultSet = statement.executeQuery(sql);
 
@@ -260,7 +256,7 @@ public class DataServiceV2 {
                         }
 
                         try (
-                                Connection connection = dataSource.getFormat().equals("duckdb") ? this.duckDBDataSource.getConnection() : this.dataSource.getConnection();
+                                Connection connection = this.dataSource.getConnection();
                                 Statement statement = connection.createStatement()) {
                             // System.out.println("File path for metadata: " + filePath.toString());
                             // Use a mutable local copy because lambda capture requires effectively final
@@ -379,7 +375,7 @@ public class DataServiceV2 {
 
     public String[] fetchRow(DataSource dataSource, String objectId) throws Exception, SQLException {
 
-        try (Connection connection = dataSource.getFormat().equals("duckdb") ? this.duckDBDataSource.getConnection() : this.dataSource.getConnection();
+        try (Connection connection = this.dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
 
             String sql = String.format("SELECT * FROM %s WHERE id = '%s'", dataQueryHelper.getFileTypeSQL(dataQueryHelper.detectFileType(dataSource.getSource()), dataSource.getSource()),
