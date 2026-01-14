@@ -79,6 +79,48 @@ CREATE INDEX IF NOT EXISTS idx_drone_telemetry_session_id ON drone_telemetry(ses
 CREATE UNIQUE INDEX IF NOT EXISTS idx_drone_telemetry_id ON drone_telemetry(id);
 
 -- ============================================
+-- DUPLICATE PREVENTION FOR DRONE TELEMETRY
+-- ============================================
+-- Unique constraint to prevent duplicate messages based on message characteristics
+-- The combination of drone_id, time, session_id, lat, lon, and alt should uniquely identify a telemetry reading
+CREATE UNIQUE INDEX IF NOT EXISTS idx_drone_telemetry_dedupe 
+ON drone_telemetry(drone_id, "time", session_id, 
+    COALESCE(lat::text, 'NULL'), COALESCE(lon::text, 'NULL'), COALESCE(alt::text, 'NULL'));
+
+-- Trigger function to silently ignore duplicate inserts
+-- This prevents Telegraf from seeing constraint violation errors
+CREATE OR REPLACE FUNCTION prevent_duplicate_drone_telemetry()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Check if a duplicate record already exists
+    IF EXISTS (
+        SELECT 1 FROM drone_telemetry 
+        WHERE drone_id = NEW.drone_id 
+        AND "time" = NEW."time"
+        AND session_id = NEW.session_id
+        AND (
+            (lat IS NOT NULL AND lon IS NOT NULL AND NEW.lat IS NOT NULL AND NEW.lon IS NOT NULL 
+             AND lat = NEW.lat AND lon = NEW.lon AND COALESCE(alt, 0) = COALESCE(NEW.alt, 0))
+            OR
+            (lat IS NULL AND lon IS NULL AND NEW.lat IS NULL AND NEW.lon IS NULL)
+        )
+    ) THEN
+        -- Duplicate found, skip the insert
+        RETURN NULL;
+    END IF;
+    -- Not a duplicate, proceed with insert
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the trigger
+DROP TRIGGER IF EXISTS prevent_duplicate_telemetry ON drone_telemetry;
+CREATE TRIGGER prevent_duplicate_telemetry
+BEFORE INSERT ON drone_telemetry
+FOR EACH ROW
+EXECUTE FUNCTION prevent_duplicate_drone_telemetry();
+
+-- ============================================
 -- COMMENTS FOR DOCUMENTATION
 -- ============================================
 COMMENT ON TABLE zones IS 'Stores zone information with JSONB fields for complex data types';
