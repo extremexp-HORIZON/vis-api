@@ -1012,24 +1012,37 @@ public class DataHelperV2 {
             String timestampCol = metadataResponse.getTimeColumn() != null && !metadataResponse.getTimeColumn().isEmpty() ? metadataResponse.getTimeColumn().get(0) : "radio_timestamp";
 
             long intervalSeconds = request.getFrequency();
-            String sql = String.format(
-                    "SELECT floor(extract(epoch from %1$s)/(%2$s)) as time_bucket, avg(%3$s) as average_value " +
-                            "FROM %4$s " +
-                            "WHERE %1$s BETWEEN '%5$s' AND '%6$s' " +
-                            "AND %7$s BETWEEN '%8$s' AND '%9$s' " +
-                            "AND %10$s BETWEEN '%11$s' AND '%12$s' ",
-                    timestampCol,
-                    intervalSeconds,
-                    request.getMeasureCol(),
-                    getFileTypeSQL(detectFileType(datasetPath), datasetPath),
-                    new Timestamp(request.getFrom()),
-                    new Timestamp(request.getTo()),
+            StringBuilder sqlBuilder = new StringBuilder();
+            sqlBuilder.append(String.format(
+                    "SELECT floor(extract(epoch from %1$s)/(%2$s)) as time_bucket, avg(%3$s) as average_value ",
+                    timestampCol, intervalSeconds, request.getMeasureCol()));
+            sqlBuilder.append("FROM ").append(getFileTypeSQL(detectFileType(datasetPath), datasetPath)).append(" ");
+
+            // Build WHERE clause defensively: from/to may be null
+            sqlBuilder.append("WHERE 1=1 ");
+            Long from = request.getFrom();
+            Long to = request.getTo();
+            if (from != null && to != null) {
+                sqlBuilder.append(String.format("AND %s BETWEEN '%s' AND '%s' ",
+                        timestampCol, new Timestamp(from), new Timestamp(to)));
+            } else if (from != null) {
+                sqlBuilder.append(String.format("AND %s >= '%s' ",
+                        timestampCol, new Timestamp(from)));
+            } else if (to != null) {
+                sqlBuilder.append(String.format("AND %s <= '%s' ",
+                        timestampCol, new Timestamp(to)));
+            }
+
+            sqlBuilder.append(String.format("AND %s BETWEEN '%s' AND '%s' ",
                     latCol,
                     request.getRect().getLat().lowerEndpoint(),
-                    request.getRect().getLat().upperEndpoint(),
+                    request.getRect().getLat().upperEndpoint()));
+            sqlBuilder.append(String.format("AND %s BETWEEN '%s' AND '%s' ",
                     lonCol,
                     request.getRect().getLon().lowerEndpoint(),
-                    request.getRect().getLon().upperEndpoint());
+                    request.getRect().getLon().upperEndpoint()));
+
+            String sql = sqlBuilder.toString();
 
             StringBuilder filterBuilder = new StringBuilder();
             if (request.getCategoricalFilters() != null && !request.getCategoricalFilters().isEmpty()) {
