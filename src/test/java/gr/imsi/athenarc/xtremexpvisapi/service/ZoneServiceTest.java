@@ -14,7 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.GeoPoint;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
 import gr.imsi.athenarc.xtremexpvisapi.repository.ZoneRepository;
 
@@ -437,10 +437,8 @@ class ZoneServiceTest {
         zone.setFileName("test.csv");
         zone.setName("Zone with Rectangle");
         
-        // Create a Rectangle with longitude and latitude ranges
-        Rectangle rectangle = new Rectangle();
         // Note: Rectangle uses Range<Float> for lon/lat, so we'll test with a simple case
-        zone.setRectangle(rectangle);
+        zone.setCoordinates(Arrays.asList(new GeoPoint(0.0, 0.0)));
         
         // Mock repository behavior
         when(zoneRepository.findAll()).thenReturn(Arrays.asList());
@@ -452,7 +450,10 @@ class ZoneServiceTest {
         // Assert
         assertNotNull(savedZone.getId());
         assertTrue(savedZone.getId().startsWith("zone_"));
-        assertNotNull(savedZone.getRectangle());
+        assertNotNull(savedZone.getCoordinates());
+        assertEquals(1, savedZone.getCoordinates().size());
+        assertEquals(0.0, savedZone.getCoordinates().get(0).getLat());
+        assertEquals(0.0, savedZone.getCoordinates().get(0).getLon());
         
         // Verify repository was called
         verify(zoneRepository).findAll();
@@ -500,10 +501,7 @@ class ZoneServiceTest {
         zone.setType("commercial");
         zone.setStatus("active");
         zone.setDescription("A complete zone with all fields");
-        
-        // Create a Rectangle (using default constructor)
-        Rectangle rectangle = new Rectangle();
-        zone.setRectangle(rectangle);
+        zone.setCoordinates(Arrays.asList(new GeoPoint(0.0, 0.0)));
         
         Double[] heights = {50.0, 75.0, 100.0};
         zone.setHeights(heights);
@@ -524,7 +522,10 @@ class ZoneServiceTest {
         assertEquals("active", savedZone.getStatus());
         assertEquals("A complete zone with all fields", savedZone.getDescription());
         assertNotNull(savedZone.getCreatedAt());
-        assertNotNull(savedZone.getRectangle());
+        assertNotNull(savedZone.getCoordinates());
+        assertEquals(1, savedZone.getCoordinates().size());
+        assertEquals(0.0, savedZone.getCoordinates().get(0).getLat());
+        assertEquals(0.0, savedZone.getCoordinates().get(0).getLon());
         assertNotNull(savedZone.getHeights());
         assertEquals(3, savedZone.getHeights().length);
         

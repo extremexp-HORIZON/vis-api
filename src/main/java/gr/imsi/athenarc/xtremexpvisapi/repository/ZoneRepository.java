@@ -1,9 +1,10 @@
 package gr.imsi.athenarc.xtremexpvisapi.repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.GeoPoint;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -37,6 +38,7 @@ public class ZoneRepository {
         zone.setType(rs.getString("type"));
         zone.setDescription(rs.getString("description"));
         zone.setStatus(rs.getString("status"));
+        zone.setRadius(rs.getFloat("radius"));
 
         // Handle timestamp
         Timestamp createdAt = rs.getTimestamp("created_at");
@@ -56,10 +58,15 @@ public class ZoneRepository {
                 zone.setGeohashes(objectMapper.readValue(geohashesJson, String[].class));
             }
 
-            String rectangleJson = rs.getString("rectangle");
-            if (rectangleJson != null) {
-                zone.setRectangle(objectMapper.readValue(rectangleJson, Rectangle.class));
-            }
+           String coordinatesJson = rs.getString("coordinates");
+           if (coordinatesJson != null) {
+            zone.setCoordinates(objectMapper.readValue(coordinatesJson, new TypeReference<List<GeoPoint>>() {}));
+           }
+
+           String centerJson = rs.getString("center");
+           if (centerJson != null) {
+            zone.setCenter(objectMapper.readValue(centerJson, GeoPoint.class));
+           }
         } catch (Exception e) {
             throw new RuntimeException("Failed to deserialize JSON fields", e);
         }
@@ -69,8 +76,8 @@ public class ZoneRepository {
 
     private void insert(Zone zone) throws DataAccessException, JsonProcessingException {
         String sql = """
-            INSERT INTO zones (id, file_name, name, type, description, status, created_at, heights, geohashes, rectangle)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
+            INSERT INTO zones (id, file_name, name, type, description, status, radius, created_at, heights, geohashes, coordinates, center)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?::jsonb)
             """;
         
         jdbcTemplate.update(sql,
@@ -80,6 +87,7 @@ public class ZoneRepository {
             zone.getType(),
             zone.getDescription(),
             zone.getStatus(),
+            zone.getRadius() != null ? zone.getRadius() : null,
             // Handle createdAt - use current time if not provided
             zone.getCreatedAt() != null ? 
                 Timestamp.valueOf(java.time.LocalDateTime.parse(zone.getCreatedAt())) : 
@@ -87,7 +95,8 @@ public class ZoneRepository {
             // Serialize JSONB fields
             zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
             zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
-            zone.getRectangle() != null ? objectMapper.writeValueAsString(zone.getRectangle()) : null
+            zone.getCoordinates() != null ? objectMapper.writeValueAsString(zone.getCoordinates()) : null,
+            zone.getCenter() != null ? objectMapper.writeValueAsString(zone.getCenter()) : null
         );
     }
 
@@ -95,7 +104,7 @@ public class ZoneRepository {
         String sql = """
             UPDATE zones 
             SET name = ?, type = ?, description = ?, status = ?, 
-                heights = ?::jsonb, geohashes = ?::jsonb, rectangle = ?::jsonb
+                heights = ?::jsonb, geohashes = ?::jsonb, shape = ?::jsonb
             WHERE id = ? AND file_name = ?
             """;
         
@@ -104,9 +113,11 @@ public class ZoneRepository {
             zone.getType(),
             zone.getDescription(),
             zone.getStatus(),
+            zone.getRadius() != null ? zone.getRadius() : null,
             zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
             zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
-            zone.getRectangle() != null ? objectMapper.writeValueAsString(zone.getRectangle()) : null,
+            zone.getCoordinates() != null ? objectMapper.writeValueAsString(zone.getCoordinates()) : null,
+            zone.getCenter() != null ? objectMapper.writeValueAsString(zone.getCenter()) : null,
             zone.getId(),
             zone.getFileName()
         );

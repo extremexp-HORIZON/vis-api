@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 
 @Data
@@ -30,6 +33,10 @@ public class Zone {
     private Double[] heights; // Heights of the zone - OPTIONAL
 
     private String[] geohashes; // Geohashes of the zone - OPTIONAL
-    
-    private Rectangle rectangle; // Rectangle of the zone - OPTIONAL
+
+    private List<GeoPoint> coordinates; // Coordinates of the zone - OPTIONAL
+
+    private Float radius; // Radius of the zone in meters (if the zone is a circle) - OPTIONAL
+
+    private GeoPoint center; // Center of the zone (if the zone is a circle) - OPTIONAL
 }
