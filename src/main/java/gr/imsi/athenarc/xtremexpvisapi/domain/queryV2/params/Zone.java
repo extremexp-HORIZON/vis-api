@@ -1,11 +1,12 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonGeometry;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
 
@@ -34,9 +35,6 @@ public class Zone {
 
     private String[] geohashes; // Geohashes of the zone - OPTIONAL
 
-    private List<GeoPoint> coordinates; // Coordinates of the zone - OPTIONAL
-
-    private Float radius; // Radius of the zone in meters (if the zone is a circle) - OPTIONAL
-
-    private GeoPoint center; // Center of the zone (if the zone is a circle) - OPTIONAL
+    @JsonProperty("geometry")
+    private GeoJsonGeometry geometry; // GeoJSON geometry of the zone - OPTIONAL
 }
