@@ -16,7 +16,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 )
 @JsonSubTypes({
         @JsonSubTypes.Type(value = GeoJsonPoint.class, name = "Point"),
-        @JsonSubTypes.Type(value = GeoJsonPolygon.class, name = "Polygon")
+        @JsonSubTypes.Type(value = GeoJsonPolygon.class, name = "Polygon"),
+        @JsonSubTypes.Type(value = GeoJsonCircle.class, name = "Circle")
 })
 public interface GeoJsonGeometry {
     String getType();
