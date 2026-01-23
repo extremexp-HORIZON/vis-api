@@ -10,11 +10,9 @@ import lombok.NoArgsConstructor;
 public class GeoJsonCircle implements GeoJsonGeometry {
     private String type = "Circle";
     private List<Double> coordinates;
-    private Double radius;
     
-    public GeoJsonCircle(List<Double> coordinates, Double radius) {
+    public GeoJsonCircle(List<Double> coordinates) {
         this.type = "Circle";
         this.coordinates = coordinates;
-        this.radius = radius;
     }
 }

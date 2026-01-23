@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonGeometry;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
@@ -56,9 +56,9 @@ public class ZoneRepository {
                 zone.setGeohashes(objectMapper.readValue(geohashesJson, String[].class));
             }
 
-            String geometryJson = rs.getString("geometry");
-            if (geometryJson != null) {
-                zone.setGeometry(objectMapper.readValue(geometryJson, GeoJsonGeometry.class));
+            String featureJson = rs.getString("feature");
+            if (featureJson != null) {
+                zone.setFeature(objectMapper.readValue(featureJson, GeoJsonFeature.class));
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to deserialize JSON fields", e);
@@ -69,7 +69,7 @@ public class ZoneRepository {
 
     private void insert(Zone zone) throws DataAccessException, JsonProcessingException {
         String sql = """
-            INSERT INTO zones (id, file_name, name, type, description, status, created_at, heights, geohashes, geometry)
+            INSERT INTO zones (id, file_name, name, type, description, status, created_at, heights, geohashes, feature)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
             """;
         
@@ -87,7 +87,7 @@ public class ZoneRepository {
             // Serialize JSONB fields
             zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
             zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
-            zone.getGeometry() != null ? objectMapper.writeValueAsString(zone.getGeometry()) : null
+            zone.getFeature() != null ? objectMapper.writeValueAsString(zone.getFeature()) : null
         );
     }
 
@@ -97,7 +97,7 @@ public class ZoneRepository {
             SET name = ?, type = ?, description = ?, status = ?,
                 heights = ?::jsonb,
                 geohashes = ?::jsonb,
-                geometry = ?::jsonb
+                feature = ?::jsonb
             WHERE id = ? AND file_name = ?
             """;
         
@@ -108,7 +108,7 @@ public class ZoneRepository {
             zone.getStatus(),
             zone.getHeights() != null ? objectMapper.writeValueAsString(zone.getHeights()) : null,
             zone.getGeohashes() != null ? objectMapper.writeValueAsString(zone.getGeohashes()) : null,
-            zone.getGeometry() != null ? objectMapper.writeValueAsString(zone.getGeometry()) : null,
+            zone.getFeature() != null ? objectMapper.writeValueAsString(zone.getFeature()) : null,
             zone.getId(),
             zone.getFileName()
         );

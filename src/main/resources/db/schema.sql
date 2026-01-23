@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS zones (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     heights JSONB,
     geohashes JSONB,
-    geometry JSONB,
+    feature JSONB,
     PRIMARY KEY (id, file_name),
     CONSTRAINT zones_file_name_id_unique UNIQUE (file_name, id)
 );
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_zones_created_at ON zones(created_at);
 -- GIN indexes for JSONB columns to enable efficient JSON queries
 CREATE INDEX IF NOT EXISTS idx_zones_heights_gin ON zones USING GIN (heights);
 CREATE INDEX IF NOT EXISTS idx_zones_geohashes_gin ON zones USING GIN (geohashes);
-CREATE INDEX IF NOT EXISTS idx_zones_geometry_gin ON zones USING GIN (geometry);
+CREATE INDEX IF NOT EXISTS idx_zones_feature_gin ON zones USING GIN (feature);
 
 -- ============================================
 -- DRONE TELEMETRY TABLE
@@ -130,7 +130,7 @@ COMMENT ON COLUMN zones.file_name IS 'Name of the file that the zone was created
 COMMENT ON COLUMN zones.name IS 'Name of the zone';
 COMMENT ON COLUMN zones.heights IS 'Array of heights stored as JSONB';
 COMMENT ON COLUMN zones.geohashes IS 'Array of geohashes stored as JSONB';
-COMMENT ON COLUMN zones.geometry IS 'GeoJSON geometry stored as JSONB';
+COMMENT ON COLUMN zones.feature IS 'GeoJSON Feature stored as JSONB (includes type, geometry, and properties)';
 
 COMMENT ON TABLE drone_telemetry IS 'Stores drone telemetry data';
 

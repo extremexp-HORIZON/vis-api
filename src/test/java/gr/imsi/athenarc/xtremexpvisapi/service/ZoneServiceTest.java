@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonPoint;
 import gr.imsi.athenarc.xtremexpvisapi.repository.ZoneRepository;
 
@@ -438,7 +439,7 @@ class ZoneServiceTest {
         zone.setName("Zone with Rectangle");
         
         // Note: Rectangle uses Range<Float> for lon/lat, so we'll test with a simple case
-        zone.setGeometry(new GeoJsonPoint(List.of(0.0, 0.0)));
+        zone.setFeature(new GeoJsonFeature(new GeoJsonPoint(List.of(0.0, 0.0))));
         
         // Mock repository behavior
         when(zoneRepository.findAll()).thenReturn(Arrays.asList());
@@ -450,9 +451,10 @@ class ZoneServiceTest {
         // Assert
         assertNotNull(savedZone.getId());
         assertTrue(savedZone.getId().startsWith("zone_"));
-        assertNotNull(savedZone.getGeometry());
-        assertTrue(savedZone.getGeometry() instanceof GeoJsonPoint);
-        GeoJsonPoint geometryPoint = (GeoJsonPoint) savedZone.getGeometry();
+        assertNotNull(savedZone.getFeature());
+        assertNotNull(savedZone.getFeature().getGeometry());
+        assertTrue(savedZone.getFeature().getGeometry() instanceof GeoJsonPoint);
+        GeoJsonPoint geometryPoint = (GeoJsonPoint) savedZone.getFeature().getGeometry();
         assertEquals(0.0, geometryPoint.getCoordinates().get(0));
         assertEquals(0.0, geometryPoint.getCoordinates().get(1));
         
@@ -502,7 +504,7 @@ class ZoneServiceTest {
         zone.setType("commercial");
         zone.setStatus("active");
         zone.setDescription("A complete zone with all fields");
-        zone.setGeometry(new GeoJsonPoint(List.of(0.0, 0.0)));
+        zone.setFeature(new GeoJsonFeature(new GeoJsonPoint(List.of(0.0, 0.0))));
         
         Double[] heights = {50.0, 75.0, 100.0};
         zone.setHeights(heights);
@@ -523,9 +525,10 @@ class ZoneServiceTest {
         assertEquals("active", savedZone.getStatus());
         assertEquals("A complete zone with all fields", savedZone.getDescription());
         assertNotNull(savedZone.getCreatedAt());
-        assertNotNull(savedZone.getGeometry());
-        assertTrue(savedZone.getGeometry() instanceof GeoJsonPoint);
-        GeoJsonPoint geometryPoint = (GeoJsonPoint) savedZone.getGeometry();
+        assertNotNull(savedZone.getFeature());
+        assertNotNull(savedZone.getFeature().getGeometry());
+        assertTrue(savedZone.getFeature().getGeometry() instanceof GeoJsonPoint);
+        GeoJsonPoint geometryPoint = (GeoJsonPoint) savedZone.getFeature().getGeometry();
         assertEquals(0.0, geometryPoint.getCoordinates().get(0));
         assertEquals(0.0, geometryPoint.getCoordinates().get(1));
         assertNotNull(savedZone.getHeights());

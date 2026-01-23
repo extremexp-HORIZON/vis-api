@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 /**
  * Minimal GeoJSON geometry model (RFC 7946).
- *
+        *
  * Note: We only model the geometry types we currently need for zones.
  */
 @JsonTypeInfo(
