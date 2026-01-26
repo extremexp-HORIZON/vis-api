@@ -52,6 +52,8 @@ public class HikariDuckDBConfig {
         return String.format(
             "INSTALL postgres;" +
             "LOAD postgres;" +
+            "INSTALL spatial;" +
+            "LOAD spatial;" +
             " ATTACH 'dbname=%s user=%s password=%s host=%s port=%s' AS postgres_db (TYPE postgres, READ_ONLY);",
             postgresDatabase, postgresUsername, postgresPassword, postgresHost, postgresPort
         );

@@ -9,6 +9,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggrega
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataMapResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
 import lombok.EqualsAndHashCode;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
 
 @Data
 @NoArgsConstructor
@@ -23,8 +24,9 @@ public class MapDataRequest extends DataRequest {
     Long from;
     Long to;
     MetadataMapResponse mapMetadata;
+    GeoJsonFeature feature;
 
-    public MapDataRequest(AggregationFunction aggType, Rectangle rect, Map<String, String> categoricalFilters, List<String> groupByCols, String measureCol, Long from, Long to) {
+    public MapDataRequest(AggregationFunction aggType, Rectangle rect, Map<String, String> categoricalFilters, List<String> groupByCols, String measureCol, Long from, Long to, GeoJsonFeature feature) {
         this.aggType = aggType;
         this.rect = rect;
         this.categoricalFilters = categoricalFilters;
@@ -32,5 +34,6 @@ public class MapDataRequest extends DataRequest {
         this.measureCol = measureCol;
         this.from = from;
         this.to = to;
+        this.feature = feature;
     }
 }

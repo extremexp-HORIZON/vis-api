@@ -9,6 +9,7 @@ import java.util.Map;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.MetadataMapResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Rectangle;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
 
 @Data
 @NoArgsConstructor
@@ -22,13 +23,15 @@ public class TimeSeriesDataRequest extends DataRequest {
     Long from;
     Long to;
     MetadataMapResponse mapMetadata;
+    GeoJsonFeature feature;
 
-    public TimeSeriesDataRequest(long frequency, Rectangle rect, Map<String, String> categoricalFilters, String measureCol, Long from, Long to) {
+    public TimeSeriesDataRequest(long frequency, Rectangle rect, Map<String, String> categoricalFilters, String measureCol, Long from, Long to, GeoJsonFeature feature) {
         this.frequency = frequency;
         this.rect = rect;
         this.categoricalFilters = categoricalFilters;
         this.measureCol = measureCol;
         this.from = from;
         this.to = to;
+        this.feature = feature;
     }
 }

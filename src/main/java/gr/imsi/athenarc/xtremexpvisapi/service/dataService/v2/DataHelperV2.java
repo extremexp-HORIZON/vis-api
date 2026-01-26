@@ -52,6 +52,8 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.RectStats;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.aggregation.Aggregation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.filter.AbstractFilter;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonCircle;
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonGeometry;
 import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 import lombok.extern.java.Log;
 
@@ -350,6 +352,7 @@ public class DataHelperV2 {
                     sql.append("read_json_auto('").append(datasetPath).append("')");
                     break;
                 case DUCKDB:
+                case POSTGRESQL:
                     sql.append(getFileTypeSQL(fileType, datasetPath));
                     break;
             }
@@ -839,6 +842,31 @@ public class DataHelperV2 {
                         .collect(Collectors.joining()));
             }
 
+            if (request.getFeature() != null) {
+                GeoJsonGeometry geometry = request.getFeature().getGeometry();
+                try {
+                    String geometryGeoJson = objectMapper.writeValueAsString(geometry);
+                    if (geometry.getType().equals("Polygon")) {
+                        geometryGeoJson = geometryGeoJson.replace("'", "''");
+
+                        sql.append(" AND ST_Covers(" +
+                            "ST_GeomFromGeoJSON('" + geometryGeoJson + "'), " +
+                            "ST_Point(" + lonCol + ", " + latCol + ")" +
+                        ")");
+                    } else if (geometry.getType().equals("Circle")) {
+                        List<Double> coordinates = ((GeoJsonCircle) geometry).getCoordinates();
+                        Map<String, Object> properties = request.getFeature().getProperties();
+                        sql.append(" AND ST_DWithin(" + 
+                        "ST_Transform(ST_Point(" + lonCol + ", " + latCol + "), 'EPSG:4326', 'EPSG:3857'), " +
+                        "ST_Transform(ST_Point(" + coordinates.get(0) + ", " + coordinates.get(1) + "), 'EPSG:4326', 'EPSG:3857'), " +
+                        properties.get("radius") + " " +
+                        ")");
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to build SQL query for zone", e);
+                }
+            }
+
             if (metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries) {
                 if (request.getFrom() != null && request.getTo() != null) {
                     sql.append(" AND " + timestampCol + " BETWEEN '" + new Timestamp(request.getFrom()) + "' AND '"
@@ -1041,6 +1069,31 @@ public class DataHelperV2 {
                     lonCol,
                     request.getRect().getLon().lowerEndpoint(),
                     request.getRect().getLon().upperEndpoint()));
+
+            if (request.getFeature() != null) {
+                GeoJsonGeometry geometry = request.getFeature().getGeometry();
+                try {
+                    String geometryGeoJson = objectMapper.writeValueAsString(geometry);
+                    if (geometry.getType().equals("Polygon")) {
+                        geometryGeoJson = geometryGeoJson.replace("'", "''");
+
+                        sqlBuilder.append(" AND ST_Covers(" +
+                            "ST_GeomFromGeoJSON('" + geometryGeoJson + "'), " +
+                            "ST_Point(" + lonCol + ", " + latCol + ")" +
+                        ")");
+                    } else if (geometry.getType().equals("Circle")) {
+                        List<Double> coordinates = ((GeoJsonCircle) geometry).getCoordinates();
+                        Map<String, Object> properties = request.getFeature().getProperties();
+                        sqlBuilder.append(" AND ST_DWithin(" + 
+                        "ST_Transform(ST_Point(" + lonCol + ", " + latCol + "), 'EPSG:4326', 'EPSG:3857'), " +
+                        "ST_Transform(ST_Point(" + coordinates.get(0) + ", " + coordinates.get(1) + "), 'EPSG:4326', 'EPSG:3857'), " +
+                        properties.get("radius") + " " +
+                        ")");
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to build SQL query for zone", e);
+                }
+            }
 
             String sql = sqlBuilder.toString();
 
