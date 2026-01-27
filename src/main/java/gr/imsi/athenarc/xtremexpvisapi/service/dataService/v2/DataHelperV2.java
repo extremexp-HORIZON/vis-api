@@ -638,7 +638,7 @@ public class DataHelperV2 {
         rowRs.close();
         checkRowStmt.close();
 
-        if (!foundInMeta) {
+        if (!foundInMeta || dataSource.getFormat().equals("postgresql")) {
             // 3. If not found, read CSV and compute metadata, then insert into meta table
             // Detect delimiter
             String latCol = metadataResponse.getOriginalColumns().stream()
