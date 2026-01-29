@@ -1,12 +1,12 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params;
 
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotBlank;
+import org.geojson.Feature;
 
 @Data
 @Builder
@@ -33,5 +33,5 @@ public class Zone {
 
     private String[] geohashes; // Geohashes of the zone - OPTIONAL
 
-    private GeoJsonFeature feature; // GeoJSON Feature of the zone - OPTIONAL
+    private Feature feature; // GeoJSON Feature of the zone - OPTIONAL
 }

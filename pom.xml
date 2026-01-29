@@ -155,6 +155,12 @@
 			<artifactId>geo</artifactId>
 			<version>0.8.1</version>
 		</dependency>
+		<!-- GeoJSON POJOs for Jackson (RFC 7946-like) -->
+		<dependency>
+			<groupId>de.grundid.opendatalab</groupId>
+			<artifactId>geojson-jackson</artifactId>
+			<version>1.14</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<extensions>

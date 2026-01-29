@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.Zone;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryV2.params.geojson.GeoJsonFeature;
+import org.geojson.Feature;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
@@ -58,7 +58,7 @@ public class ZoneRepository {
 
             String featureJson = rs.getString("feature");
             if (featureJson != null) {
-                zone.setFeature(objectMapper.readValue(featureJson, GeoJsonFeature.class));
+                zone.setFeature(objectMapper.readValue(featureJson, Feature.class));
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to deserialize JSON fields", e);
