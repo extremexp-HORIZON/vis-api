@@ -391,6 +391,24 @@ public class DataHelperV2 {
     }
 
     /**
+     * Reads a double from a ResultSet column, using a default when the value is NULL.
+     * DuckDB (and some drivers) can return NULL for MIN/MAX when columns contain nulls;
+     * getDouble() would throw NumberFormatException, so we use getObject() and convert safely.
+     */
+    private static double getDoubleOrNull(ResultSet rs, String columnLabel, double defaultValue) throws SQLException {
+        Object o = rs.getObject(columnLabel);
+        if (o == null) return defaultValue;
+        if (o instanceof Number) return ((Number) o).doubleValue();
+        String s = String.valueOf(o).trim();
+        if (s.isEmpty() || "NULL".equalsIgnoreCase(s)) return defaultValue;
+        try {
+            return Double.parseDouble(s);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
      * Builds the WHERE clause for SQL queries from a list of filters.
      *
      * @param filters the list of filters to convert to SQL
@@ -699,10 +717,11 @@ public class DataHelperV2 {
             if (rs.next()) {
                 minTs = metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries ? rs.getTimestamp("min_time") : null;
                 maxTs = metadataResponse.getDatasetType() == gr.imsi.athenarc.xtremexpvisapi.domain.Metadata.DatasetType.timeseries ? rs.getTimestamp("max_time") : null;
-                queryXMin = rs.getDouble("queryXMin");
-                queryXMax = rs.getDouble("queryXMax");
-                queryYMin = rs.getDouble("queryYMin");
-                queryYMax = rs.getDouble("queryYMax");
+                queryXMin = getDoubleOrNull(rs, "queryXMin", xMin);
+                queryYMin = getDoubleOrNull(rs, "queryYMin", yMin);
+                // When DuckDB returns NULL for MAX (e.g. column has nulls), use min so max is relative to min (zero extent)
+                queryXMax = getDoubleOrNull(rs, "queryXMax", queryXMin);
+                queryYMax = getDoubleOrNull(rs, "queryYMax", queryYMin);
                 metadataResponse.setTimeMin(minTs != null ? minTs.getTime() : 0);
                 metadataResponse.setTimeMax(maxTs != null ? maxTs.getTime() : 0);
                 metadataResponse.setXMin(xMin);
