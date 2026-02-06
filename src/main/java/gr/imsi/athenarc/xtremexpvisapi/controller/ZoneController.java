@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.validation.Valid;
 
 import gr.imsi.athenarc.xtremexpvisapi.service.ZoneService;
@@ -364,6 +366,33 @@ public class ZoneController {
             
         } catch (Exception e) {
             log.severe("REST: Failed to retrieve all fileNames: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+    /**
+     * Import zones from a file
+     * POST /api/zones/import
+     */
+    @PostMapping("/import")
+    public ResponseEntity<List<Zone>> importZonesFromFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("fileName") String fileName) {
+        try {
+            log.info("REST: Importing zones from file: " + file + " for fileName: " + fileName);
+            
+            if (file == null || file.isEmpty()) {
+                log.warning("REST: Invalid file parameter: " + file);
+                return ResponseEntity.badRequest().build();
+            }
+
+            List<Zone> zones = zoneService.importZonesFromFile(file, fileName);
+            log.info("REST: Successfully imported " + zones.size() + " zones from file: " + file);
+            return ResponseEntity.ok(zones);
+        }
+        catch (Exception e) {
+            log.severe("REST: Failed to import zones from file: " + file + " for fileName: " + fileName + ". Error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

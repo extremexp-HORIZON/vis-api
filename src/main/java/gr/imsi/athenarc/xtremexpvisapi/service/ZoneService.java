@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import gr.imsi.athenarc.xtremexpvisapi.repository.ZoneRepository;
 import lombok.extern.java.Log;
@@ -50,7 +52,7 @@ public class ZoneService {
             
             // Generate ID if not provided
             if (isIdEmpty(zone.getId())) {
-                String generatedId = generateUniqueId();
+                String generatedId = UUID.randomUUID().toString();
                 zone.setId(generatedId);
                 log.info("Generated unique ID for zone: " + generatedId);
             }
@@ -68,48 +70,6 @@ public class ZoneService {
         } catch (Exception e) {
             log.severe("Failed to save zone: " + zone + ". Error: " + e.getMessage());
             throw new RuntimeException("Failed to save zone", e);
-        }
-    }
-
-    /**
-     * Generate a unique ID for a zone
-     * 
-     * @return a unique string ID
-     */
-    private String generateUniqueId() {
-        String generatedId;
-        int attempts = 0;
-        final int maxAttempts = 10;
-        
-        do {
-            generatedId = "zone_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-            attempts++;
-            
-            // Check if this ID already exists across all files
-            if (attempts > maxAttempts) {
-                // Fallback to timestamp-based ID if UUID generation fails
-                generatedId = "zone_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 1000);
-                log.warning("UUID generation failed after " + maxAttempts + " attempts, using fallback ID: " + generatedId);
-                break;
-            }
-        } while (idExists(generatedId));
-        
-        return generatedId;
-    }
-    
-    /**
-     * Check if a zone ID already exists across all files
-     * 
-     * @param id the ID to check
-     * @return true if the ID exists, false otherwise
-     */
-    private boolean idExists(String id) {
-        try {
-            List<Zone> allZones = zoneRepository.findAll();
-            return allZones.stream().anyMatch(zone -> id.equals(zone.getId()));
-        } catch (Exception e) {
-            log.warning("Could not check ID uniqueness, assuming ID is unique: " + e.getMessage());
-            return false;
         }
     }
 
@@ -387,6 +347,36 @@ public class ZoneService {
         } catch (Exception e) {
             log.severe("Failed to retrieve all fileNames. Error: " + e.getMessage());
             throw new RuntimeException("Failed to retrieve all fileNames", e);
+        }
+    }
+
+    public List<Zone> importZonesFromFile(MultipartFile file, String fileName) {
+        try {
+            log.info("Importing zones from file: " + file + " for fileName: " + fileName);
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("File cannot be null or empty");
+            }
+            if (isIdEmpty(fileName)) {
+                throw new IllegalArgumentException("FileName cannot be null or empty");
+            }
+            String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
+            if (extension.equals("json") || extension.equals("geojson")) {
+                // TODO: Later add support for kml files
+                List<Zone> zones = zoneRepository.importZonesFromFile(file, fileName);
+                log.info("Successfully imported " + zones.size() + " zones from file: " + file + " for fileName: " + fileName);
+                return zones;
+            } else {
+                log.severe("Unsupported file type: " + file.getName());
+                throw new IllegalArgumentException("Unsupported file type: " + file.getName());
+            }
+        }
+        catch (IllegalArgumentException e) {
+            log.severe("Validation error while importing zones from file: " + e.getMessage());
+            throw e;
+        }
+        catch (Exception e) {
+            log.severe("Failed to import zones from file: " + file + " for fileName: " + fileName + ". Error: " + e.getMessage());
+            throw new RuntimeException("Failed to import zones from file", e);
         }
     }
 }

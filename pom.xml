@@ -161,6 +161,17 @@
 			<artifactId>geojson-jackson</artifactId>
 			<version>1.14</version>
 		</dependency>
+		<dependency>
+			<groupId>org.locationtech.jts</groupId>
+			<artifactId>jts-core</artifactId>
+			<version>1.19.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.locationtech.jts.io</groupId>
+			<artifactId>jts-io-common</artifactId>
+			<version>1.19.0</version>
+		</dependency>
+		
 	</dependencies>
 	<build>
 		<extensions>
