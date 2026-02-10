@@ -378,7 +378,8 @@ public class ZoneController {
     @PostMapping("/import")
     public ResponseEntity<List<Zone>> importZonesFromFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("fileName") String fileName) {
+            @RequestParam("fileName") String fileName,
+            @RequestParam("type") String type) {
         try {
             log.info("REST: Importing zones from file: " + file + " for fileName: " + fileName);
             
@@ -387,7 +388,7 @@ public class ZoneController {
                 return ResponseEntity.badRequest().build();
             }
 
-            List<Zone> zones = zoneService.importZonesFromFile(file, fileName);
+            List<Zone> zones = zoneService.importZonesFromFile(file, fileName, type);
             log.info("REST: Successfully imported " + zones.size() + " zones from file: " + file);
             return ResponseEntity.ok(zones);
         }

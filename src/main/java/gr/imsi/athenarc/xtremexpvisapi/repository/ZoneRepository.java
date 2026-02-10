@@ -468,7 +468,7 @@ public class ZoneRepository {
      * @return the created Zone
      * @throws ParseException 
      */
-    private Zone createZoneFromFeature(Feature feature, String fileName, String importFileName, Integer zoneIndex) throws JsonProcessingException, ParseException {
+    private Zone createZoneFromFeature(Feature feature, String fileName, String importFileName, Integer zoneIndex, String type) throws JsonProcessingException, ParseException {
         Zone zone = new Zone();
         Map<String, Object> properties = feature.getProperties() != null ? feature.getProperties() : Collections.emptyMap();
 
@@ -495,7 +495,7 @@ public class ZoneRepository {
         if (zoneType != null && !zoneType.isEmpty()) {
             zone.setType(zoneType);
         } else {
-            zone.setType("general");
+            zone.setType(type);
         }
         String status = properties.get("status") != null ? properties.get("status").toString() : null;
         if (status != null && !status.isEmpty()) {
@@ -510,19 +510,19 @@ public class ZoneRepository {
         return zone;
     }
 
-    public List<Zone> importZonesFromFile(MultipartFile file, String fileName) throws IOException, ParseException {
+    public List<Zone> importZonesFromFile(MultipartFile file, String fileName, String type) throws IOException, ParseException {
         List<Zone> zones = new ArrayList<>();
 
         JsonNode jsonNode = objectMapper.readTree(file.getInputStream());
         if (jsonNode.get("type").asText().equals("FeatureCollection")) {
             FeatureCollection featureCollection = objectMapper.treeToValue(jsonNode, FeatureCollection.class);
             for (Feature feature : featureCollection.getFeatures()) {
-                Zone zone = createZoneFromFeature(feature, fileName, file.getOriginalFilename(), zones.size());
+                Zone zone = createZoneFromFeature(feature, fileName, file.getOriginalFilename(), zones.size(), type);
                 zones.add(zone);
             }
         } else if (jsonNode.get("type").asText().equals("Feature")) {
             Feature feature = objectMapper.treeToValue(jsonNode, Feature.class);
-            Zone zone = createZoneFromFeature(feature, fileName, file.getOriginalFilename(), null);
+            Zone zone = createZoneFromFeature(feature, fileName, file.getOriginalFilename(), null, type);
             zones.add(zone);
         } else {
             throw new IllegalArgumentException("Unsupported file type: " + file.getContentType());

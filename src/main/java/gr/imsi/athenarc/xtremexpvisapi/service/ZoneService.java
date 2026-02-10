@@ -350,7 +350,7 @@ public class ZoneService {
         }
     }
 
-    public List<Zone> importZonesFromFile(MultipartFile file, String fileName) {
+    public List<Zone> importZonesFromFile(MultipartFile file, String fileName, String type) {
         try {
             log.info("Importing zones from file: " + file + " for fileName: " + fileName);
             if (file == null || file.isEmpty()) {
@@ -362,7 +362,7 @@ public class ZoneService {
             String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
             if (extension.equals("json") || extension.equals("geojson")) {
                 // TODO: Later add support for kml files
-                List<Zone> zones = zoneRepository.importZonesFromFile(file, fileName);
+                List<Zone> zones = zoneRepository.importZonesFromFile(file, fileName, type);
                 log.info("Successfully imported " + zones.size() + " zones from file: " + file + " for fileName: " + fileName);
                 return zones;
             } else {
