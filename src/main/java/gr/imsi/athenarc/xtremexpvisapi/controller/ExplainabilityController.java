@@ -91,10 +91,4 @@ public class ExplainabilityController {
         return explainabilityService.runExperimentHighlights(runsJson);
     }
 
-    // @PostMapping("/experiment-highlights")
-    // public JsonNode runExperimentHighlights(@RequestBody String runsJson)
-    //         throws JsonProcessingException, InvalidProtocolBufferException {
-    //     LOG.info("Received experiment highlights runs payload");
-    //     return explainabilityService.runExperimentHighlights(runsJson);
-    // }
 }

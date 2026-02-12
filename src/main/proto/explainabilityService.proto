@@ -155,4 +155,6 @@ message ExperimentRunsRequest {
 message ExperimentRunsResponse {
     bool success = 1;
     string message = 2;
+    double elapsed_time = 3;
+    string cluster_insights_json = 4;
 }
