@@ -21,6 +21,8 @@ import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
 import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
+import explainabilityService.ExperimentRunsRequest;
+import explainabilityService.ExperimentRunsResponse;
 import explainabilityService.FeatureImportanceRequest;
 import explainabilityService.FeatureImportanceResponse;
 import io.grpc.ManagedChannel;
@@ -115,6 +117,20 @@ public class ExplainabilityService extends ExplanationsImplBase {
         // Use the reused stub - no channel creation/shutdown
         FeatureImportanceResponse response = stub.getFeatureImportance(request);
         
+        String jsonString = JsonFormat.printer().print(response);
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readTree(jsonString);
+    }
+
+    public JsonNode runExperimentHighlights(String runsJson)
+                    throws InvalidProtocolBufferException, JsonProcessingException {
+
+        ExperimentRunsRequest request = ExperimentRunsRequest.newBuilder()
+                        .setRunsJson(runsJson)
+                        .build();
+
+        ExperimentRunsResponse response = stub.runExperimentHighlights(request);
+
         String jsonString = JsonFormat.printer().print(response);
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readTree(jsonString);

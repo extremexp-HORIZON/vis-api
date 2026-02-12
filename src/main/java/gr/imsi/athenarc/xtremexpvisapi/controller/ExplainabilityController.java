@@ -11,11 +11,20 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.http.ResponseEntity;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityService;
+import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
+import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
+
+import java.util.Collections;
+import java.util.List;
 
 @RestController
 @CrossOrigin
@@ -25,9 +34,15 @@ public class ExplainabilityController {
     private static final Logger LOG = LoggerFactory.getLogger(ExplainabilityController.class);
 
     private final ExplainabilityService explainabilityService;
+    private final ExperimentServiceFactory experimentServiceFactory;
+    private final ObjectMapper objectMapper;
 
-    public ExplainabilityController(ExplainabilityService explainabilityService) {
+    public ExplainabilityController(ExplainabilityService explainabilityService,
+                                    ExperimentServiceFactory experimentServiceFactory,
+                                    ObjectMapper objectMapper) {
         this.explainabilityService = explainabilityService;
+        this.experimentServiceFactory = experimentServiceFactory;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/{experimentId}/{runId}")
@@ -54,4 +69,32 @@ public class ExplainabilityController {
         LOG.info("Received request for affected ppl");
         return explainabilityService.ApplyAffectedActions();
     }
+
+    // Convenience endpoint: backend fetches runs for the experiment and forwards
+    // them to the explainability gRPC service, so clients don't need to
+    // manually copy/paste JSON.
+    @PostMapping("/{experimentId}/experiment-highlights")
+    public JsonNode runExperimentHighlightsForExperiment(@PathVariable String experimentId)
+            throws JsonProcessingException, InvalidProtocolBufferException {
+
+        LOG.info("Received experiment highlights request for experiment {}", experimentId);
+
+        ResponseEntity<List<Run>> response =
+                experimentServiceFactory.getActiveService().getRunsForExperiment(experimentId);
+
+        List<Run> runs = response.getBody();
+        if (runs == null) {
+            runs = Collections.emptyList();
+        }
+
+        String runsJson = objectMapper.writeValueAsString(runs);
+        return explainabilityService.runExperimentHighlights(runsJson);
+    }
+
+    // @PostMapping("/experiment-highlights")
+    // public JsonNode runExperimentHighlights(@RequestBody String runsJson)
+    //         throws JsonProcessingException, InvalidProtocolBufferException {
+    //     LOG.info("Received experiment highlights runs payload");
+    //     return explainabilityService.runExperimentHighlights(runsJson);
+    // }
 }

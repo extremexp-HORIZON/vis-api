@@ -7,6 +7,7 @@ service Explanations {
     rpc GetExplanation (ExplanationsRequest) returns (ExplanationsResponse);
     rpc ApplyAffectedActions (ApplyAffectedActionsRequest) returns (ApplyAffectedActionsResponse);
     rpc GetFeatureImportance (FeatureImportanceRequest) returns (FeatureImportanceResponse); 
+    rpc RunExperimentHighlights (ExperimentRunsRequest) returns (ExperimentRunsResponse);
 }
 
 //------------------ Pipeline - Model Explainability --------------------------------------------------
@@ -143,4 +144,15 @@ message FeatureImportanceRequest {
 
 message FeatureImportanceResponse {
     repeated FeatureImportance feature_importances = 1; // List of top 5 important features
+}
+
+//------------------ Experiment Highlights / Runs Processing ------------------
+
+message ExperimentRunsRequest {
+    string runs_json = 1;
+}
+
+message ExperimentRunsResponse {
+    bool success = 1;
+    string message = 2;
 }

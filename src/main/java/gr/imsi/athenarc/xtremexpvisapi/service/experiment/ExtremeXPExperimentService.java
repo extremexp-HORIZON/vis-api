@@ -145,7 +145,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
+    // @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
     public ResponseEntity<Experiment> getExperimentById(String experimentId) {
         String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
 
@@ -224,7 +224,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    @Cacheable(value = "runsCache", key = "'runsfor::' + #experimentId", unless = "#result.body.?[status.name() != 'COMPLETED'].size() > 0")
+    // @Cacheable(value = "runsCache", key = "'runsfor::' + #experimentId", unless = "#result.body.?[status.name() != 'COMPLETED'].size() > 0")
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
         String requestUrl = workflowsApiUrl + "/workflows-query";
 
@@ -260,7 +260,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId + '::' + #runId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
+    // @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId + '::' + #runId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
 
     public ResponseEntity<Run> getRunById(String experimentId, String runId) {
         try {
@@ -389,66 +389,68 @@ public class ExtremeXPExperimentService implements ExperimentService {
     @Override
     public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId,
             UserEvaluation userEvaluation) {
-        String requestUrl = workflowsApiUrl + "/metrics-query";
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("experimentId", experimentId);
-        requestBody.put("parent_id", runId);
-        requestBody.put("name", "rating");
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headersInitializer());
+        String queryUrl = workflowsApiUrl + "/metrics-query";
+        Map<String, Object> queryBody = new HashMap<>();
+        queryBody.put("experimentId", experimentId);
+        queryBody.put("parent_id", runId);
+        queryBody.put("name", "rating");
+        HttpEntity<Map<String, Object>> queryEntity = new HttpEntity<>(queryBody, headersInitializer());
+
         try {
-            ResponseEntity<List> response = restTemplate.exchange(
-                    requestUrl, HttpMethod.POST, entity, List.class);
-            List<Map<String, Object>> responseList = response.getBody();
+            // Query once to check if rating metric exists
+            ResponseEntity<List> queryResponse = restTemplate.exchange(
+                    queryUrl, HttpMethod.POST, queryEntity, List.class);
+            List<Map<String, Object>> responseList = queryResponse.getBody();
+
+            String ratingValue = userEvaluation.getRating().toString();
+
+            // Determine if we need to create or update based on query result
             if (responseList == null || responseList.isEmpty()) {
-                // System.out.println("No metrics found for the given experiment and run.");
-                String putUrl = workflowsApiUrl + "/metrics";
-                Map<String, Object> putBody = new HashMap<>();
-                // putBody.put("experimentId", experimentId);
-                putBody.put("parent_id", runId);
-                putBody.put("name", "rating");
-                putBody.put("parent_type", "workflow");
-                // putBody.put("semanticType", "user_rating");
-                // putBody.put("step", 1);
-                putBody.put("value", userEvaluation.getRating().toString());
-                HttpEntity<Map<String, Object>> putEntity = new HttpEntity<>(putBody, headersInitializer());
-                ResponseEntity<String> putResponse = restTemplate.exchange(
-                        putUrl, HttpMethod.PUT, putEntity, String.class);
-                if (putResponse.getStatusCode() == HttpStatus.OK) {
-                    return ResponseEntity
-                            .ok(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
+                // CREATE: Rating doesn't exist, use PUT to /metrics
+                String createUrl = workflowsApiUrl + "/metrics";
+                Map<String, Object> createBody = new HashMap<>();
+                createBody.put("parent_id", runId);
+                createBody.put("name", "rating");
+                createBody.put("parent_type", "workflow");
+                createBody.put("value", ratingValue);
+                HttpEntity<Map<String, Object>> createEntity = new HttpEntity<>(createBody, headersInitializer());
+
+                ResponseEntity<String> createResponse = restTemplate.exchange(
+                        createUrl, HttpMethod.PUT, createEntity, String.class);
+
+                if (createResponse.getStatusCode() == HttpStatus.CREATED ||
+                    createResponse.getStatusCode() == HttpStatus.OK) {
+                    return ResponseEntity.status(HttpStatus.CREATED)
+                            .body(new UserEvaluationResponse("success", "User evaluation submitted successfully"));
                 } else {
-                    return ResponseEntity.status(putResponse.getStatusCode()).build();
+                    return ResponseEntity.status(createResponse.getStatusCode())
+                            .body(new UserEvaluationResponse("failed", "Failed to submit user evaluation"));
                 }
-
-                // return ResponseEntity.ok(new UserEvaluationResponse("failed", "User
-                // evaluation was not submitted "));
             } else {
-                Map<String, Object> metric = responseList.get(0); // assuming only one relevant metric
-                String metricId = (String) metric.get("id");
-                // Construct the URL
-                String postUrl = workflowsApiUrl + "/metrics/" + metricId;
-                // Create the body
-                Map<String, Object> postBody = new HashMap<>();
-                postBody.put("value", userEvaluation.getRating().toString());
+                // UPDATE: Rating exists, use POST to /metrics/{id}
+                Map<String, Object> existingMetric = responseList.get(0);
+                String metricId = (String) existingMetric.get("id");
+                String updateUrl = workflowsApiUrl + "/metrics/" + metricId;
+                Map<String, Object> updateBody = new HashMap<>();
+                updateBody.put("value", ratingValue);
+                HttpEntity<Map<String, Object>> updateEntity = new HttpEntity<>(updateBody, headersInitializer());
 
-                // Create the request
-                HttpEntity<Map<String, Object>> postEntity = new HttpEntity<>(postBody, headersInitializer());
+                ResponseEntity<String> updateResponse = restTemplate.exchange(
+                        updateUrl, HttpMethod.POST, updateEntity, String.class);
 
-                // Send POST request
-                ResponseEntity<String> postResponse = restTemplate.exchange(
-                        postUrl, HttpMethod.POST, postEntity, String.class);
-                if (postResponse.getStatusCode() == HttpStatus.OK) {
-                    return ResponseEntity
-                            .ok(new UserEvaluationResponse("success", "User evaluation updated successfully"));
+                if (updateResponse.getStatusCode() == HttpStatus.OK) {
+                    return ResponseEntity.ok(new UserEvaluationResponse("success", "User evaluation updated successfully"));
                 } else {
-                    return ResponseEntity.status(postResponse.getStatusCode()).body(
-                            new UserEvaluationResponse("failed", "Failed to update existing user evaluation"));
+                    return ResponseEntity.status(updateResponse.getStatusCode())
+                            .body(new UserEvaluationResponse("failed", "Failed to update user evaluation"));
                 }
             }
 
         } catch (Exception e) {
+            log.severe("Error submitting user evaluation: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new UserEvaluationResponse("failed", "Internal server error"));
         }
     }
 
