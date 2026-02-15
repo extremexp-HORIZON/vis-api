@@ -145,7 +145,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    // @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
+    @Cacheable(value = "experimentCache", key = "#experimentId", unless = "#result.body == null or #result.body.status != 'completed'")
     public ResponseEntity<Experiment> getExperimentById(String experimentId) {
         String requestUrl = workflowsApiUrl + "/experiments/" + experimentId;
 
@@ -224,7 +224,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
         }
     }
 
-    // @Cacheable(value = "runsCache", key = "'runsfor::' + #experimentId", unless = "#result.body.?[status.name() != 'COMPLETED'].size() > 0")
+    @Cacheable(value = "runsCache", key = "'runsfor::' + #experimentId", unless = "#result.body.?[status.name() != 'COMPLETED'].size() > 0")
     public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
         String requestUrl = workflowsApiUrl + "/workflows-query";
 
@@ -260,7 +260,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
-    // @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId + '::' + #runId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
+    @Cacheable(value = "runsCache", key = "'runfor::' + #experimentId + '::' + #runId", unless = "#result.body.getStatus().name() != 'COMPLETED'")
 
     public ResponseEntity<Run> getRunById(String experimentId, String runId) {
         try {

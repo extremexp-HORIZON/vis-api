@@ -156,5 +156,115 @@ message ExperimentRunsResponse {
     bool success = 1;
     string message = 2;
     double elapsed_time = 3;
-    string cluster_insights_json = 4;
+
+    message ClusterMetadata {
+        int32 n_workflows = 1;
+        double percentage_of_total = 2;
+        string medoid_workflow_id = 3;
+        int32 medoid_index = 4;
+    }
+
+    message FeatureStats {
+        double cluster_mean = 1;
+        double cluster_std = 2;
+        double other_clusters_mean = 3;
+        double other_clusters_std = 4;
+        string value_category = 5;
+        double distinctiveness_score = 6;
+        double z_score = 7;
+    }
+
+    message FeatureSelectionInsights {
+        int32 n_features_selected = 1;
+        int32 n_metrics_total = 2;
+        repeated string selected_features = 3;
+        map<string, FeatureStats> feature_statistics = 4;
+    }
+
+    message HighShapFeatures {
+        repeated string features = 1;
+        map<string, FeatureStats> feature_statistics = 2;
+    }
+
+    message CorrelatedFeatureRemoval {
+        double max_relationship = 1;
+        string related_to = 2;
+        repeated string all_relationships = 3;
+    }
+
+    message CorrelationAnalysis {
+        int32 n_removed_features = 1;
+        map<string, CorrelatedFeatureRemoval> removed_features = 2;
+    }
+
+    message TradeOff {
+        string metric_1 = 1;
+        string metric_2 = 2;
+        string relationship_type = 3;
+        double relationship_strength = 4;
+        int32 is_tradeoff = 5;
+    }
+
+    message TradeOffAnalysis {
+        int32 n_total_tradeoffs = 1;
+        int32 n_strong_tradeoffs = 2;
+        double strong_threshold = 3;
+        repeated TradeOff strong_tradeoffs = 4;
+    }
+
+    message HyperparameterPattern {
+        string dominant_value = 1;
+        double dominant_percentage = 2;
+        int32 unique_values = 3;
+        map<string, int32> value_distribution = 4;
+    }
+
+    message DecisionTreeRule {
+        string rule = 1;
+        double f1_score = 2;
+        double precision = 3;
+        double recall = 4;
+        int32 n_workflows_in_cluster = 5;
+        double combined_score = 6;
+    }
+
+    message DistinctFeatures {
+        int32 n_distinct_features = 1;
+        repeated string features = 2;
+        map<string, FeatureStats> feature_statistics = 3;
+    }
+
+    message ModelEvaluation {
+        double test_auc = 1;
+        double balanced_accuracy = 2;
+        double precision = 3;
+        double recall = 4;
+        double f1_score = 5;
+        double model_quality_score = 6;
+        string quality_interpretation = 7;
+
+        message ConfusionMatrix {
+            int32 true_negatives = 1;
+            int32 false_positives = 2;
+            int32 false_negatives = 3;
+            int32 true_positives = 4;
+        }
+
+        ConfusionMatrix confusion_matrix = 8;
+    }
+
+    message ClusterInsights {
+        int32 cluster_id = 1;
+        ClusterMetadata metadata = 2;
+        FeatureSelectionInsights feature_selection = 3;
+        ModelEvaluation model_evaluation = 4;
+        HighShapFeatures high_shap_features = 5;
+        CorrelationAnalysis correlation_analysis = 6;
+        TradeOffAnalysis trade_off_analysis = 7;
+        map<string, HyperparameterPattern> hyperparameter_patterns = 8;
+        repeated DecisionTreeRule decision_tree_rules = 9;
+        DistinctFeatures distinct_features = 10;
+    }
+
+    map<string, ClusterInsights> cluster_insights = 4;
 }

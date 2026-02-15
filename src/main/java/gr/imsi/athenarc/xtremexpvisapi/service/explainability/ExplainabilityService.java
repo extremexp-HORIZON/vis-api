@@ -133,7 +133,27 @@ public class ExplainabilityService extends ExplanationsImplBase {
 
         String jsonString = JsonFormat.printer().print(response);
         ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readTree(jsonString);
+
+        // Parse the gRPC response to JSON
+        JsonNode root = objectMapper.readTree(jsonString);
+
+        // Backward compatibility: if only clusterInsightsJson exists, still expose
+        // a parsed clusterInsights object for REST clients.
+        if (root.has("clusterInsightsJson") && !root.has("clusterInsights")
+                && root.get("clusterInsightsJson").isTextual()) {
+            String insightsStr = root.get("clusterInsightsJson").asText();
+            try {
+                JsonNode insightsNode = objectMapper.readTree(insightsStr);
+                if (root.isObject()) {
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) root).set("clusterInsights", insightsNode);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) root).remove("clusterInsightsJson");
+                }
+            } catch (JsonProcessingException e) {
+                // If parsing fails, keep the original string field
+            }
+        }
+
+        return root;
     }
 
     @PreDestroy
