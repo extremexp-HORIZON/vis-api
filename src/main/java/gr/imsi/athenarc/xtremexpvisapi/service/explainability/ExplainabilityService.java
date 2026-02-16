@@ -153,6 +153,22 @@ public class ExplainabilityService extends ExplanationsImplBase {
             }
         }
 
+        // New: if PCA/MCA component space is provided as JSON string (pcaSpaceJson),
+        // parse it into a nested JSON array field "pcaSpace" for easier UI consumption.
+        if (root.has("pcaSpaceJson") && !root.has("pcaSpace")
+                && root.get("pcaSpaceJson").isTextual()) {
+            String pcaStr = root.get("pcaSpaceJson").asText();
+            try {
+                JsonNode pcaNode = objectMapper.readTree(pcaStr);
+                if (root.isObject()) {
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) root).set("pcaSpace", pcaNode);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) root).remove("pcaSpaceJson");
+                }
+            } catch (JsonProcessingException e) {
+                // If parsing fails, keep the original string field
+            }
+        }
+
         return root;
     }
 

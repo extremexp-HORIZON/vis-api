@@ -267,4 +267,9 @@ message ExperimentRunsResponse {
     }
 
     map<string, ClusterInsights> cluster_insights = 4;
+
+    // JSON-encoded PCA/MCA component space (X_processed_df) used for clustering
+    // Serialized as an array of records, one per workflow, including cluster labels
+    // and, when available, the corresponding workflowId.
+    string pca_space_json = 5;
 }

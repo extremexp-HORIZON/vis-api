@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,6 +73,7 @@ public class ExplainabilityController {
     // Convenience endpoint: backend fetches runs for the experiment and forwards
     // them to the explainability gRPC service, so clients don't need to
     // manually copy/paste JSON.
+    @Cacheable(value = "experiment-highlights", key = "#experimentId")
     @PostMapping("/{experimentId}/experiment-highlights")
     public JsonNode runExperimentHighlightsForExperiment(@PathVariable String experimentId)
             throws JsonProcessingException, InvalidProtocolBufferException {
