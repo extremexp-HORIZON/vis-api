@@ -10,7 +10,10 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.io.IOException;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
@@ -29,6 +32,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * MLflow implementation of the ExperimentService.
@@ -579,7 +583,74 @@ public class MLflowExperimentService implements ExperimentService {
 
     private List<DataAsset> getArtifactsAsDataAssets(String runId, Map<String, Object> info) {
         String artifactUri = (String) info.get("artifact_uri");
+
+        // Try fast local filesystem traversal first (when artifacts are stored locally)
+        if (mlflowWorkingDirectory != null && !mlflowWorkingDirectory.isEmpty()) {
+            List<DataAsset> fsAssets = getArtifactsFromFilesystem(artifactUri);
+            if (!fsAssets.isEmpty()) {
+                return fsAssets;
+            }
+        }
+
+        // Fallback to HTTP-based recursive listing via MLflow API
         return getArtifactsRecursively(runId, "", artifactUri);
+    }
+
+    /**
+     * Fast path: when MLflow artifacts are stored on a filesystem that is
+     * locally accessible via {@code mlflowWorkingDirectory}, walk the
+     * directory tree directly instead of making many HTTP /artifacts/list calls.
+     */
+    private List<DataAsset> getArtifactsFromFilesystem(String artifactUri) {
+        List<DataAsset> assets = new ArrayList<>();
+
+        if (artifactUri == null || artifactUri.isEmpty()) {
+            return assets;
+        }
+
+        try {
+            // Example artifactUri: mlflow-artifacts:/1/abcdef1234567890/artifacts
+            String relative = artifactUri.replace("mlflow-artifacts:/", "");
+            Path root = Paths.get(mlflowWorkingDirectory).resolve(relative);
+
+            if (!Files.exists(root)) {
+                LOG.warn("Artifacts root path does not exist: {}", root);
+                return assets;
+            }
+
+            try (Stream<Path> stream = Files.walk(root)) {
+                stream
+                    .filter(Files::isRegularFile)
+                    .forEach(p -> {
+                        Path relPath = root.relativize(p);
+                        String rel = relPath.toString().replace('\\', '/');
+
+                        DataAsset asset = new DataAsset();
+                        asset.setName(getFileName(rel));
+                        asset.setSourceType(SourceType.local);
+                        asset.setSource(p.toString().replace('\\', '/'));
+                        asset.setRole(DataAsset.Role.OUTPUT);
+
+                        int lastSlash = rel.lastIndexOf('/');
+                        if (lastSlash > 0) {
+                            asset.setFolder(rel.substring(0, lastSlash));
+                        }
+
+                        int lastDot = rel.lastIndexOf('.');
+                        if (lastDot > 0) {
+                            asset.setFormat(rel.substring(lastDot + 1).toLowerCase());
+                        }
+
+                        assets.add(asset);
+                    });
+            }
+        } catch (IOException e) {
+            LOG.error("Error walking artifacts filesystem for uri {}", artifactUri, e);
+        } catch (Exception e) {
+            LOG.error("Unexpected error while walking artifacts filesystem for uri {}", artifactUri, e);
+        }
+
+        return assets;
     }
 
     private String getRunArtifactUri(String runId) {
