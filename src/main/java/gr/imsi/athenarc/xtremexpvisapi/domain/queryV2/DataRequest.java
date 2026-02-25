@@ -20,5 +20,9 @@ public class DataRequest {
     List<String> groupBy;
     List<AbstractFilter> filters;
     List<Aggregation> aggregations;
+    // Optional flag to control whether executeDataRequest should compute
+    // the total number of matching rows (ignoring LIMIT/OFFSET).
+    // Null means "use default behavior" (count enabled).
+    Boolean includeTotalItems;
 }
 

@@ -92,19 +92,29 @@ public class DataServiceV2 {
 
                         try (Connection connection = dataSource.getConnection();
                                 Statement statement = connection.createStatement()) {
+                            // Resolve optional total-items flag from request (null -> default true)
+                            Boolean includeTotalItemsFlag = request.getIncludeTotalItems();
+                            boolean includeTotalItems = includeTotalItemsFlag == null || includeTotalItemsFlag;
 
-                            String countQuery = buildCountQuery(sql);
-                            ResultSet countResultSet = statement.executeQuery(countQuery);
                             int totalItems = 0;
-                            if (countResultSet.next()) {
-                                totalItems = countResultSet.getInt(1);
+                            if (includeTotalItems) {
+                                String countQuery = buildCountQuery(sql);
+                                ResultSet countResultSet = statement.executeQuery(countQuery);
+                                if (countResultSet.next()) {
+                                    totalItems = countResultSet.getInt(1);
+                                }
+                                countResultSet.close();
                             }
-                            countResultSet.close();
 
+                            log.info("totalItems: " + totalItems);
                             ResultSet resultSet = statement.executeQuery(sql);
 
                             DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
-                            response.setTotalItems(totalItems);
+                            // Only override totalItems when we actually computed the global count.
+                            // Otherwise, keep the per-page count set by the helper.
+                            if (includeTotalItems) {
+                                response.setTotalItems(totalItems);
+                            }
 
                             // Close resources
                             resultSet.close();
@@ -170,6 +180,16 @@ public class DataServiceV2 {
                             throw new RuntimeException("Server overloaded: too many concurrent DB queries");
                         }
 
+                        // Resolve optional metadata flags (null -> default true)
+                        Boolean includeSummaryFlag = dataSource.getIncludeSummary();
+                        boolean includeSummary = includeSummaryFlag == null || includeSummaryFlag;
+
+                        Boolean includeTotalItemsFlag = dataSource.getIncludeTotalItems();
+                        boolean includeTotalItems = includeTotalItemsFlag == null || includeTotalItemsFlag;
+
+                        Boolean detectDatasetTypeFlag = dataSource.getDetectDatasetType();
+                        boolean detectDatasetType = detectDatasetTypeFlag == null || detectDatasetTypeFlag;
+
                         try (
                                 Connection connection = this.dataSource.getConnection();
                                 Statement statement = connection.createStatement()) {
@@ -206,14 +226,23 @@ public class DataServiceV2 {
                                 }
                             }
 
-                            String countSql = "SELECT COUNT(*) as total FROM " + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath);
-                            ResultSet countResult = statement.executeQuery(countSql);
                             int totalItems = 0;
-                            if (countResult.next()) {
-                                totalItems = countResult.getInt("total");
+                            if (includeTotalItems) {
+                                String countSql = "SELECT COUNT(*) as total FROM "
+                                        + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath);
+                                ResultSet countResult = statement.executeQuery(countSql);
+                                if (countResult.next()) {
+                                    totalItems = countResult.getInt("total");
+                                }
+                                countResult.close();
                             }
 
-                            DatasetType datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
+                            DatasetType datasetType;
+                            if (detectDatasetType) {
+                                datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
+                            } else {
+                                datasetType = DatasetType.tabular;
+                            }
 
                             metadataResponse.setOriginalColumns(convertedColumns);
                             metadataResponse.setTotalItems(totalItems);
@@ -224,32 +253,33 @@ public class DataServiceV2 {
                                 metadataResponse.setTimeColumn(timeColumns);
                             }
 
-                            try {
-                                sql = sql.replace(" LIMIT 10", "");
-                                String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM"));
-                                ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+                            if (includeSummary) {
+                                try {
+                                    sql = sql.replace(" LIMIT 10", "");
+                                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM"));
+                                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
 
-                                List<Map<String, Object>> summaryList = new ArrayList<>();
-                                int colCount = summarizeResult.getMetaData().getColumnCount();
+                                    List<Map<String, Object>> summaryList = new ArrayList<>();
+                                    int colCount = summarizeResult.getMetaData().getColumnCount();
 
-                                while (summarizeResult.next()) {
-                                    Map<String, Object> summaryRow = new java.util.HashMap<>();
-                                    for (int i = 1; i <= colCount; i++) {
-                                        String colName = summarizeResult.getMetaData().getColumnName(i);
-                                        Object value = summarizeResult.getObject(i);
-                                        summaryRow.put(colName, value);
+                                    while (summarizeResult.next()) {
+                                        Map<String, Object> summaryRow = new java.util.HashMap<>();
+                                        for (int i = 1; i <= colCount; i++) {
+                                            String colName = summarizeResult.getMetaData().getColumnName(i);
+                                            Object value = summarizeResult.getObject(i);
+                                            summaryRow.put(colName, value);
+                                        }
+                                        summaryList.add(summaryRow);
                                     }
-                                    summaryList.add(summaryRow);
-                                }
 
-                                metadataResponse.setSummary(summaryList);
-                                summarizeResult.close();
-                            } catch (SQLException summarizeEx) {
-                                log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+                                    metadataResponse.setSummary(summaryList);
+                                    summarizeResult.close();
+                                } catch (SQLException summarizeEx) {
+                                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
+                                }
                             }
 
                             resultSet.close();
-                            countResult.close();
 
                             return metadataResponse;
 
