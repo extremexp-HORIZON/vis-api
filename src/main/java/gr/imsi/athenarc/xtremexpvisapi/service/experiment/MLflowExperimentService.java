@@ -57,7 +57,7 @@ public class MLflowExperimentService implements ExperimentService {
     }
 
     @Override
-    public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset) {
+    public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization) {
         String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/experiments/search";
         List<Experiment> targetExperiments = new ArrayList<>();
         String pageToken = "";

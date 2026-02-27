@@ -51,8 +51,9 @@ public class ExperimentController {
     @GetMapping
     public ResponseEntity<List<Experiment>> getExperiments(
             @RequestParam(defaultValue = "10") int limit,
-            @RequestParam(defaultValue = "0") int offset) {
-        return experimentServiceFactory.getActiveService().getExperiments(limit, offset);
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return experimentServiceFactory.getActiveService().getExperiments(limit, offset, authorization);
     }
 
     /**

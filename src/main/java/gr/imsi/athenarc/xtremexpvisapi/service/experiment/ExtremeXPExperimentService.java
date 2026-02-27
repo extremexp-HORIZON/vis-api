@@ -9,6 +9,9 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
@@ -25,9 +28,11 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import lombok.extern.java.Log;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -53,35 +58,50 @@ public class ExtremeXPExperimentService implements ExperimentService {
 
     private final RestTemplate restTemplate;
 
-    public ExtremeXPExperimentService(RestTemplate restTemplate) {
+    private final ObjectMapper objectMapper;
+
+    public ExtremeXPExperimentService(RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
-    public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset) {
-        String requestUrl = workflowsApiUrl + "/experiments"; // API URL
+    public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization) {
+        String requestUrl = workflowsApiUrl + "/experiments-query"; // API URL
+        String username = extractPreferredUsernameFromJwt(authorization);
 
-        HttpEntity<String> entity = new HttpEntity<>(headersInitializer());
+        if (username == null || username.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Map<String, Object> creator = new HashMap<>();
+        creator.put("name", username);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("creator", creator);
+
+        HttpEntity<Map<String, Object>> entity =
+                new HttpEntity<Map<String, Object>>(body, headersInitializer());
+
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<List> response = restTemplate.exchange(
                     requestUrl,
-                    HttpMethod.GET,
+                    HttpMethod.POST,
                     entity,
-                    Map.class);
+                    List.class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                // Extract the experiments list
-                List<Map<String, Map<String, Object>>> experimentsList = (List<Map<String, Map<String, Object>>>) response
-                        .getBody().get("experiments");
+                List<Map<String, Object>> experimentsList =
+                        (List<Map<String, Object>>) response.getBody();
 
-                // Convert to Experiment objects
                 List<Experiment> experiments = experimentsList.stream()
-                        .map(expMap -> expMap.values().iterator().next()) // Extract inner object
-                        .map(this::mapToExperiment) // Convert to `Experiment` object
-                        .skip(offset) // Apply offset
-                        .limit(limit) // Apply limit
-                        .collect(Collectors.toList()); // Collect as List
+                        .filter(m -> m != null && !m.isEmpty())
+                        .map(expMap -> (Map<String, Object>) expMap.values().iterator().next()) // Extract inner experiment object
+                        .map(this::mapToExperiment)
+                        .skip(offset)
+                        .limit(limit)
+                        .collect(Collectors.toList());
 
                 // Iterate over each experiment to fetch metrics
                 for (Experiment experiment : experiments) {
@@ -482,6 +502,40 @@ public class ExtremeXPExperimentService implements ExperimentService {
         headers.set("access-token", workflowsApiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
+    }
+
+    private String extractPreferredUsernameFromJwt(String authorization) {
+        if (authorization == null || authorization.isBlank()) {
+            return null;
+        }
+    
+        // Expect "Bearer <jwt>"
+        String token = authorization.startsWith("Bearer ")
+                ? authorization.substring("Bearer ".length()).trim()
+                : authorization.trim();
+    
+        String[] parts = token.split("\\.");
+        if (parts.length < 2) {
+            return null;
+        }
+    
+        try {
+            String payloadJson = new String(
+                    Base64.getUrlDecoder().decode(parts[1]),
+                    StandardCharsets.UTF_8
+            );
+        
+            JsonNode payload = objectMapper.readTree(payloadJson);
+        
+            // Keycloak username
+            if (payload.hasNonNull("preferred_username")) {
+                return payload.get("preferred_username").asText();
+            }
+        
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Run runPreparation(Map<String, Object> responseObject) {

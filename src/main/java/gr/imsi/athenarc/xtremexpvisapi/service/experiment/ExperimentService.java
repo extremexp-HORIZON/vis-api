@@ -18,7 +18,7 @@ import java.util.List;
  * Implementations will connect to different experiment tracking tools.
  */
 public interface ExperimentService {
-    ResponseEntity<List<Experiment>> getExperiments(int limit, int offset);
+    ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization);
     ResponseEntity<Experiment> getExperimentById(String experimentId);
     ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
     ResponseEntity<Run> getRunById(String experimentId, String runId);
