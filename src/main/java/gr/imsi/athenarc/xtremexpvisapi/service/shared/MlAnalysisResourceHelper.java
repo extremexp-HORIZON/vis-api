@@ -26,6 +26,12 @@ import gr.imsi.athenarc.xtremexpvisapi.service.files.FileService;
 @Component
 public class MlAnalysisResourceHelper {
 
+    @Value("${experiment.engine:extremeXP}")
+    private String experimentEngine;
+    
+    @Value("${app.working.directory.mlflow}")
+    private String mlflowWorkingDirectory;
+
     private String mlAnalysisFolderName;
     private final List<String> supportedModelExtensions = List.of(".pkl", ".pt"); // Configurable list of supported
                                                                                   // model extensions
@@ -82,8 +88,31 @@ public class MlAnalysisResourceHelper {
                 return; // Skip this asset
             }
 
-            if (dataAsset.getSourceType() == SourceType.local) {
-                requiredFilePaths.put(dataAsset.getName(), dataAsset.getSource());
+            if ("mlflow".equalsIgnoreCase(experimentEngine)) {
+            
+                DataSource dataSource = new DataSource();
+                dataSource.setSource(dataAsset.getSource());
+                dataSource.setSourceType(dataAsset.getSourceType());
+                dataSource.setFormat(dataAsset.getFormat());
+                dataSource.setFileName(dataAsset.getName());
+                dataSource.setRunId(run.getId());
+                dataSource.setExperimentId(run.getExperimentId());
+            
+                Path p = Paths.get(dataSource.getSource());
+                if (!p.isAbsolute()) {
+                    p = Paths.get(mlflowWorkingDirectory).resolve(p).normalize();
+                }
+            
+                try {
+                    if (Files.exists(p)) {
+                        requiredFilePaths.put(assetNameWithoutExtension, p.toString());
+                    } else {
+                        String filePath = fileService.downloadMlflowArtifact(dataSource, p, authorization);
+                        requiredFilePaths.put(assetNameWithoutExtension, filePath);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to resolve/download MLflow data asset: " + dataAsset.getName(), e);
+                }
             } else {
                 DataSource dataSource = new DataSource();
                 dataSource.setSource(dataAsset.getSource());

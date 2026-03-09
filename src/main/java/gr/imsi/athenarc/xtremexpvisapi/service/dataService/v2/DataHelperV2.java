@@ -16,8 +16,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +45,14 @@ public class DataHelperV2 {
 
     private final ObjectMapper objectMapper;
     private final FileService fileService;
+
+    @Value("${experiment.engine:extremeXP}")
+    private String experimentEngine;
+    
+    @Value("${app.working.directory.mlflow}")
+    private String mlflowWorkingDirectory;
+    
+    private static final Logger LOG = LoggerFactory.getLogger(DataHelperV2.class);
 
     @Autowired
     public DataHelperV2(ObjectMapper objectMapper, FileService fileService) {
@@ -245,6 +256,26 @@ public class DataHelperV2 {
      */
     @Async
     protected CompletableFuture<String> buildQuery(DataRequest request, String authorization) throws Exception {
+
+        if ("mlflow".equalsIgnoreCase(experimentEngine)) {
+
+            Path p = Paths.get(request.getDataSource().getSource());
+
+            if (!p.isAbsolute()) {
+                p = Paths.get(mlflowWorkingDirectory).resolve(p).normalize();
+            }
+
+            if (Files.exists(p)) {
+                LOG.info("MLflow local file exists: {}", p);
+                return CompletableFuture.completedFuture(p.toString());
+            }
+
+            LOG.info("MLflow file missing, downloading and caching to: {}", p);
+            String downloadedPath =
+                    fileService.downloadMlflowArtifact(request.getDataSource(), p, authorization);
+
+            return CompletableFuture.completedFuture(downloadedPath);
+        }
 
         return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
             StringBuilder sql = new StringBuilder();
