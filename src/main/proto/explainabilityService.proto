@@ -162,6 +162,7 @@ message ExperimentRunsResponse {
         double percentage_of_total = 2;
         string medoid_workflow_id = 3;
         int32 medoid_index = 4;
+        string cluster_name = 5;
     }
 
     message FeatureStats {
