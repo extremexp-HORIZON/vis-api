@@ -18,6 +18,7 @@ import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFacto
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST controller that provides experiment tracking endpoints.
@@ -128,6 +129,14 @@ public class ExperimentController {
             @PathVariable String runId,
             @PathVariable String metricName) {
         return experimentServiceFactory.getActiveService().getAllMetrics(experimentId, runId, metricName);
+    }
+
+    @PostMapping("/{experimentId}/runs/{runId}/metrics-all")
+    public ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(
+            @PathVariable String experimentId,
+            @PathVariable String runId,
+            @RequestBody List<String> metricNames) {
+        return experimentServiceFactory.getActiveService().getAllMetricsBatch(experimentId, runId, metricNames);
     }
 
     /**

@@ -409,6 +409,36 @@ public class ExtremeXPExperimentService implements ExperimentService {
     }
 
     @Override
+    public ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(String experimentId, String runId, List<String> metricNames) {
+        Map<String, List<Metric>> result = new HashMap<>();
+        String requestUrl = workflowsApiUrl + "/metrics-query";
+
+        for (String metricName : metricNames) {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("experimentId", experimentId);
+            requestBody.put("parent_id", runId);
+            requestBody.put("name", metricName);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headersInitializer());
+            try {
+                ResponseEntity<List> response = restTemplate.exchange(
+                        requestUrl, HttpMethod.POST, entity, List.class);
+                List<Map<String, Object>> responseList = response.getBody();
+                List<Metric> metrics = new ArrayList<>();
+                if (responseList != null) {
+                    for (Map<String, Object> workflowData : responseList) {
+                        metrics.addAll(mapToMetrics(workflowData));
+                    }
+                }
+                result.put(metricName, metrics);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    @Override
     public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId,
             UserEvaluation userEvaluation) {
         String queryUrl = workflowsApiUrl + "/metrics-query";

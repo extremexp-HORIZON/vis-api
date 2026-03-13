@@ -327,6 +327,29 @@ public class MLflowExperimentService implements ExperimentService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @Override
+    public ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(String experimentId, String runId, List<String> metricNames) {
+        Map<String, List<Metric>> result = new HashMap<>();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        for (String metricName : metricNames) {
+            String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        requestUrl, HttpMethod.GET, entity, Map.class);
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    result.put(metricName, mapMetricHistory(response.getBody()));
+                }
+            } catch (Exception e) {
+                LOG.error("Error fetching metric history for metric {} in run {}", metricName, runId, e);
+            }
+        }
+
+        return ResponseEntity.ok(result);
+    }
     private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("run_id", runId);
