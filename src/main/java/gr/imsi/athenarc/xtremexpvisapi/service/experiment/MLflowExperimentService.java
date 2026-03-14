@@ -643,7 +643,7 @@ public class MLflowExperimentService implements ExperimentService {
             Path root = Paths.get(mlflowWorkingDirectory).resolve(relative);
 
             if (!Files.exists(root)) {
-                LOG.warn("Artifacts root path does not exist: {}", root);
+                // LOG.warn("Artifacts root path does not exist: {}", root);
                 return assets;
             }
 
