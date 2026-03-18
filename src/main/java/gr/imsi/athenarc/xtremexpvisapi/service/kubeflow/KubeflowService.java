@@ -57,15 +57,19 @@ public class KubeflowService {
 
         String url = baseUrl + "/apis/v1beta1/runs";
 
-        List<Map<String, String>> kfpParams =
-                (params == null) ? List.of() :
-                        params.entrySet().stream()
-                                .map(e -> Map.of("name", e.getKey(), "value", e.getValue()))
-                                .toList();
+        Map<String, Object> typedParams = new HashMap<>();
+        if (params != null) {
+            for (Map.Entry<String, String> e : params.entrySet()) {
+                typedParams.put(e.getKey(), coerceValue(e.getValue()));
+            }
+        }
+
+        Map<String, Object> runtimeConfig = new HashMap<>();
+        runtimeConfig.put("parameters", typedParams);
 
         Map<String, Object> pipelineSpec = new HashMap<>();
         pipelineSpec.put("pipeline_id", pipelineId);
-        pipelineSpec.put("parameters", kfpParams);
+        pipelineSpec.put("runtime_config", runtimeConfig);
 
         Map<String, Object> body = new HashMap<>();
         body.put("name", runName);
@@ -92,4 +96,28 @@ public class KubeflowService {
 
         return (String) run.get("id");
     }
+
+    private Object coerceValue(String value) {
+        if (value == null) return null;
+    
+        String v = value.trim();
+    
+        if (v.equalsIgnoreCase("true")) return true;
+        if (v.equalsIgnoreCase("false")) return false;
+    
+        try {
+            if (!v.contains(".")) {
+                return Integer.parseInt(v);
+            }
+        } catch (NumberFormatException ignored) {
+        }
+    
+        try {
+            return Double.parseDouble(v);
+        } catch (NumberFormatException ignored) {
+        }
+    
+        return v;
+    }
+
 }
