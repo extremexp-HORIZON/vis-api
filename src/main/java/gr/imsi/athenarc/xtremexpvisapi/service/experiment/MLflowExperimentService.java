@@ -28,7 +28,9 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
-import gr.imsi.athenarc.xtremexpvisapi.service.kubeflow.KubeflowService;
+import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngine;
+import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngineFactory;
+import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngineException;
 
 import java.util.List;
 import java.util.Map;
@@ -53,13 +55,13 @@ public class MLflowExperimentService implements ExperimentService {
 
     private final RestTemplate restTemplate;
 
-    private final KubeflowService kubeflowService;
+    private final ExecutionEngineFactory executionEngineFactory;
 
     private static final Logger LOG = LoggerFactory.getLogger(MLflowExperimentService.class);
 
-    public MLflowExperimentService(RestTemplate restTemplate, KubeflowService kubeflowService) {
+    public MLflowExperimentService(RestTemplate restTemplate, ExecutionEngineFactory executionEngineFactory) {
         this.restTemplate = restTemplate;
-        this .kubeflowService = kubeflowService;
+        this.executionEngineFactory = executionEngineFactory;
     }
 
     @Override
@@ -810,9 +812,16 @@ public class MLflowExperimentService implements ExperimentService {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
         }
 
-        kubeflowService.terminateRun(kfpRunId);
+        try {
+            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+            executionEngine.terminateRun(kfpRunId);
+        } catch (ExecutionEngineException e) {
+            LOG.error("Failed to terminate run: {}", kfpRunId, e);
+            resp.setMessage("Failed to terminate execution engine run: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+        }
 
-        resp.setMessage("Terminate requested. Kubeflow run id=" + kfpRunId + ".");
+        resp.setMessage("Terminate requested. Execution engine run id=" + kfpRunId + ".");
         return ResponseEntity.ok(resp);
     }
 
@@ -944,17 +953,34 @@ public class MLflowExperimentService implements ExperimentService {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
         }
     
-        String pipelineId = kubeflowService.findPipelineIdByName(pipelineName);
+        String pipelineId;
+        try {
+            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+            pipelineId = executionEngine.findPipelineIdByName(pipelineName);
+        } catch (ExecutionEngineException e) {
+            LOG.error("Failed to find pipeline: {}", pipelineName, e);
+            resp.setMessage("Failed to query execution engine for pipeline: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+        }
+        
         if (pipelineId == null) {
-            resp.setMessage("Kubeflow pipeline not found: " + pipelineName);
+            resp.setMessage("Pipeline not found: " + pipelineName);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
         }
     
-        String kfpRunId = kubeflowService.createRun(
-                pipelineId,
-                request.getRunName(),
-                request.getParams()
-        );
+        String kfpRunId;
+        try {
+            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+            kfpRunId = executionEngine.createRun(
+                    pipelineId,
+                    request.getRunName(),
+                    request.getParams()
+            );
+        } catch (ExecutionEngineException e) {
+            LOG.error("Failed to create run: {}", request.getRunName(), e);
+            resp.setMessage("Failed to create execution engine run: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+        }
     
         if (kfpRunId == null || kfpRunId.isBlank()) {
             resp.setMessage("Kubeflow run creation failed.");

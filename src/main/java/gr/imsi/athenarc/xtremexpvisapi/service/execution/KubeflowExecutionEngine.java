@@ -1,4 +1,4 @@
-package gr.imsi.athenarc.xtremexpvisapi.service.kubeflow;
+package gr.imsi.athenarc.xtremexpvisapi.service.execution;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -10,35 +10,32 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.kubeflow.KfpPipelineResponse;
 
 import java.util.*;
 
-@Component
-public class KubeflowService {
+/**
+ * Kubeflow Pipelines implementation of ExecutionEngine.
+ * Integrates with Kubeflow Pipelines API for pipeline execution.
+ */
+@Component("kubeflow")
+public class KubeflowExecutionEngine implements ExecutionEngine {
 
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public KubeflowService(RestTemplate restTemplate,
-                              @Value("${kubeflow.pipelines.base-url}") String baseUrl) {
+    public KubeflowExecutionEngine(RestTemplate restTemplate,
+                                  @Value("${kubeflow.pipelines.base-url}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
     }
 
-    public void terminateRun(String kfpRunId) {
-        String url = baseUrl + "/apis/v1beta1/runs/" + kfpRunId + "/terminate";
-        try {
-            restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(new HttpHeaders()), String.class);
-        } catch (RestClientResponseException e) {
-            throw new RuntimeException("KFP terminate failed (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
-        }
-    }
-
-    public String findPipelineIdByName(String pipelineName) {
+    @Override
+    public String findPipelineIdByName(String pipelineName) throws ExecutionEngineException {
         String url = baseUrl + "/apis/v1beta1/pipelines?page_size=200";
 
         ResponseEntity<KfpPipelineResponse> resp;
         try {
             resp = restTemplate.exchange(url, HttpMethod.GET, null, KfpPipelineResponse.class);
         } catch (RestClientResponseException e) {
-            throw new RuntimeException("KFP list pipelines failed (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
+            throw new ExecutionEngineException(
+                    "Kubeflow: Failed to list pipelines (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
         }
 
         KfpPipelineResponse body = resp.getBody();
@@ -51,9 +48,8 @@ public class KubeflowService {
                 .orElse(null);
     }
 
-    public String createRun(String pipelineId,
-                            String runName,
-                            Map<String, String> params) {
+    @Override
+    public String createRun(String pipelineId, String runName, Map<String, String> params) throws ExecutionEngineException {
 
         String url = baseUrl + "/apis/v1beta1/runs";
 
@@ -84,8 +80,8 @@ public class KubeflowService {
         try {
             resp = restTemplate.exchange(url, HttpMethod.POST, req, Map.class);
         } catch (RestClientResponseException e) {
-            throw new RuntimeException(
-                    "KFP create run failed (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
+            throw new ExecutionEngineException(
+                    "Kubeflow: Failed to create run (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
         }
 
         Map respBody = resp.getBody();
@@ -97,6 +93,20 @@ public class KubeflowService {
         return (String) run.get("id");
     }
 
+    @Override
+    public void terminateRun(String runId) throws ExecutionEngineException {
+        String url = baseUrl + "/apis/v1beta1/runs/" + runId + "/terminate";
+        try {
+            restTemplate.exchange(url, HttpMethod.POST, new HttpEntity<>(new HttpHeaders()), String.class);
+        } catch (RestClientResponseException e) {
+            throw new ExecutionEngineException(
+                    "Kubeflow: Failed to terminate run (" + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
+        }
+    }
+
+    /**
+     * Coerce string values to appropriate types (boolean, int, double, or String).
+     */
     private Object coerceValue(String value) {
         if (value == null) return null;
     
