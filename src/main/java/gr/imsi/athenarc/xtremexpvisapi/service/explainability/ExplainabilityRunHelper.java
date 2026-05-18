@@ -408,7 +408,7 @@ public class ExplainabilityRunHelper {
         return Optional.empty();
     }
 
-    @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
+    // @Cacheable(value = "explainabilityDataPaths", key = "#experimentId + '::' + #runId")
     public Optional<Map<String, String>> loadExplainabilityDataPaths(String experimentId, String runId,
             String authorization, String explanationType) {
         log.info("Loading evaluation data for experimentId: " + experimentId + ", runId: " + runId);

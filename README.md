@@ -33,6 +33,25 @@ Welcome to the XtremeXP Visualization API! This API is designed to provide visua
 
 5. Once the containers are up and running, you can access the API at `http://localhost:8080`.
 
+## Explainability gRPC Upstream
+
+This API calls an external explainability gRPC service.
+If that service is not reachable, explainability endpoints will fail with `UNAVAILABLE`.
+
+Configure the gRPC endpoint in your `.env` file:
+
+```
+APP_GRPC_HOST_NAME=localhost
+APP_GRPC_HOST_PORT=50051
+```
+
+If `vis-api` runs in Docker and the gRPC server runs on your host machine, set:
+
+```
+APP_GRPC_HOST_NAME=host.docker.internal
+APP_GRPC_HOST_PORT=50051
+```
+
 ## Usage
 
 ### API Endpoints

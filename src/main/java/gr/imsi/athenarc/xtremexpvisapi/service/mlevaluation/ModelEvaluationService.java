@@ -56,7 +56,7 @@ public class ModelEvaluationService {
         this.mockEvaluationPathTemplate = mockEvaluationPathTemplate;
     }
 
-    @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
+    // @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
 
     public Optional<ModelEvaluationData> loadEvaluationData(
             String experimentId, String runId, String auth) {

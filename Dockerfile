@@ -1,11 +1,9 @@
 # Build stage
-FROM maven:3.9.5-eclipse-temurin-21-alpine AS build
+FROM maven:3.9.5-eclipse-temurin-21 AS build
 WORKDIR /app
 
 # Copy the Maven project files
 COPY . .
-
-RUN apk add gcompat
 
 # Build the application using Maven
 RUN mvn clean package -DskipTests

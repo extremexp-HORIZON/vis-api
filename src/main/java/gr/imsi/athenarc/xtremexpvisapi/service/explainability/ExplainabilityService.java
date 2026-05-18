@@ -18,7 +18,6 @@ import explainabilityService.ApplyAffectedActionsRequest;
 import explainabilityService.ApplyAffectedActionsResponse;
 import explainabilityService.ExplanationsGrpc;
 import explainabilityService.ExplanationsGrpc.ExplanationsBlockingStub;
-import explainabilityService.ExplanationsGrpc.ExplanationsImplBase;
 import explainabilityService.ExplanationsRequest;
 import explainabilityService.ExplanationsResponse;
 import explainabilityService.ExperimentRunsRequest;
@@ -32,7 +31,7 @@ import lombok.extern.java.Log;
 
 @Service
 @Log
-public class ExplainabilityService extends ExplanationsImplBase {
+public class ExplainabilityService {
 
         private final String grpcHostName;
         private final String grpcHostPort;
@@ -46,6 +45,7 @@ public class ExplainabilityService extends ExplanationsImplBase {
                 this.grpcHostName = grpcHostName;
                 this.grpcHostPort = grpcHostPort;
                 this.explainabilityRunHelper = explainabilityRunHelper;
+                log.info("Initializing gRPC client for explainability service at " + grpcHostName + ":" + grpcHostPort);
                 this.channel = ManagedChannelBuilder.forAddress(grpcHostName, Integer.parseInt(grpcHostPort))
                 .usePlaintext()
                 .maxInboundMessageSize(50 * 1024 * 1024)

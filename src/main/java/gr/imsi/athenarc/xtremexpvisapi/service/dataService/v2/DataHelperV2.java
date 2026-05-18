@@ -254,11 +254,11 @@ public class DataHelperV2 {
      * @return a CompletableFuture containing the built SQL query string
      * @throws Exception if query building fails
      */
-    @Async
+    @Async("dataProcessingExecutor")
     protected CompletableFuture<String> buildQuery(DataRequest request, String authorization) throws Exception {
+        CompletableFuture<String> datasetPathFuture;
 
         if ("mlflow".equalsIgnoreCase(experimentEngine)) {
-
             Path p = Paths.get(request.getDataSource().getSource());
 
             if (!p.isAbsolute()) {
@@ -267,17 +267,17 @@ public class DataHelperV2 {
 
             if (Files.exists(p)) {
                 LOG.info("MLflow local file exists: {}", p);
-                return CompletableFuture.completedFuture(p.toString());
+                datasetPathFuture = CompletableFuture.completedFuture(p.toString());
+            } else {
+                LOG.info("MLflow file missing, downloading and caching to: {}", p);
+                String downloadedPath = fileService.downloadMlflowArtifact(request.getDataSource(), p, authorization);
+                datasetPathFuture = CompletableFuture.completedFuture(downloadedPath);
             }
-
-            LOG.info("MLflow file missing, downloading and caching to: {}", p);
-            String downloadedPath =
-                    fileService.downloadMlflowArtifact(request.getDataSource(), p, authorization);
-
-            return CompletableFuture.completedFuture(downloadedPath);
+        } else {
+            datasetPathFuture = getFilePathForDataset(request.getDataSource(), authorization);
         }
 
-        return getFilePathForDataset(request.getDataSource(), authorization).thenApply(datasetPath -> {
+        return datasetPathFuture.thenApply(datasetPath -> {
             StringBuilder sql = new StringBuilder();
 
             // SELECT clause
@@ -423,21 +423,37 @@ public class DataHelperV2 {
      *         files, source path for internal files)
      * @throws Exception if download fails
      */
-    @Async
+    @Async("dataProcessingExecutor")
     protected CompletableFuture<String> getFilePathForDataset(DataSource dataSource, String authorization)
             throws Exception {
         // Assuming request has a method to get DatasetMeta and file type
-        String targetPath;
         SourceType fileType = dataSource.getSourceType(); // Assuming this method exists
 
-        if (fileType.equals(SourceType.local)) {
-            targetPath = dataSource.getSource();
-            log.info("Internal file detected, using source path: " + targetPath);
-            return CompletableFuture.completedFuture(targetPath);
-        } else {
-            return CompletableFuture.completedFuture(
-                    fileService.downloadAndCacheDataAsset(dataSource, authorization));
+        if (fileType == SourceType.local) {
+            String sourcePath = dataSource.getSource();
+
+            if ("mlflow".equalsIgnoreCase(experimentEngine)) {
+                Path p = Paths.get(sourcePath);
+                if (!p.isAbsolute()) {
+                    p = Paths.get(mlflowWorkingDirectory).resolve(p).normalize();
+                }
+
+                if (Files.exists(p)) {
+                    LOG.info("MLflow local file exists for metadata: {}", p);
+                    return CompletableFuture.completedFuture(p.toString());
+                }
+
+                LOG.info("MLflow file missing for metadata, downloading and caching to: {}", p);
+                String downloadedPath = fileService.downloadMlflowArtifact(dataSource, p, authorization);
+                return CompletableFuture.completedFuture(downloadedPath);
+            }
+
+            log.info("Internal file detected, using source path: " + sourcePath);
+            return CompletableFuture.completedFuture(sourcePath);
         }
+
+        return CompletableFuture.completedFuture(
+                fileService.downloadAndCacheDataAsset(dataSource, authorization));
     }
 
     /**
