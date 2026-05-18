@@ -1,7 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.observability;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import java.util.Date;
 import java.util.Map;
 
 public class Observation {
@@ -9,35 +9,118 @@ public class Observation {
     private String traceId;
     private String type;
     private String name;
-    private String startTime;
-    private String endTime;
-    private String completionStartTime;
+    private Date startTime;
+    private Date endTime;
     private String model;
-    private Map<String, Object> modelParameters;
-    private Object input;
-    private String version;
-    private Map<String, Object> metadata;
-    private Object output;
-    private Usage usage;
+    private Map<String, Object> input;
+    private Map<String, Object> output;
     private String level;
     private String statusMessage;
     private String parentObservationId;
-    private String promptId;
-    private Map<String, Integer> usageDetails;
-    private Map<String, Integer> costDetails;
-    private String environment;
+    private int version;
 
     // Getters and Setters
+    public String getId() {
+        return id;
+    }
 
-    public static class Usage {
-        private int input;
-        private int output;
-        private int total;
-        private String unit;
-        private Double inputCost;
-        private Double outputCost;
-        private Double totalCost;
+    public void setId(String id) {
+        this.id = id;
+    }
 
-        // Getters and Setters
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(Date startTime) {
+        this.startTime = startTime;
+    }
+
+    public Date getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(Date endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    public Map<String, Object> getInput() {
+        return input;
+    }
+
+    public void setInput(Map<String, Object> input) {
+        this.input = input;
+    }
+
+    public Map<String, Object> getOutput() {
+        return output;
+    }
+
+    public void setOutput(Map<String, Object> output) {
+        this.output = output;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage;
+    }
+
+    public void setStatusMessage(String statusMessage) {
+        this.statusMessage = statusMessage;
+    }
+
+    public String getParentObservationId() {
+        return parentObservationId;
+    }
+
+    public void setParentObservationId(String parentObservationId) {
+        this.parentObservationId = parentObservationId;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public void setVersion(int version) {
+        this.version = version;
     }
 }

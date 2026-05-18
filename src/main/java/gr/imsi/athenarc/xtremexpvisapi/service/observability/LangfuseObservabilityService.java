@@ -1,6 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.observability;
 
 import gr.imsi.athenarc.xtremexpvisapi.domain.observability.TracesResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.observability.TraceDetail;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -46,6 +47,26 @@ public class LangfuseObservabilityService implements ObservabilityService {
                 HttpMethod.GET,
                 entity,
                 TracesResponse.class
+        );
+
+        return response.getBody();
+    }
+
+    @Override
+    public TraceDetail getTrace(String traceId) {
+        HttpHeaders headers = new HttpHeaders();
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String url = UriComponentsBuilder.fromHttpUrl(apiUrl)
+                .path("/api/public/traces/{traceId}")
+                .buildAndExpand(traceId)
+                .toUriString();
+
+        ResponseEntity<TraceDetail> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                TraceDetail.class
         );
 
         return response.getBody();

@@ -1,24 +1,71 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.observability;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Date;
 
 public class Score {
-    private String dataType;
-    private int value;
     private String id;
     private String traceId;
     private String name;
-    private String source;
+    private double value;
     private String observationId;
-    private String timestamp;
-    private String createdAt;
-    private String updatedAt;
-    private String authorUserId;
+    private Date timestamp;
     private String comment;
-    private Object metadata;
-    private String configId;
-    private String queueId;
-    private String environment;
 
     // Getters and Setters
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public double getValue() {
+        return value;
+    }
+
+    public void setValue(double value) {
+        this.value = value;
+    }
+
+    public String getObservationId() {
+        return observationId;
+    }
+
+    public void setObservationId(String observationId) {
+        this.observationId = observationId;
+    }
+
+    public Date getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Date timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
 }
