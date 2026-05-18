@@ -159,14 +159,18 @@ public class DataController {
         
         return "application/octet-stream";
     }
-// NEW NEW
     private boolean isImageFile(DataSource dataSource) {
-        String source = dataSource.getFormat();
-        if (source == null) return false;
-        
-        // Check by file extension in source URL or filename
-        String lowerSource = source.toLowerCase();
-        return lowerSource.matches(".*\\.(png|jpg|jpeg|gif|webp|bmp|tiff?|svg)($|\\?.*)");
+        return hasImageExtension(dataSource.getSource())
+                || hasImageExtension(dataSource.getFileName())
+                || hasImageExtension(dataSource.getFormat());
     }
-    // Till here
+
+    private boolean hasImageExtension(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        String lowerValue = value.toLowerCase();
+        return lowerValue.matches(".*\\.(png|jpg|jpeg|gif|webp|bmp|tiff?|svg)($|\\?.*)");
+    }
 }
