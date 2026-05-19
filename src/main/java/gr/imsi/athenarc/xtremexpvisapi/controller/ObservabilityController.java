@@ -34,8 +34,9 @@ public class ObservabilityController {
     })
     public ResponseEntity<TracesResponse> getTraces(
             @Parameter(description = "The project ID", required = true) @RequestParam String projectId,
-            @Parameter(description = "The session ID") @RequestParam(required = false) String sessionId) {
-        TracesResponse traces = observabilityService.getTraces(projectId, sessionId);
+            @Parameter(description = "The session ID") @RequestParam(required = false) String sessionId,
+            @Parameter(description = "The user ID") @RequestParam(required = false) String userId) {
+        TracesResponse traces = observabilityService.getTraces(projectId, sessionId, userId);
         return ResponseEntity.ok(traces);
     }
 

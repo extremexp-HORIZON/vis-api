@@ -29,7 +29,7 @@ public class LangfuseObservabilityService implements ObservabilityService {
     }
 
     @Override
-    public TracesResponse getTraces(String projectId, String sessionId) {
+    public TracesResponse getTraces(String projectId, String sessionId, String userId) {
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -40,6 +40,9 @@ public class LangfuseObservabilityService implements ObservabilityService {
 
         if (sessionId != null && !sessionId.isEmpty()) {
             uriBuilder.queryParam("sessionId", sessionId);
+        }
+        if (userId != null && !userId.isEmpty()) {
+            uriBuilder.queryParam("userId", userId);
         }
 
         ResponseEntity<TracesResponse> response = restTemplate.exchange(
