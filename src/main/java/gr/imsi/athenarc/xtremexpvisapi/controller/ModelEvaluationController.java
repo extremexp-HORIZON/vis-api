@@ -71,7 +71,8 @@ public class ModelEvaluationController {
             @PathVariable String runId,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
 
-        return evaluationService.loadEvaluationData(experimentId, runId, authorization)
+        // Only y_test + y_pred are needed; X_train/X_test/Y_train stay on disk.
+        return evaluationService.loadEvaluationDataForConfusionMatrix(experimentId, runId, authorization)
                 .map(evaluationService::getConfusionMatrixResult)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -93,16 +94,41 @@ public class ModelEvaluationController {
      *                     is 100, capped)
      * @return a list of labeled test instances, or 404 if required data is missing
      */
+    /**
+     * Test instances sampler.
+     *
+     * <p>{@code strategy} chooses which rows are returned:
+     * <ul>
+     *   <li><b>first</b> (default — backward compatible): rows {@code [offset, offset+limit)}.</li>
+     *   <li><b>stratified</b>: groups by (actual, predicted) and keeps up to {@code perCell}
+     *       rows per confusion cell, capped by {@code maxRows}. Misclassified cells are
+     *       preserved first so errors are never dropped by the cap.</li>
+     * </ul>
+     * Setting {@code misclassifiedOnly=true} short-circuits to only the rows where
+     * {@code actual != predicted}.
+     */
     @GetMapping("/test-instances")
     public ResponseEntity<List<Map<String, Object>>> getLabeledTestInstances(
             @PathVariable String experimentId,
             @PathVariable String runId,
             @RequestParam(required = false) Integer offset,
             @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false, defaultValue = "first") String strategy,
+            @RequestParam(required = false) Integer perCell,
+            @RequestParam(required = false) Integer maxRows,
+            @RequestParam(required = false, defaultValue = "false") boolean misclassifiedOnly,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
 
-        return evaluationService.loadEvaluationData(experimentId, runId, authorization)
-                .map(data -> evaluationService.getLabeledTestInstances(data, offset, limit))
+        return evaluationService.loadEvaluationDataForTestInstances(experimentId, runId, authorization)
+                .map(data -> {
+                    if (misclassifiedOnly) {
+                        return evaluationService.getMisclassifiedTestInstances(data, maxRows);
+                    }
+                    if ("stratified".equalsIgnoreCase(strategy)) {
+                        return evaluationService.getLabeledTestInstancesStratified(data, perCell, maxRows);
+                    }
+                    return evaluationService.getLabeledTestInstances(data, offset, limit);
+                })
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

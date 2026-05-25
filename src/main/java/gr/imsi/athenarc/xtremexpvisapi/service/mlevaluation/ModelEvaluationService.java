@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -19,14 +20,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import gr.imsi.athenarc.xtremexpvisapi.datasource.CsvDataSource;
-import gr.imsi.athenarc.xtremexpvisapi.datasource.DataSourceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ConfusionMatrixResult;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.ClassReportEntry;
 import gr.imsi.athenarc.xtremexpvisapi.domain.mlevaluation.ModelEvaluationSummary.OverallMetrics;
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentService;
 import gr.imsi.athenarc.xtremexpvisapi.service.experiment.ExperimentServiceFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.explainability.ExplainabilityRunHelper;
@@ -37,56 +35,92 @@ import tech.tablesaw.api.Table;
 @Service
 public class ModelEvaluationService {
 
-    private final DataSourceFactory dataSourceFactory;
     private final ExperimentServiceFactory experimentServiceFactory;
     private final String mockEvaluationPathTemplate;
     private final MlAnalysisResourceHelper mlAnalysisResourceHelper;
     private final ExplainabilityRunHelper explainabilityRunHelper;
+    private final EvaluationTableLoader tableLoader;
     private static final Logger LOG = LoggerFactory.getLogger(ModelEvaluationService.class);
     private static final int MAX_PAGE_SIZE = 10000;
 
-    public ModelEvaluationService(DataSourceFactory dataSourceFactory,
-            ExperimentServiceFactory experimentServiceFactory, MlAnalysisResourceHelper mlAnalysisResourceHelper,
+    public ModelEvaluationService(ExperimentServiceFactory experimentServiceFactory,
+            MlAnalysisResourceHelper mlAnalysisResourceHelper,
             ExplainabilityRunHelper explainabilityRunHelper,
+            EvaluationTableLoader tableLoader,
             @Value("${app.mock.ml-evaluation.path-template:}") String mockEvaluationPathTemplate) {
-        this.dataSourceFactory = dataSourceFactory;
         this.experimentServiceFactory = experimentServiceFactory;
         this.mlAnalysisResourceHelper = mlAnalysisResourceHelper;
         this.explainabilityRunHelper = explainabilityRunHelper;
+        this.tableLoader = tableLoader;
         this.mockEvaluationPathTemplate = mockEvaluationPathTemplate;
     }
 
-    // @Cacheable(value = "modelEvaluationData", key = "#experimentId + '::' + #runId")
+    /**
+     * Full loader: pulls all 5 evaluation tables. Required only by /summary.
+     * Each underlying table read is cached per CSV path by {@link EvaluationTableLoader},
+     * so repeat calls don't reparse files even when this method itself isn't memoised.
+     */
+    public Optional<ModelEvaluationData> loadEvaluationData(String experimentId, String runId, String auth) {
+        Optional<Map<String, String>> paths = resolvePaths(experimentId, runId, auth);
+        if (paths.isEmpty()) return Optional.empty();
+        Map<String, String> p = paths.get();
 
-    public Optional<ModelEvaluationData> loadEvaluationData(
+        Table xTest = tableLoader.loadTable(p.get("x_test"));
+        Table yTest = tableLoader.loadTable(p.get("y_test"));
+        Table yPred = tableLoader.loadTable(p.get("y_pred"));
+        Table xTrain = tableLoader.loadTable(p.get("x_train"));
+        Table yTrain = tableLoader.loadTable(p.get("y_train"));
+
+        validateAlignment(xTest, yTest, yPred);
+        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+    }
+
+    /**
+     * Confusion matrix only needs the label columns. Skipping X_train (typically
+     * the biggest CSV) and the feature matrix saves significant I/O.
+     */
+    public Optional<ModelEvaluationData> loadEvaluationDataForConfusionMatrix(
             String experimentId, String runId, String auth) {
+        Optional<Map<String, String>> paths = resolvePaths(experimentId, runId, auth);
+        if (paths.isEmpty()) return Optional.empty();
+        Map<String, String> p = paths.get();
 
-        // LOG.info("Loading evaluation data for experimentId: {}, runId: {}", experimentId, runId);
+        Table yTest = tableLoader.loadTable(p.get("y_test"));
+        Table yPred = tableLoader.loadTable(p.get("y_pred"));
+        if (yTest.rowCount() != yPred.rowCount()) {
+            throw new IllegalStateException("Row counts do not match between Y_test and Y_pred");
+        }
+        return Optional.of(new ModelEvaluationData(null, yTest, yPred, null, null));
+    }
 
+    /**
+     * Test instances need the feature matrix and both label columns. Train tables
+     * stay on disk.
+     */
+    public Optional<ModelEvaluationData> loadEvaluationDataForTestInstances(
+            String experimentId, String runId, String auth) {
+        Optional<Map<String, String>> paths = resolvePaths(experimentId, runId, auth);
+        if (paths.isEmpty()) return Optional.empty();
+        Map<String, String> p = paths.get();
+
+        Table xTest = tableLoader.loadTable(p.get("x_test"));
+        Table yTest = tableLoader.loadTable(p.get("y_test"));
+        Table yPred = tableLoader.loadTable(p.get("y_pred"));
+        validateAlignment(xTest, yTest, yPred);
+        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, null, null));
+    }
+
+    /** Shared prelude: fetch & canonicalise file paths. */
+    private Optional<Map<String, String>> resolvePaths(String experimentId, String runId, String auth) {
         Optional<Map<String, String>> rawPaths = explainabilityRunHelper.loadExplainabilityDataPaths(
                 experimentId, runId, auth, "");
-
-        // System.out.println("rawPaths: " + rawPaths);
-
         if (rawPaths.isEmpty()) {
             LOG.warn("No file paths found for experimentId: {}, runId: {}", experimentId, runId);
             return Optional.empty();
         }
-
-        // Step 1: canonicalise
         Map<String, String> paths = normaliseKeys(rawPaths.get());
-        // Step 2: sanity‑check
         assertContainsAll(paths);
-
-        // Step 3: load tables with predictable keys
-        Table xTest = loadTable(modelAnalysisResourceToPath(paths.get("x_test")));
-        Table yTest = loadTable(modelAnalysisResourceToPath(paths.get("y_test")));
-        Table yPred = loadTable(modelAnalysisResourceToPath(paths.get("y_pred")));
-        Table xTrain = loadTable(modelAnalysisResourceToPath(paths.get("x_train")));
-        Table yTrain = loadTable(modelAnalysisResourceToPath(paths.get("y_train")));
-
-        validateAlignment(xTest, yTest, yPred);
-        return Optional.of(new ModelEvaluationData(xTest, yTest, yPred, xTrain, yTrain));
+        return Optional.of(paths);
     }
 
     private static final List<String> REQUIRED_KEYS = List.of(
@@ -119,18 +153,7 @@ public class ModelEvaluationService {
     }
 
     private Path modelAnalysisResourceToPath(String filePath) {
-        // System.out.println("oooooook" + filePath);
         return Paths.get(filePath);
-    }
-
-    private Table loadTable(Path path) {
-        SourceType type = SourceType.csv;
-        CsvDataSource ds = (CsvDataSource) dataSourceFactory.createDataSource(type, path.toString());
-        if (ds == null) {
-            throw new IllegalStateException("Failed to create data source for path: " + path);
-        }
-        LOG.info("Loading ML evaluation table from path: {}", path);
-        return ds.readCsvFromFile(path);
     }
 
     private void validateAlignment(Table x, Table y, Table yPred) {
@@ -185,6 +208,97 @@ public class ModelEvaluationService {
      *               100, capped)
      * @return a list of maps representing labeled test instances
      */
+    /**
+     * Stratified-by-confusion-cell sampler: groups rows by (actual, predicted) and
+     * keeps up to `perCell` from each group. Caps the total at `maxRows`, dropping
+     * from over-represented cells first (off-diagonal/misclassified cells are
+     * preserved) so the response stays representative even on big test sets.
+     */
+    public List<Map<String, Object>> getLabeledTestInstancesStratified(
+            ModelEvaluationData data, Integer perCellParam, Integer maxRowsParam) {
+        int perCell = perCellParam != null && perCellParam > 0 ? perCellParam : 100;
+        int maxRows = maxRowsParam != null && maxRowsParam > 0
+                ? Math.min(maxRowsParam, MAX_PAGE_SIZE)
+                : 2000;
+
+        Table x = data.xTest();
+        StringColumn actual = data.yTest().column(0).asStringColumn();
+        StringColumn predicted = data.yPred().column(0).asStringColumn();
+        List<String> featureNames = x.columnNames();
+        int totalRows = x.rowCount();
+
+        // Pass 1: bucket row indices by (actual, predicted), capped at perCell per cell.
+        Map<String, List<Integer>> cellBuckets = new LinkedHashMap<>();
+        for (int i = 0; i < totalRows; i++) {
+            String key = actual.get(i) + " " + predicted.get(i);
+            List<Integer> bucket = cellBuckets.computeIfAbsent(key, k -> new ArrayList<>());
+            if (bucket.size() < perCell) {
+                bucket.add(i);
+            }
+        }
+
+        // Pass 2: gather indices, prioritising misclassified cells so the
+        // global cap never drops error examples first.
+        List<Integer> chosen = new ArrayList<>(Math.min(maxRows, totalRows));
+        for (Map.Entry<String, List<Integer>> e : cellBuckets.entrySet()) {
+            String[] parts = e.getKey().split(" ", 2);
+            if (parts.length == 2 && !parts[0].equals(parts[1])) {
+                chosen.addAll(e.getValue());
+            }
+        }
+        for (Map.Entry<String, List<Integer>> e : cellBuckets.entrySet()) {
+            String[] parts = e.getKey().split(" ", 2);
+            if (parts.length == 2 && parts[0].equals(parts[1])) {
+                chosen.addAll(e.getValue());
+            }
+        }
+        if (chosen.size() > maxRows) {
+            chosen = chosen.subList(0, maxRows);
+        }
+        // Emit in original row order so the UMAP layout stays stable across requests.
+        chosen.sort(Integer::compareTo);
+        return materialiseRows(x, actual, predicted, featureNames, chosen);
+    }
+
+    /**
+     * Returns only misclassified rows (actual != predicted). Result is bounded
+     * by `maxRows` (default 5000). Use when the user wants to deep-dive errors.
+     */
+    public List<Map<String, Object>> getMisclassifiedTestInstances(ModelEvaluationData data, Integer maxRowsParam) {
+        int maxRows = maxRowsParam != null && maxRowsParam > 0
+                ? Math.min(maxRowsParam, MAX_PAGE_SIZE)
+                : 5000;
+
+        Table x = data.xTest();
+        StringColumn actual = data.yTest().column(0).asStringColumn();
+        StringColumn predicted = data.yPred().column(0).asStringColumn();
+        List<String> featureNames = x.columnNames();
+        int totalRows = x.rowCount();
+
+        List<Integer> chosen = new ArrayList<>();
+        for (int i = 0; i < totalRows && chosen.size() < maxRows; i++) {
+            if (!actual.get(i).equals(predicted.get(i))) {
+                chosen.add(i);
+            }
+        }
+        return materialiseRows(x, actual, predicted, featureNames, chosen);
+    }
+
+    private List<Map<String, Object>> materialiseRows(Table x, StringColumn actual, StringColumn predicted,
+            List<String> featureNames, List<Integer> indices) {
+        List<Map<String, Object>> rows = new ArrayList<>(indices.size());
+        for (int i : indices) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (String feature : featureNames) {
+                row.put(feature, x.column(feature).get(i));
+            }
+            row.put("actual", actual.get(i));
+            row.put("predicted", predicted.get(i));
+            rows.add(row);
+        }
+        return rows;
+    }
+
     public List<Map<String, Object>> getLabeledTestInstances(ModelEvaluationData data, Integer offset, Integer limit) {
         Table x = data.xTest();
         StringColumn actual = data.yTest().column(0).asStringColumn();
@@ -330,56 +444,49 @@ public class ModelEvaluationService {
         StringColumn actual = yTest.column(0).asStringColumn();
         StringColumn predicted = yPred.column(0).asStringColumn();
 
-        List<String> classLabels = actual.unique().asList();
-        List<ClassReportEntry> classReport = new ArrayList<>();
-
-        int totalTP = 0, totalFP = 0, totalFN = 0;
-
-        // Per-class classification report
-        for (String label : classLabels) {
-            int tp = 0, fp = 0, fn = 0, support = 0;
-            for (int i = 0; i < actual.size(); i++) {
-                String actualLabel = actual.get(i);
-                String predictedLabel = predicted.get(i);
-
-                if (actualLabel.equals(label)) {
-                    support++;
-                    if (predictedLabel.equals(label))
-                        tp++;
-                    else
-                        fn++;
-                } else if (predictedLabel.equals(label)) {
-                    fp++;
-                }
+        // Single pass: tally TP / FP / FN / support per label, plus correct count.
+        // Previous version was O(n * k) — scanning both columns once per class.
+        Map<String, int[]> stats = new HashMap<>(); // label -> {tp, fp, fn, support}
+        int correct = 0;
+        int n = actual.size();
+        for (int i = 0; i < n; i++) {
+            String a = actual.get(i);
+            String pLabel = predicted.get(i);
+            int[] aStats = stats.computeIfAbsent(a, k -> new int[4]);
+            aStats[3]++; // support
+            if (a.equals(pLabel)) {
+                aStats[0]++; // tp
+                correct++;
+            } else {
+                aStats[2]++; // fn for the actual class
+                int[] pStats = stats.computeIfAbsent(pLabel, k -> new int[4]);
+                pStats[1]++; // fp for the predicted class
             }
+        }
 
+        // Deterministic order: TableSaw's unique() defines the canonical label order
+        // for the response (matches confusion-matrix axis labels).
+        List<String> classLabels = actual.unique().asList();
+        List<ClassReportEntry> classReport = new ArrayList<>(classLabels.size());
+        int totalTP = 0, totalFP = 0, totalFN = 0;
+        for (String label : classLabels) {
+            int[] s = stats.getOrDefault(label, new int[4]);
+            int tp = s[0], fp = s[1], fn = s[2], support = s[3];
             totalTP += tp;
             totalFP += fp;
             totalFN += fn;
-
-            double precision = tp + fp == 0 ? Double.NaN : (double) tp / (tp + fp);
+            double precision = (tp + fp) == 0 ? Double.NaN : (double) tp / (tp + fp);
             double recall = support == 0 ? Double.NaN : (double) tp / support;
             double f1 = precision + recall == 0 ? Double.NaN : 2 * precision * recall / (precision + recall);
-
             classReport.add(new ClassReportEntry(label, precision, recall, f1, support));
         }
 
-        // Global scalar metrics
         double precision = totalTP + totalFP == 0 ? Double.NaN : (double) totalTP / (totalTP + totalFP);
         double recall = totalTP + totalFN == 0 ? Double.NaN : (double) totalTP / (totalTP + totalFN);
         double f1 = precision + recall == 0 ? Double.NaN : 2 * precision * recall / (precision + recall);
-
-        // Accuracy: count all correct predictions
-        int correct = 0;
-        for (int i = 0; i < actual.size(); i++) {
-            if (actual.get(i).equals(predicted.get(i))) {
-                correct++;
-            }
-        }
-        double accuracy = (double) correct / numSamples;
+        double accuracy = numSamples == 0 ? Double.NaN : (double) correct / numSamples;
 
         OverallMetrics metrics = new OverallMetrics(accuracy, precision, recall, f1);
-
         Map<String, Integer> splitSizes = Map.of("train", trainSize, "test", numSamples);
 
         return new ModelEvaluationSummary(

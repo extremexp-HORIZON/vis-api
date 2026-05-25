@@ -1,6 +1,7 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -8,9 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -22,6 +21,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -161,55 +162,54 @@ public class DataHelperV2 {
     /**
      * Converts a ResultSet to a DataResponse object containing tabular data.
      *
-     * @param resultSet the ResultSet to convert
-     * @param query     the SQL query that generated the ResultSet
-     * @return a DataResponse containing the converted data, columns, and metadata
-     * @throws SQLException if a database access error occurs
+     * Streams rows directly into a JsonGenerator instead of buffering them as a
+     * Java List first. Peak memory is roughly halved on large result sets because
+     * we no longer hold both the List<Map> and the serialized JSON String at the
+     * same time.
      */
     protected DataResponse convertResultSetToTabularResponse(ResultSet resultSet, String query) throws SQLException {
         List<Column> columns = new ArrayList<>();
-        List<Map<String, Object>> dataRows = new ArrayList<>();
 
-        // Get column metadata
         var metaData = resultSet.getMetaData();
         int columnCount = metaData.getColumnCount();
 
-        // Extract column information
+        String[] columnNames = new String[columnCount + 1];
         for (int i = 1; i <= columnCount; i++) {
             String columnName = metaData.getColumnName(i);
             String columnType = mapSqlTypeToString(metaData.getColumnType(i));
             columns.add(new Column(columnName, columnType));
+            columnNames[i] = columnName;
         }
 
-        // Extract data rows
-        while (resultSet.next()) {
-            Map<String, Object> row = new HashMap<>();
-            for (int i = 1; i <= columnCount; i++) {
-                String columnName = metaData.getColumnName(i);
-                Object value = resultSet.getObject(i);
-                row.put(columnName, value);
+        StringWriter writer = new StringWriter();
+        int rowCount = 0;
+        JsonFactory factory = objectMapper.getFactory();
+        try (JsonGenerator gen = factory.createGenerator(writer)) {
+            gen.writeStartArray();
+            while (resultSet.next()) {
+                gen.writeStartObject();
+                for (int i = 1; i <= columnCount; i++) {
+                    gen.writeFieldName(columnNames[i]);
+                    Object value = resultSet.getObject(i);
+                    objectMapper.writeValue(gen, value);
+                }
+                gen.writeEndObject();
+                rowCount++;
             }
-            dataRows.add(row);
+            gen.writeEndArray();
+        } catch (IOException ioe) {
+            log.warning("Failed to stream JSON: " + ioe.getMessage());
+            writer.getBuffer().setLength(0);
+            writer.write("[]");
         }
 
-        // Create TabularResponse
         DataResponse response = new DataResponse();
-        response.setData(convertDataToJson(dataRows));
+        response.setData(writer.toString());
         response.setColumns(columns);
-        response.setTotalItems(dataRows.size());
-        response.setQuerySize(dataRows.size());
+        response.setTotalItems(rowCount);
+        response.setQuerySize(rowCount);
 
         return response;
-    }
-
-    protected String convertDataToJson(List<Map<String, Object>> dataRows) {
-        try {
-            return objectMapper.writeValueAsString(dataRows);
-        } catch (Exception e) {
-            // Log the error and return a fallback
-            System.err.println("Error converting data to JSON: " + e.getMessage());
-            return "[]"; // Return empty JSON array as fallback
-        }
     }
 
     /**
@@ -476,6 +476,229 @@ public class DataHelperV2 {
             default:
                 throw new IllegalArgumentException("Unknown file type: " + fileType);
         }
+    }
+
+    /**
+     * Resolves a JSON dataset to its preprocessed (row-oriented) form when needed.
+     * For non-JSON files this is a no-op. Surfaces IOExceptions as RuntimeException
+     * so callers running inside a CompletableFuture don't need checked-exception
+     * gymnastics.
+     */
+    protected String resolveJsonIfNeeded(String filePath) {
+        FileType ft = detectFileType(filePath);
+        if (ft != FileType.JSON) return filePath;
+        try {
+            return preprocessJsonIfNeeded(Paths.get(filePath)).toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to preprocess JSON file: " + filePath, e);
+        }
+    }
+
+    private String filtersToWhereClause(List<AbstractFilter> filters) {
+        if (filters == null || filters.isEmpty()) return "";
+        String inner = filters.stream()
+                .map(AbstractFilter::toSql)
+                .filter(s -> !s.equals("1=1"))
+                .collect(Collectors.joining(" AND "));
+        return inner.isEmpty() ? "" : " WHERE " + inner;
+    }
+
+    /**
+     * Builds a GROUP BY aggregation query. groupBy is the only thing that drives
+     * the cardinality of the result, so the response stays small regardless of
+     * the source row count.
+     */
+    protected String buildAggregateSql(String fromClause, List<String> groupBy, List<Aggregation> aggregations,
+            List<AbstractFilter> filters, Integer limit) {
+        StringBuilder sql = new StringBuilder("SELECT ");
+        boolean hasGroupBy = groupBy != null && !groupBy.isEmpty();
+
+        if (hasGroupBy) {
+            sql.append(groupBy.stream()
+                    .map(this::getCorrectedString)
+                    .collect(Collectors.joining(", ")));
+        }
+
+        if (aggregations != null && !aggregations.isEmpty()) {
+            if (hasGroupBy) sql.append(", ");
+            sql.append(aggregations.stream()
+                    .map(Aggregation::toSql)
+                    .collect(Collectors.joining(", ")));
+        } else if (!hasGroupBy) {
+            // Sensible default: COUNT(*) when no projection given.
+            sql.append("COUNT(*) AS count_all");
+        }
+
+        sql.append(" FROM ").append(fromClause);
+        sql.append(filtersToWhereClause(filters));
+
+        if (hasGroupBy) {
+            sql.append(" GROUP BY ").append(groupBy.stream()
+                    .map(this::getCorrectedString)
+                    .collect(Collectors.joining(", ")));
+        }
+        if (limit != null && limit > 0) {
+            sql.append(" LIMIT ").append(limit);
+        }
+        return sql.toString();
+    }
+
+    /** COUNT of non-null x values matching the filters — used to decide whether downsampling is needed. */
+    protected String buildCountSql(String fromClause, String xColumn, List<AbstractFilter> filters) {
+        String where = filtersToWhereClause(filters);
+        String conn = where.isEmpty() ? " WHERE " : " AND ";
+        return "SELECT COUNT(*) FROM " + fromClause + where + conn
+                + getCorrectedString(xColumn) + " IS NOT NULL";
+    }
+
+    /**
+     * M4 SQL: split rows into `buckets` equal-width buckets over xColumn's sort order,
+     * then for each Y column emit y_min / y_max / y_first / y_last and the matching x.
+     * Data is sorted by x within each bucket, so MIN(x)/MAX(x) give x_first/x_last directly.
+     */
+    protected String buildM4Sql(String fromClause, String xColumn, List<String> yColumns,
+            List<AbstractFilter> filters, int buckets) {
+        String x = getCorrectedString(xColumn);
+        String where = filtersToWhereClause(filters);
+        String xNotNull = (where.isEmpty() ? " WHERE " : " AND ") + x + " IS NOT NULL";
+
+        // Project the columns we need into a CTE; reference them by their original
+        // (quoted) names throughout so SELECT * propagation stays consistent.
+        String yProjection = yColumns.stream()
+                .map(this::getCorrectedString)
+                .collect(Collectors.joining(", "));
+
+        StringBuilder ySelects = new StringBuilder();
+        for (String y : yColumns) {
+            String yq = getCorrectedString(y);
+            String safe = sanitizeIdent(y);
+            // M4 stores 4 points per bucket per y: (x_first,y_first), (x_at_min,y_min),
+            // (x_at_max,y_max), (x_last,y_last). arg_min/arg_max give the x at the y extremes.
+            ySelects.append(", MIN(").append(yq).append(") AS ").append(safe).append("_min")
+                    .append(", MAX(").append(yq).append(") AS ").append(safe).append("_max")
+                    .append(", arg_min(").append(yq).append(", ").append(x).append(") AS ").append(safe).append("_first")
+                    .append(", arg_max(").append(yq).append(", ").append(x).append(") AS ").append(safe).append("_last")
+                    .append(", arg_min(").append(x).append(", ").append(yq).append(") AS x_at_").append(safe).append("_min")
+                    .append(", arg_max(").append(x).append(", ").append(yq).append(") AS x_at_").append(safe).append("_max");
+        }
+
+        return "WITH numbered AS ("
+                + "  SELECT " + x + ", " + yProjection
+                + ", row_number() OVER (ORDER BY " + x + ") - 1 AS rn,"
+                + " count(*) OVER () AS total"
+                + " FROM " + fromClause + where + xNotNull
+                + "), bucketed AS ("
+                + "  SELECT *, CAST(rn * " + buckets + " / total AS INTEGER) AS bucket FROM numbered"
+                + ") SELECT bucket,"
+                + " MIN(" + x + ") AS x_first, MAX(" + x + ") AS x_last"
+                + ySelects.toString()
+                + " FROM bucketed GROUP BY bucket ORDER BY bucket";
+    }
+
+    /** Stats query used to derive bin edges before binning. */
+    protected String buildHistogramStatsSql(String fromClause, String column, List<AbstractFilter> filters) {
+        String c = getCorrectedString(column);
+        return "SELECT MIN(" + c + ") AS min_val, MAX(" + c + ") AS max_val,"
+                + " COUNT(*) AS total_count,"
+                + " SUM(CASE WHEN " + c + " IS NULL THEN 1 ELSE 0 END) AS null_count"
+                + " FROM " + fromClause + filtersToWhereClause(filters);
+    }
+
+    /**
+     * Equi-width histogram. We compute bins client-friendly: each row carries
+     * bin index, the lower/upper edge and the count. Empty bins are included so
+     * the chart can render them as zero bars without extra logic.
+     */
+    protected String buildHistogramBinsSql(String fromClause, String column, List<AbstractFilter> filters,
+            int buckets, double minVal, double maxVal) {
+        String c = getCorrectedString(column);
+        double range = maxVal - minVal;
+        String where = filtersToWhereClause(filters);
+        String notNull = (where.isEmpty() ? " WHERE " : " AND ") + c + " IS NOT NULL";
+
+        return "WITH bins AS ("
+                + "  SELECT LEAST(CAST(((" + c + " - " + minVal + ") / " + range + ") * " + buckets
+                + " AS INTEGER), " + (buckets - 1) + ") AS bucket"
+                + "  FROM " + fromClause + where + notNull
+                + "), counts AS (SELECT bucket, COUNT(*) AS cnt FROM bins GROUP BY bucket),"
+                + " axis AS (SELECT UNNEST(range(0, " + buckets + ")) AS bucket)"
+                + " SELECT axis.bucket AS bucket,"
+                + " " + minVal + " + axis.bucket * " + range + " / " + buckets + " AS bin_lo,"
+                + " " + minVal + " + (axis.bucket + 1) * " + range + " / " + buckets + " AS bin_hi,"
+                + " COALESCE(counts.cnt, 0) AS count"
+                + " FROM axis LEFT JOIN counts ON axis.bucket = counts.bucket"
+                + " ORDER BY axis.bucket";
+    }
+
+    private String sanitizeIdent(String name) {
+        if (name == null) return "col";
+        return name.toLowerCase().replaceAll("[^a-zA-Z0-9_]", "_");
+    }
+
+    /**
+     * Reservoir-sample N rows. DuckDB's `USING SAMPLE n ROWS (RESERVOIR)` is the
+     * idiomatic way; it's a true random sample, not the first N rows.
+     */
+    protected String buildScatterSampleSql(String fromClause, String xColumn, String yColumn, String colorColumn,
+            List<AbstractFilter> filters, int sampleSize) {
+        String x = getCorrectedString(xColumn);
+        String y = getCorrectedString(yColumn);
+        StringBuilder cols = new StringBuilder(x).append(", ").append(y);
+        if (colorColumn != null && !colorColumn.isBlank()) {
+            cols.append(", ").append(getCorrectedString(colorColumn));
+        }
+
+        String where = filtersToWhereClause(filters);
+        String conn = where.isEmpty() ? " WHERE " : " AND ";
+        String notNull = conn + x + " IS NOT NULL AND " + y + " IS NOT NULL";
+
+        return "SELECT " + cols + " FROM " + fromClause + where + notNull
+                + " USING SAMPLE " + sampleSize + " ROWS (RESERVOIR)";
+    }
+
+    /** Min/max stats for a column with the given filter set. Used to derive bin edges. */
+    protected String buildXYStatsSql(String fromClause, String xColumn, String yColumn,
+            List<AbstractFilter> filters) {
+        String x = getCorrectedString(xColumn);
+        String y = getCorrectedString(yColumn);
+        String where = filtersToWhereClause(filters);
+        String conn = where.isEmpty() ? " WHERE " : " AND ";
+        return "SELECT MIN(" + x + ") AS x_min, MAX(" + x + ") AS x_max,"
+                + " MIN(" + y + ") AS y_min, MAX(" + y + ") AS y_max,"
+                + " COUNT(*) AS total_count"
+                + " FROM " + fromClause + where + conn
+                + x + " IS NOT NULL AND " + y + " IS NOT NULL";
+    }
+
+    /**
+     * 2D rectangular binning. Returns one row per non-empty bin with its edges
+     * and count. Empty bins are skipped — heatmap-style rendering doesn't need them.
+     */
+    protected String buildScatterBinSql(String fromClause, String xColumn, String yColumn,
+            List<AbstractFilter> filters, int xBuckets, int yBuckets,
+            double xMin, double xMax, double yMin, double yMax) {
+        String x = getCorrectedString(xColumn);
+        String y = getCorrectedString(yColumn);
+        double xRange = xMax - xMin;
+        double yRange = yMax - yMin;
+        String where = filtersToWhereClause(filters);
+        String conn = where.isEmpty() ? " WHERE " : " AND ";
+
+        return "WITH binned AS ("
+                + "  SELECT"
+                + "    LEAST(CAST(((" + x + " - " + xMin + ") / " + xRange + ") * " + xBuckets
+                + " AS INTEGER), " + (xBuckets - 1) + ") AS x_bin,"
+                + "    LEAST(CAST(((" + y + " - " + yMin + ") / " + yRange + ") * " + yBuckets
+                + " AS INTEGER), " + (yBuckets - 1) + ") AS y_bin"
+                + "  FROM " + fromClause + where + conn
+                + x + " IS NOT NULL AND " + y + " IS NOT NULL"
+                + ") SELECT x_bin, y_bin,"
+                + " " + xMin + " + x_bin * " + xRange + " / " + xBuckets + " AS x_lo,"
+                + " " + xMin + " + (x_bin + 1) * " + xRange + " / " + xBuckets + " AS x_hi,"
+                + " " + yMin + " + y_bin * " + yRange + " / " + yBuckets + " AS y_lo,"
+                + " " + yMin + " + (y_bin + 1) * " + yRange + " / " + yBuckets + " AS y_hi,"
+                + " COUNT(*) AS count"
+                + " FROM binned GROUP BY x_bin, y_bin";
     }
 
     private Path preprocessJsonIfNeeded(Path datasetPath) throws IOException {
