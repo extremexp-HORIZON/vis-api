@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class KfpPipeline {
-    public String id;
-    public String name;
+  public String id;
+  public String name;
 }

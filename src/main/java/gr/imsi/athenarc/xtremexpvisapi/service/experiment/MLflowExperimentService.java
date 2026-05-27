@@ -1,20 +1,8 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.experiment;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.Files;
-import java.io.IOException;
-
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.DataAsset;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
@@ -22,974 +10,1003 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Param;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluation;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.UserEvaluationResponse;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
-import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
+import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.SourceType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
 import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngine;
-import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngineFactory;
 import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngineException;
-
+import gr.imsi.athenarc.xtremexpvisapi.service.execution.ExecutionEngineFactory;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 /**
- * MLflow implementation of the ExperimentService.
- * Connects to MLflow tracking server to retrieve experiment data.
+ * MLflow implementation of the ExperimentService. Connects to MLflow tracking server to retrieve
+ * experiment data.
  */
 @Service("mlflow")
 public class MLflowExperimentService implements ExperimentService {
 
-    @Value("${mlflow.tracking.url}")
-    private String mlflowTrackingUrl;
-    @Value("${app.working.directory}")
-    private String workingDirectory;
-    @Value("${app.working.directory.mlflow}")
-    private String mlflowWorkingDirectory;
+  @Value("${mlflow.tracking.url}")
+  private String mlflowTrackingUrl;
 
-    private final RestTemplate restTemplate;
+  @Value("${app.working.directory}")
+  private String workingDirectory;
 
-    private final ExecutionEngineFactory executionEngineFactory;
+  @Value("${app.working.directory.mlflow}")
+  private String mlflowWorkingDirectory;
 
-    private static final Logger LOG = LoggerFactory.getLogger(MLflowExperimentService.class);
+  private final RestTemplate restTemplate;
 
-    public MLflowExperimentService(RestTemplate restTemplate, ExecutionEngineFactory executionEngineFactory) {
-        this.restTemplate = restTemplate;
-        this.executionEngineFactory = executionEngineFactory;
+  private final ExecutionEngineFactory executionEngineFactory;
+
+  private static final Logger LOG = LoggerFactory.getLogger(MLflowExperimentService.class);
+
+  public MLflowExperimentService(
+      RestTemplate restTemplate, ExecutionEngineFactory executionEngineFactory) {
+    this.restTemplate = restTemplate;
+    this.executionEngineFactory = executionEngineFactory;
+  }
+
+  @Override
+  public ResponseEntity<List<Experiment>> getExperiments(
+      int limit, int offset, String authorization) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/experiments/search";
+    List<Experiment> targetExperiments = new ArrayList<>();
+    String pageToken = "";
+    int skipped = 0;
+    int collected = 0;
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    while (collected < limit) {
+      Map<String, Object> requestBody = new HashMap<>();
+      requestBody.put("max_results", Math.min(1000, limit - collected));
+      requestBody.put("page_token", pageToken);
+
+      List<String> orderBy = new ArrayList<>();
+      orderBy.add("creation_time DESC");
+      requestBody.put("order_by", orderBy);
+
+      HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+      try {
+        ResponseEntity<Map> response =
+            restTemplate.exchange(requestUrl, HttpMethod.POST, entity, Map.class);
+
+        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+          return ResponseEntity.status(response.getStatusCode()).build();
+        }
+
+        Map<String, Object> responseBody = response.getBody();
+        List<Experiment> pageExperiments = mapToExperiments(responseBody);
+
+        if (pageExperiments == null || pageExperiments.isEmpty()) {
+          break;
+        }
+
+        // Handle offset and collect only needed experiments
+        for (Experiment exp : pageExperiments) {
+          if (skipped < offset) {
+            skipped++;
+            continue;
+          }
+          targetExperiments.add(exp);
+          collected++;
+          if (collected == limit) break;
+        }
+
+        if (collected == limit) break;
+
+        pageToken = (String) responseBody.get("next_page_token");
+        if (pageToken == null || pageToken.isEmpty()) {
+          break;
+        }
+
+      } catch (Exception e) {
+        LOG.error("An error was encountered while fetching and/or parsing experiments list.", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+      }
     }
 
-    @Override
-    public ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/experiments/search";
-        List<Experiment> targetExperiments = new ArrayList<>();
-        String pageToken = "";
-        int skipped = 0;
-        int collected = 0;
+    return ResponseEntity.ok(targetExperiments);
+  }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+  @Override
+  public ResponseEntity<Experiment> getExperimentById(String experimentId) {
+    String requestUrl =
+        mlflowTrackingUrl + "/api/2.0/mlflow/experiments/get?experiment_id=" + experimentId;
 
-        while (collected < limit) {
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("max_results", Math.min(1000, limit - collected));
-            requestBody.put("page_token", pageToken);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
 
-            List<String> orderBy = new ArrayList<>();
-            orderBy.add("creation_time DESC");
-            requestBody.put("order_by", orderBy);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
 
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        requestUrl,
-                        HttpMethod.POST,
-                        entity,
-                        Map.class);
+      Map<String, Object> responseBody = response.getBody();
+      if (response.getStatusCode() == HttpStatus.OK && responseBody != null) {
+        Map<String, Object> experimentData = (Map<String, Object>) responseBody.get("experiment");
+        return ResponseEntity.ok(mapToExperiment(experimentData));
+      } else {
+        return ResponseEntity.status(response.getStatusCode()).build();
+      }
 
-                if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-                    return ResponseEntity.status(response.getStatusCode()).build();
-                }
+    } catch (Exception e) {
+      LOG.error("An error was encountered while fetching and/or parsing experiment.", e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
 
-                Map<String, Object> responseBody = response.getBody();
-                List<Experiment> pageExperiments = mapToExperiments(responseBody);
-                
-                if (pageExperiments == null || pageExperiments.isEmpty()) {
-                    break;
-                }
+  @Override
+  public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/search";
+    List<Run> allRuns = new ArrayList<>();
+    String pageToken = "";
 
-                // Handle offset and collect only needed experiments
-                for (Experiment exp : pageExperiments) {
-                    if (skipped < offset) {
-                        skipped++;
-                        continue;
-                    }
-                    targetExperiments.add(exp);
-                    collected++;
-                    if (collected == limit) break;
-                }
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
 
-                if (collected == limit) break;
+    while (true) {
+      Map<String, Object> requestBody = new HashMap<>();
+      requestBody.put("experiment_ids", List.of(experimentId));
+      requestBody.put("max_results", 1000); // MLflow maximum page size
+      requestBody.put("page_token", pageToken);
+      requestBody.put("order_by", List.of("start_time DESC"));
 
-                pageToken = (String) responseBody.get("next_page_token");
-                if (pageToken == null || pageToken.isEmpty()) {
-                    break;
-                }
+      HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            } catch (Exception e) {
-                LOG.error("An error was encountered while fetching and/or parsing experiments list.", e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
+      try {
+        ResponseEntity<Map> response =
+            restTemplate.exchange(requestUrl, HttpMethod.POST, entity, Map.class);
+
+        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+          return ResponseEntity.status(response.getStatusCode()).build();
         }
 
-        return ResponseEntity.ok(targetExperiments);
+        Map<String, Object> responseBody = response.getBody();
+        List<Run> pageRuns = mapToRuns(responseBody);
+
+        if (pageRuns != null && !pageRuns.isEmpty()) {
+          allRuns.addAll(pageRuns);
+        }
+
+        pageToken = (String) responseBody.get("next_page_token");
+        if (pageToken == null || pageToken.isEmpty()) {
+          break; // No more pages to fetch
+        }
+
+      } catch (Exception e) {
+        LOG.error("Error fetching runs for experiment {}", experimentId, e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+      }
     }
 
-    @Override
-    public ResponseEntity<Experiment> getExperimentById(String experimentId) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/experiments/get?experiment_id=" + experimentId;
+    return ResponseEntity.ok(allRuns);
+  }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+  @Override
+  public ResponseEntity<Run> getRunById(String experimentId, String runId) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
 
-        HttpEntity<String> entity = new HttpEntity<>(headers);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
 
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            Map<String, Object> responseBody = response.getBody();
-            if (response.getStatusCode() == HttpStatus.OK && responseBody != null) {
-                Map<String, Object> experimentData = (Map<String, Object>) responseBody.get("experiment");
-                return ResponseEntity.ok(mapToExperiment(experimentData));
-            } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
-            }
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
 
-        } catch (Exception e) {
-            LOG.error("An error was encountered while fetching and/or parsing experiment.", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+      Map<String, Object> responseBody = response.getBody();
+      if (response.getStatusCode() == HttpStatus.OK && responseBody != null) {
+        Map<String, Object> runData = (Map<String, Object>) responseBody.get("run");
+        Run run = mapToRun(runData);
+        return ResponseEntity.ok(run);
+      } else {
+        return ResponseEntity.status(response.getStatusCode()).build();
+      }
+
+    } catch (Exception e) {
+      LOG.error("Error fetching run with id {}", runId, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  @Override
+  public ResponseEntity<List<Metric>> getMetricValues(
+      String experimentId, String runId, String metricName) {
+    String requestUrl =
+        mlflowTrackingUrl
+            + "/api/2.0/mlflow/metrics/get-history?run_id="
+            + runId
+            + "&metric_key="
+            + metricName;
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
+
+      if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+        return ResponseEntity.ok(mapMetricHistory(response.getBody()));
+      } else {
+        return ResponseEntity.status(response.getStatusCode()).build();
+      }
+
+    } catch (Exception e) {
+      LOG.error(
+          "Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  @Override
+  public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(
+      String experimentId, String runId, UserEvaluation userEvaluation) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/set-tag";
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    try {
+      // Required field
+      setRunTag(requestUrl, runId, "user_evaluation.user", userEvaluation.getUser(), headers);
+
+      // Optional fields
+      if (userEvaluation.getRating() != null) {
+        setRunTag(
+            requestUrl,
+            runId,
+            "user_evaluation.rating",
+            String.valueOf(userEvaluation.getRating()),
+            headers);
+      }
+      if (userEvaluation.getFavorite() != null) {
+        setRunTag(
+            requestUrl,
+            runId,
+            "user_evaluation.favorite",
+            String.valueOf(userEvaluation.getFavorite()),
+            headers);
+      }
+      if (userEvaluation.getComment() != null) {
+        setRunTag(
+            requestUrl, runId, "user_evaluation.comment", userEvaluation.getComment(), headers);
+      }
+
+      return ResponseEntity.ok(new UserEvaluationResponse());
+
+    } catch (Exception e) {
+      LOG.error("Error submitting user evaluation for run {}", runId, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  @Override
+  public ResponseEntity<List<Metric>> getAllMetrics(
+      String experimentId, String runId, String metricName) {
+    String requestUrl =
+        mlflowTrackingUrl
+            + "/api/2.0/mlflow/metrics/get-history?run_id="
+            + runId
+            + "&metric_key="
+            + metricName;
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
+
+      if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+        return ResponseEntity.ok(mapMetricHistory(response.getBody()));
+      } else {
+        return ResponseEntity.status(response.getStatusCode()).build();
+      }
+
+    } catch (Exception e) {
+      LOG.error(
+          "Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  @Override
+  public ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(
+      String experimentId, String runId, List<String> metricNames) {
+    Map<String, List<Metric>> result = new HashMap<>();
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+
+    for (String metricName : metricNames) {
+      String requestUrl =
+          mlflowTrackingUrl
+              + "/api/2.0/mlflow/metrics/get-history?run_id="
+              + runId
+              + "&metric_key="
+              + metricName;
+      try {
+        ResponseEntity<Map> response =
+            restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+          result.put(metricName, mapMetricHistory(response.getBody()));
         }
+      } catch (Exception e) {
+        LOG.error("Error fetching metric history for metric {} in run {}", metricName, runId, e);
+      }
     }
 
-    @Override
-    public ResponseEntity<List<Run>> getRunsForExperiment(String experimentId) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/search";
-        List<Run> allRuns = new ArrayList<>();
-        String pageToken = "";
+    return ResponseEntity.ok(result);
+  }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+  private void setRunTag(
+      String requestUrl, String runId, String key, String value, HttpHeaders headers) {
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("run_id", runId);
+    requestBody.put("key", key);
+    requestBody.put("value", value);
 
-        while (true) {
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("experiment_ids", List.of(experimentId));
-            requestBody.put("max_results", 1000);  // MLflow maximum page size
-            requestBody.put("page_token", pageToken);
-            requestBody.put("order_by", List.of("start_time DESC"));
+    HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+    ResponseEntity<Map> response =
+        restTemplate.exchange(requestUrl, HttpMethod.POST, entity, Map.class);
 
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.POST,
-                    entity,
-                    Map.class);
+    if (response.getStatusCode() != HttpStatus.OK) {
+      throw new RuntimeException("Failed to set tag " + key + " for run " + runId);
+    }
+  }
 
-                if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-                    return ResponseEntity.status(response.getStatusCode()).build();
-                }
+  private List<Experiment> mapToExperiments(Map<String, Object> data) {
+    List<Map<String, Object>> experiments = (List<Map<String, Object>>) data.get("experiments");
+    if (experiments == null) return new ArrayList<>();
 
-                Map<String, Object> responseBody = response.getBody();
-                List<Run> pageRuns = mapToRuns(responseBody);
+    return experiments.stream().map(this::mapToExperiment).collect(Collectors.toList());
+  }
 
-                if (pageRuns != null && !pageRuns.isEmpty()) {
-                    allRuns.addAll(pageRuns);
-                }
+  private Experiment mapToExperiment(Map<String, Object> data) {
+    Experiment experiment = new Experiment();
+    experiment.setId((String) data.get("experiment_id"));
+    experiment.setName((String) data.get("name"));
 
-                pageToken = (String) responseBody.get("next_page_token");
-                if (pageToken == null || pageToken.isEmpty()) {
-                    break; // No more pages to fetch
-                }
-
-            } catch (Exception e) {
-                LOG.error("Error fetching runs for experiment {}", experimentId, e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        }
-
-        return ResponseEntity.ok(allRuns);
+    // Timestamps are already in milliseconds
+    Object creationTime = data.get("creation_time");
+    if (creationTime != null) {
+      experiment.setCreationTime(((Number) creationTime).longValue());
     }
 
-    @Override
-    public ResponseEntity<Run> getRunById(String experimentId, String runId) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
-
-            Map<String, Object> responseBody = response.getBody();
-            if (response.getStatusCode() == HttpStatus.OK && responseBody != null) {
-                Map<String, Object> runData = (Map<String, Object>) responseBody.get("run");
-                Run run = mapToRun(runData);
-                return ResponseEntity.ok(run);
-            } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
-            }
-
-        } catch (Exception e) {
-            LOG.error("Error fetching run with id {}", runId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    Object lastUpdateTime = data.get("last_update_time");
+    if (lastUpdateTime != null) {
+      experiment.setLastUpdateTime(((Number) lastUpdateTime).longValue());
     }
 
-    @Override
-    public ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
+    // Map tags
+    Map<String, String> tags = new HashMap<>();
+    if (data.get("tags") instanceof List) {
+      List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data.get("tags");
+      mlflowTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
+    }
+    experiment.setTags(tags);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return ResponseEntity.ok(mapMetricHistory(response.getBody()));
-            } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
-            }
-
-        } catch (Exception e) {
-            LOG.error("Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    // Set status if present. MLflow experiments may not have a direct "status" field;
+    // prefer explicit "status" if provided, then fall back to lifecycle_stage, then to tags.
+    Object statusObj = data.get("status");
+    if (statusObj == null) {
+      statusObj = data.get("lifecycle_stage");
+    }
+    if (statusObj == null && tags.containsKey("status")) {
+      statusObj = tags.get("status");
+    }
+    if (statusObj != null) {
+      experiment.setStatus(statusObj.toString());
     }
 
-    @Override
-    public ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/set-tag";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+    return experiment;
+  }
 
-        try {
-            // Required field
-            setRunTag(requestUrl, runId, "user_evaluation.user", userEvaluation.getUser(), headers);
-            
-            // Optional fields
-            if (userEvaluation.getRating() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.rating", 
-                        String.valueOf(userEvaluation.getRating()), headers);
-            }
-            if (userEvaluation.getFavorite() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.favorite", 
-                        String.valueOf(userEvaluation.getFavorite()), headers);
-            }
-            if (userEvaluation.getComment() != null) {
-                setRunTag(requestUrl, runId, "user_evaluation.comment", 
-                        userEvaluation.getComment(), headers);
-            }
+  private List<Run> mapToRuns(Map<String, Object> data) {
+    List<Map<String, Object>> runs = (List<Map<String, Object>>) data.get("runs");
+    if (runs == null) return new ArrayList<>();
 
-            return ResponseEntity.ok(new UserEvaluationResponse());
-
-        } catch (Exception e) {
-            LOG.error("Error submitting user evaluation for run {}", runId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    List<Run> result = new ArrayList<>();
+    for (Map<String, Object> run : runs) {
+      String runId = null;
+      try {
+        // Try to extract run id for better logging context
+        if (run.get("info") instanceof Map) {
+          Map<String, Object> info = (Map<String, Object>) run.get("info");
+          Object idObj = info.get("run_id");
+          if (idObj != null) runId = String.valueOf(idObj);
         }
+        Run mapped = mapToRun(run);
+        if (mapped != null) result.add(mapped);
+      } catch (Exception e) {
+        if (runId != null) {
+          LOG.error("Failed to map run with id {}. Aborting.", runId, e);
+          throw new RuntimeException("Failed to map run with id " + runId, e);
+        } else {
+          LOG.error("Failed to map a run (id unknown). Aborting.", e);
+          throw new RuntimeException("Failed to map a run (id unknown).", e);
+        }
+      }
+    }
+    return result;
+  }
+
+  private Run mapToRun(Map<String, Object> data) {
+    Map<String, Object> info = (Map<String, Object>) data.get("info");
+    Map<String, Object> data2 = (Map<String, Object>) data.get("data");
+
+    Run run = new Run();
+    run.setId((String) info.get("run_id"));
+    run.setName((String) info.get("run_name"));
+    run.setExperimentId((String) info.get("experiment_id"));
+    run.setStatus(mapStatus((String) info.get("status")));
+    String experimentId = (String) info.get("experiment_id");
+    String runId = (String) info.get("run_id");
+
+    // Timestamps are already in milliseconds
+    Object startTime = info.get("start_time");
+    if (startTime != null) {
+      run.setStartTime(((Number) startTime).longValue());
     }
 
-    @Override
-    public ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                return ResponseEntity.ok(mapMetricHistory(response.getBody()));
-            } else {
-                return ResponseEntity.status(response.getStatusCode()).build();
-            }
-
-        } catch (Exception e) {
-            LOG.error("Error fetching metric history for metric {} in run with id {}", metricName, runId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    Object endTime = info.get("end_time");
+    if (endTime != null) {
+      run.setEndTime(((Number) endTime).longValue());
     }
 
-    @Override
-    public ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(String experimentId, String runId, List<String> metricNames) {
-        Map<String, List<Metric>> result = new HashMap<>();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        for (String metricName : metricNames) {
-            String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/metrics/get-history?run_id=" + runId + "&metric_key=" + metricName;
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        requestUrl, HttpMethod.GET, entity, Map.class);
-                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                    result.put(metricName, mapMetricHistory(response.getBody()));
-                }
-            } catch (Exception e) {
-                LOG.error("Error fetching metric history for metric {} in run {}", metricName, runId, e);
-            }
-        }
-
-        return ResponseEntity.ok(result);
-    }
-    private void setRunTag(String requestUrl, String runId, String key, String value, HttpHeaders headers) {
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("run_id", runId);
-        requestBody.put("key", key);
-        requestBody.put("value", value);
-
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
-
-        ResponseEntity<Map> response = restTemplate.exchange(
-                requestUrl,
-                HttpMethod.POST,
-                entity,
-                Map.class);
-
-        if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RuntimeException("Failed to set tag " + key + " for run " + runId);
-        }
+    // Map parameters
+    if (data2.get("params") instanceof List) {
+      List<Map<String, Object>> params = (List<Map<String, Object>>) data2.get("params");
+      run.setParams(
+          params.stream()
+              .map(p -> new Param((String) p.get("key"), (String) p.get("value"), null))
+              .collect(Collectors.toList()));
     }
 
-    private List<Experiment> mapToExperiments(Map<String, Object> data) {
-        List<Map<String, Object>> experiments = (List<Map<String, Object>>) data.get("experiments");
-        if (experiments == null) return new ArrayList<>();
-        
-        return experiments.stream()
-            .map(this::mapToExperiment)
-            .collect(Collectors.toList());
-    }
-
-    private Experiment mapToExperiment(Map<String, Object> data) {
-        Experiment experiment = new Experiment();
-        experiment.setId((String) data.get("experiment_id"));
-        experiment.setName((String) data.get("name"));
-        
-        // Timestamps are already in milliseconds
-        Object creationTime = data.get("creation_time");
-        if (creationTime != null) {
-            experiment.setCreationTime(((Number) creationTime).longValue());
-        }
-        
-        Object lastUpdateTime = data.get("last_update_time");
-        if (lastUpdateTime != null) {
-            experiment.setLastUpdateTime(((Number) lastUpdateTime).longValue());
-        }
-        
-        // Map tags
-        Map<String, String> tags = new HashMap<>();
-        if (data.get("tags") instanceof List) {
-            List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data.get("tags");
-            mlflowTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value")));
-        }
-        experiment.setTags(tags);
-
-        // Set status if present. MLflow experiments may not have a direct "status" field;
-        // prefer explicit "status" if provided, then fall back to lifecycle_stage, then to tags.
-        Object statusObj = data.get("status");
-        if (statusObj == null) {
-            statusObj = data.get("lifecycle_stage");
-        }
-        if (statusObj == null && tags.containsKey("status")) {
-            statusObj = tags.get("status");
-        }
-        if (statusObj != null) {
-            experiment.setStatus(statusObj.toString());
-        }
-
-        return experiment;
-    }
-
-    private List<Run> mapToRuns(Map<String, Object> data) {
-        List<Map<String, Object>> runs = (List<Map<String, Object>>) data.get("runs");
-        if (runs == null) return new ArrayList<>();
-        
-        List<Run> result = new ArrayList<>();
-        for (Map<String, Object> run : runs) {
-            String runId = null;
-            try {
-                // Try to extract run id for better logging context
-                if (run.get("info") instanceof Map) {
-                    Map<String, Object> info = (Map<String, Object>) run.get("info");
-                    Object idObj = info.get("run_id");
-                    if (idObj != null) runId = String.valueOf(idObj);
-                }
-                Run mapped = mapToRun(run);
-                if (mapped != null) result.add(mapped);
-            } catch (Exception e) {
-                if (runId != null) {
-                    LOG.error("Failed to map run with id {}. Aborting.", runId, e);
-                    throw new RuntimeException("Failed to map run with id " + runId, e);
-                } else {
-                    LOG.error("Failed to map a run (id unknown). Aborting.", e);
-                    throw new RuntimeException("Failed to map a run (id unknown).", e);
-                }
-            }
-        }
-        return result;
-    }
-
-    private Run mapToRun(Map<String, Object> data) {
-        Map<String, Object> info = (Map<String, Object>) data.get("info");
-        Map<String, Object> data2 = (Map<String, Object>) data.get("data");
-        
-        Run run = new Run();
-        run.setId((String) info.get("run_id"));
-        run.setName((String) info.get("run_name"));
-        run.setExperimentId((String) info.get("experiment_id"));
-        run.setStatus(mapStatus((String) info.get("status")));
-        String experimentId = (String) info.get("experiment_id");
-        String runId = (String) info.get("run_id");
-        
-        // Timestamps are already in milliseconds
-        Object startTime = info.get("start_time");
-        if (startTime != null) {
-            run.setStartTime(((Number) startTime).longValue());
-        }
-        
-        Object endTime = info.get("end_time");
-        if (endTime != null) {
-            run.setEndTime(((Number) endTime).longValue());
-        }
-        
-        // Map parameters
-        if (data2.get("params") instanceof List) {
-            List<Map<String, Object>> params = (List<Map<String, Object>>) data2.get("params");
-            run.setParams(
-                params.stream()
-                .map(p -> new Param((String) p.get("key"), (String) p.get("value"), null))
-                .collect(Collectors.toList())
-            );
-        }
-        
-        // Map metrics
-        if (data2.get("metrics") instanceof List) {
-            List<Map<String, Object>> metrics = (List<Map<String, Object>>) data2.get("metrics");
-            run.setMetrics(
-                metrics.stream()
-                .map(m -> {
+    // Map metrics
+    if (data2.get("metrics") instanceof List) {
+      List<Map<String, Object>> metrics = (List<Map<String, Object>>) data2.get("metrics");
+      run.setMetrics(
+          metrics.stream()
+              .map(
+                  m -> {
                     Double value = parseMetricValue(m.get("value"));
-                    long timestamp = m.get("timestamp") instanceof Number ? ((Number) m.get("timestamp")).longValue() : 0L;
-                    Integer step = m.get("step") instanceof Number ? ((Number) m.get("step")).intValue() : null;
+                    long timestamp =
+                        m.get("timestamp") instanceof Number
+                            ? ((Number) m.get("timestamp")).longValue()
+                            : 0L;
+                    Integer step =
+                        m.get("step") instanceof Number
+                            ? ((Number) m.get("step")).intValue()
+                            : null;
                     return new Metric(
                         (String) m.get("key"),
                         value,
                         timestamp,
                         step,
-                        (String) m.get("producedByTask")
-                    );
-                })
+                        (String) m.get("producedByTask"));
+                  })
+              .collect(Collectors.toList()));
+    }
+
+    // Get existing input datasets
+    List<DataAsset> allAssets = new ArrayList<>();
+    if (data.get("inputs") != null) {
+      Map<String, Object> inputs = (Map<String, Object>) data.get("inputs");
+      if (inputs.get("dataset_inputs") instanceof List) {
+        List<Map<String, Object>> datasetInputs =
+            (List<Map<String, Object>>) inputs.get("dataset_inputs");
+        allAssets.addAll(
+            datasetInputs.stream()
+                .map(input -> mapToDataAsset(input, experimentId, runId))
                 .collect(Collectors.toList()));
-        }
-
-        // Get existing input datasets
-        List<DataAsset> allAssets = new ArrayList<>();
-        if (data.get("inputs") != null) {
-            Map<String, Object> inputs = (Map<String, Object>) data.get("inputs");
-            if (inputs.get("dataset_inputs") instanceof List) {
-                List<Map<String, Object>> datasetInputs = (List<Map<String, Object>>) inputs.get("dataset_inputs");
-                allAssets.addAll(
-                    datasetInputs.stream()
-                    .map(input -> mapToDataAsset(input, experimentId, runId))
-                    .collect(Collectors.toList())
-                );
-            }
-        }
-
-        // Get artifacts as additional assets
-        allAssets.addAll(getArtifactsAsDataAssets(runId, info));
-        
-        run.setDataAssets(allAssets);
-
-        // Map tags
-        Map<String, String> tags = new HashMap<>();
-        if (data2.get("tags") instanceof List) {
-            List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data2.get("tags");
-            mlflowTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value")));
-        }
-        run.setTags(tags);
-        
-        return run;
+      }
     }
 
-    private DataAsset mapToDataAsset(Map<String, Object> datasetInput, String experimentId, String runId) {
-        Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
-        List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
-        
-        DataAsset asset = new DataAsset();
-        asset.setName((String) dataset.get("name"));
-        // asset.setSourceType((String) dataset.get("source_type"));
+    // Get artifacts as additional assets
+    allAssets.addAll(getArtifactsAsDataAssets(runId, info));
 
-        Object source = dataset.get("source");
-        if (! (source instanceof String)) {
-            throw new RuntimeException("Dataset source is not a string as specified in MLflow API: " + source);
-        }
-        String source_str = (String) source;
-        ObjectMapper objectMapper = new ObjectMapper();
-        String asset_source;
-        try {
-            JsonNode jsonNode = objectMapper.readTree(source_str);
-            String urlPath = null;
+    run.setDataAssets(allAssets);
 
-            if (jsonNode.has("uri")) {
-                urlPath = jsonNode.get("uri").asText();
-            } else if (jsonNode.has("url")) {
-                urlPath = jsonNode.get("url").asText();
-            }
-
-            if (urlPath != null && urlPath.contains("path=")) {
-                // Extract 'path' parameter from the URL
-                String[] split = urlPath.split("path=");
-                if (split.length > 1) {
-                    String relativePath = split[1];
-                    // Construct the new local file path
-                    asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
-                } else {
-                    throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
-                }
-            } else {
-                LOG.warn("Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
-                asset_source = source_str;
-            }
-        } catch (JsonProcessingException e) {
-            LOG.warn("Invalid JSON string for source: {}. Using as-is.", source_str);
-            e.printStackTrace();
-            asset_source = source_str;
-        } catch (Exception e) {
-            LOG.warn("Failed to parse or extract path from source: {}. Using as-is.", source_str);
-            e.printStackTrace();
-            asset_source = source_str;
-        }
-        asset.setSource(asset_source);
-
-        
-        // Map tags from both dataset metadata and input tags
-        Map<String, String> tags = new HashMap<>();
-        
-        // Add dataset metadata as tags
-        if (dataset.get("digest") != null) {
-            tags.put("digest", (String) dataset.get("digest"));
-        }
-        if (dataset.get("schema") != null) {
-            tags.put("schema", (String) dataset.get("schema"));
-        }
-        if (dataset.get("profile") != null) {
-            tags.put("profile", (String) dataset.get("profile"));
-        }
-        
-        // Add input tags
-        if (inputTags != null) {
-            inputTags.forEach(tag -> 
-                tags.put((String) tag.get("key"), (String) tag.get("value"))
-            );
-        }
-        
-        asset.setTags(tags);
-        asset.setRole(DataAsset.Role.INPUT); // These are always input datasets from MLflow
-        
-        return asset;
+    // Map tags
+    Map<String, String> tags = new HashMap<>();
+    if (data2.get("tags") instanceof List) {
+      List<Map<String, Object>> mlflowTags = (List<Map<String, Object>>) data2.get("tags");
+      mlflowTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
     }
+    run.setTags(tags);
 
-    private List<DataAsset> getArtifactsAsDataAssets(String runId, Map<String, Object> info) {
-        String artifactUri = (String) info.get("artifact_uri");
+    return run;
+  }
 
-        // Try fast local filesystem traversal first (when artifacts are stored locally)
-        if (mlflowWorkingDirectory != null && !mlflowWorkingDirectory.isEmpty()) {
-            List<DataAsset> fsAssets = getArtifactsFromFilesystem(artifactUri);
-            if (!fsAssets.isEmpty()) {
-                return fsAssets;
-            }
-        }
+  private DataAsset mapToDataAsset(
+      Map<String, Object> datasetInput, String experimentId, String runId) {
+    Map<String, Object> dataset = (Map<String, Object>) datasetInput.get("dataset");
+    List<Map<String, Object>> inputTags = (List<Map<String, Object>>) datasetInput.get("tags");
 
-        // Fallback to HTTP-based recursive listing via MLflow API
-        return getArtifactsRecursively(runId, "", artifactUri);
+    DataAsset asset = new DataAsset();
+    asset.setName((String) dataset.get("name"));
+    // asset.setSourceType((String) dataset.get("source_type"));
+
+    Object source = dataset.get("source");
+    if (!(source instanceof String)) {
+      throw new RuntimeException(
+          "Dataset source is not a string as specified in MLflow API: " + source);
     }
+    String source_str = (String) source;
+    ObjectMapper objectMapper = new ObjectMapper();
+    String asset_source;
+    try {
+      JsonNode jsonNode = objectMapper.readTree(source_str);
+      String urlPath = null;
 
-    /**
-     * Fast path: when MLflow artifacts are stored on a filesystem that is
-     * locally accessible via {@code mlflowWorkingDirectory}, walk the
-     * directory tree directly instead of making many HTTP /artifacts/list calls.
-     */
-    private List<DataAsset> getArtifactsFromFilesystem(String artifactUri) {
-        List<DataAsset> assets = new ArrayList<>();
+      if (jsonNode.has("uri")) {
+        urlPath = jsonNode.get("uri").asText();
+      } else if (jsonNode.has("url")) {
+        urlPath = jsonNode.get("url").asText();
+      }
 
-        if (artifactUri == null || artifactUri.isEmpty()) {
-            return assets;
-        }
-
-        try {
-            // Example artifactUri: mlflow-artifacts:/1/abcdef1234567890/artifacts
-            String relative = artifactUri.replace("mlflow-artifacts:/", "");
-            Path root = Paths.get(mlflowWorkingDirectory).resolve(relative);
-
-            if (!Files.exists(root)) {
-                // LOG.warn("Artifacts root path does not exist: {}", root);
-                return assets;
-            }
-
-            try (Stream<Path> stream = Files.walk(root)) {
-                stream
-                    .filter(Files::isRegularFile)
-                    .forEach(p -> {
-                        Path relPath = root.relativize(p);
-                        String rel = relPath.toString().replace('\\', '/');
-
-                        DataAsset asset = new DataAsset();
-                        asset.setName(getFileName(rel));
-                        asset.setSourceType(SourceType.local);
-                        asset.setSource(p.toString().replace('\\', '/'));
-                        asset.setRole(DataAsset.Role.OUTPUT);
-
-                        int lastSlash = rel.lastIndexOf('/');
-                        if (lastSlash > 0) {
-                            asset.setFolder(rel.substring(0, lastSlash));
-                        }
-
-                        int lastDot = rel.lastIndexOf('.');
-                        if (lastDot > 0) {
-                            asset.setFormat(rel.substring(lastDot + 1).toLowerCase());
-                        }
-
-                        assets.add(asset);
-                    });
-            }
-        } catch (IOException e) {
-            LOG.error("Error walking artifacts filesystem for uri {}", artifactUri, e);
-        } catch (Exception e) {
-            LOG.error("Unexpected error while walking artifacts filesystem for uri {}", artifactUri, e);
-        }
-
-        return assets;
-    }
-
-    private String getRunArtifactUri(String runId) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
-        
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                Map<String, Object> run = (Map<String, Object>) response.getBody().get("run");
-                Map<String, Object> info = (Map<String, Object>) run.get("info");
-                return (String) info.get("artifact_uri");
-            }
-        } catch (Exception e) {
-            LOG.error("Error getting artifact URI for run {}", runId, e);
-        }
-        return null;
-    }
-
-    private String getFileName(String path) {
-        int lastSlash = path.lastIndexOf('/');
-        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
-    }
-
-    private Run.Status mapStatus(String mlflowStatus) {
-        switch (mlflowStatus.toUpperCase()) {
-            case "RUNNING": return Run.Status.RUNNING;
-            case "SCHEDULED": return Run.Status.SCHEDULED;
-            case "FINISHED": return Run.Status.COMPLETED;
-            case "FAILED": return Run.Status.FAILED;
-            case "KILLED": return Run.Status.KILLED;
-            default: return Run.Status.STOPPED;
-        }
-    }
-
-    private List<Metric> mapMetricHistory(Map<String, Object> data) {
-        List<Map<String, Object>> metrics = (List<Map<String, Object>>) data.get("metrics");
-        if (metrics == null) return new ArrayList<>();
-        
-        return metrics.stream()
-            .map(m -> {
-                Double value = parseMetricValue(m.get("value"));
-                long timestamp = m.get("timestamp") instanceof Number ? ((Number) m.get("timestamp")).longValue() : 0L;
-                Integer step = m.get("step") instanceof Number ? ((Number) m.get("step")).intValue() : null;
-                return new Metric(
-                    (String) m.get("key"),
-                    value,
-                    timestamp, // Timestamp is already in milliseconds
-                    step,
-                    (String) m.get("producedByTask")
-                );
-            })
-            .collect(Collectors.toList());
-    }
-
-    // Helper to safely parse metric values which may be Number or the string "NaN"
-    private Double parseMetricValue(Object val) {
-        if (val == null) {
-            return Double.NaN;
-        }
-        if (val instanceof Number) {
-            return ((Number) val).doubleValue();
-        }
-        if (val instanceof String) {
-            String s = ((String) val).trim();
-            if (s.equalsIgnoreCase("nan")) {
-                return Double.NaN;
-            }
-            try {
-                return Double.parseDouble(s);
-            } catch (NumberFormatException e) {
-                LOG.warn("Unable to parse metric value '{}', using NaN.", s);
-                return Double.NaN;
-            }
-        }
-        LOG.warn("Unexpected metric value type {}. Using NaN.", val.getClass().getName());
-        return Double.NaN;
-    }
-
-    private Metric mapToMetric(Map<String, Object> data) {
-        List<Metric> metrics = mapMetricHistory(data);
-        if (metrics.isEmpty()) {
-            return null;
-        }
-        // Return the latest metric value
-        return metrics.get(metrics.size() - 1);
-    }
-
-    @Override
-    public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest req) {
-        ControlResponse resp = new ControlResponse();
-
-        if (req == null || req.getAction() == null) {
-            resp.setMessage("Missing action.");
-            return ResponseEntity.badRequest().body(resp);
-        }
-
-        if (!"kill".equalsIgnoreCase(req.getAction())) {
-            resp.setMessage("Unsupported action: " + req.getAction() + " (only 'kill' supported)");
-            return ResponseEntity.badRequest().body(resp);
-        }
-
-        String mlflowRunId = req.getRunId();
-        if (mlflowRunId == null || mlflowRunId.isBlank()) {
-            resp.setMessage("Missing runId (MLflow run id).");
-            return ResponseEntity.badRequest().body(resp);
-        }
-
-        ResponseEntity<Run> runResp = getRunById(req.getExperimentId(), mlflowRunId);
-        Run run = runResp.getBody();
-
-        if (run == null) {
-            resp.setMessage("MLflow run not found: " + mlflowRunId);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
-        }
-
-        String kfpRunId = (run.getTags() != null) ? run.getTags().get("kfp.run_id") : null;
-        if (kfpRunId == null || kfpRunId.isBlank()) {
-            resp.setMessage("Cannot kill: MLflow run has no tag 'kfp.run_id'.");
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
-        }
-
-        try {
-            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
-            executionEngine.terminateRun(kfpRunId);
-        } catch (ExecutionEngineException e) {
-            LOG.error("Failed to terminate run: {}", kfpRunId, e);
-            resp.setMessage("Failed to terminate execution engine run: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
-        }
-
-        resp.setMessage("Terminate requested. Execution engine run id=" + kfpRunId + ".");
-        return ResponseEntity.ok(resp);
-    }
-
-    @Override
-    public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest){
-        throw new UnsupportedOperationException("This operation has not been implemented yet for MLflow.");
-    }
-
-    private String getFullArtifactPath(String artifactUri, String relativePath) {
-        if (artifactUri == null || artifactUri.isEmpty()) {
-            return null;
-        }
-        
-        // Extract the exp/run/artifacts part from mlflow-artifacts:/exp/run/...
-        String path = artifactUri.replace("mlflow-artifacts:/", "");
-        
-        // Combine working directory with MLflow path and relative file path
-        return Paths.get(mlflowWorkingDirectory)
-                   .resolve(path)
-                   .resolve(relativePath)
-                   .toString()
-                   .replace('\\', '/'); // Ensure forward slashes for consistency
-    }
-
-    private List<DataAsset> getArtifactsRecursively(String runId, String path, String artifactUri) {
-        String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/artifacts/list";
-        if (!path.isEmpty()) {
-            requestUrl += "?run_id=" + runId + "&path=" + path;
+      if (urlPath != null && urlPath.contains("path=")) {
+        // Extract 'path' parameter from the URL
+        String[] split = urlPath.split("path=");
+        if (split.length > 1) {
+          String relativePath = split[1];
+          // Construct the new local file path
+          asset_source = Paths.get(experimentId, runId, "artifacts", relativePath).toString();
         } else {
-            requestUrl += "?run_id=" + runId;
+          throw new RuntimeException("URL does not contain a valid 'path=' parameter: " + urlPath);
         }
+      } else {
+        LOG.warn(
+            "Source does not contain a 'uri' or 'url' with a 'path' parameter. Using raw source.");
+        asset_source = source_str;
+      }
+    } catch (JsonProcessingException e) {
+      LOG.warn("Invalid JSON string for source: {}. Using as-is.", source_str);
+      e.printStackTrace();
+      asset_source = source_str;
+    } catch (Exception e) {
+      LOG.warn("Failed to parse or extract path from source: {}. Using as-is.", source_str);
+      e.printStackTrace();
+      asset_source = source_str;
+    }
+    asset.setSource(asset_source);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        List<DataAsset> assets = new ArrayList<>();
+    // Map tags from both dataset metadata and input tags
+    Map<String, String> tags = new HashMap<>();
 
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    requestUrl,
-                    HttpMethod.GET,
-                    entity,
-                    Map.class);
-
-            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-                LOG.error("Failed to fetch artifacts for run {} at path {}", runId, path);
-                return assets;
-            }
-
-            List<Map<String, Object>> files = (List<Map<String, Object>>) response.getBody().get("files");
-            if (files == null) return assets;
-            
-            for (Map<String, Object> file : files) {
-                boolean isDir = (boolean) file.get("is_dir");
-                String filePath = (String) file.get("path");
-                
-                if (isDir) {
-                    // Recursively get assets from this directory
-                    assets.addAll(getArtifactsRecursively(runId, filePath, artifactUri));
-                } else {
-                    // Create asset for this file
-                    DataAsset asset = new DataAsset();
-                    asset.setName(getFileName(filePath));
-                    asset.setSourceType(SourceType.local);
-                    
-                    // Construct full path using the cached artifactUri
-                    String fullPath = getFullArtifactPath(artifactUri, filePath);
-                    if (fullPath == null) {
-                        LOG.warn("Artifact URI is null for run {} at path {}", runId, path);
-                        continue;
-                    }
-                    
-                    asset.setSource(fullPath);
-                    asset.setRole(DataAsset.Role.OUTPUT);
-                    
-                    // Set folder as the directory path
-                    int lastSlash = filePath.lastIndexOf('/');
-                    if (lastSlash > 0) {
-                        asset.setFolder(filePath.substring(0, lastSlash));
-                    }
-                    
-                    // Set format from extension
-                    int lastDot = filePath.lastIndexOf('.');
-                    if (lastDot > 0) {
-                        asset.setFormat(filePath.substring(lastDot + 1).toLowerCase());
-                    }
-
-                    assets.add(asset);
-                }
-            }
-
-            return assets;
-
-        } catch (Exception e) {
-            LOG.error("Error fetching artifacts for run {} at path {}", runId, path, e);
-            return assets;
-        }
+    // Add dataset metadata as tags
+    if (dataset.get("digest") != null) {
+      tags.put("digest", (String) dataset.get("digest"));
+    }
+    if (dataset.get("schema") != null) {
+      tags.put("schema", (String) dataset.get("schema"));
+    }
+    if (dataset.get("profile") != null) {
+      tags.put("profile", (String) dataset.get("profile"));
     }
 
-    @Override
-    public ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request) {
-    
-        CreateRunResponse resp = new CreateRunResponse();
-    
-        if (request == null || request.getExperimentId() == null || request.getExperimentId().isBlank()) {
-            resp.setMessage("Missing experimentId.");
-            return ResponseEntity.badRequest().body(resp);
-        }
-        if (request.getRunName() == null || request.getRunName().isBlank()) {
-            resp.setMessage("Missing runName.");
-            return ResponseEntity.badRequest().body(resp);
-        }
-    
-        Experiment experiment = getExperimentById(request.getExperimentId()).getBody();
-        if (experiment == null) {
-            resp.setMessage("Experiment not found.");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
-        }
-    
-        Map<String, String> tags = experiment.getTags();
-        if (tags == null) {
-            resp.setMessage("Experiment has no tags.");
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
-        }
-    
-        String pipelineName = tags.get("kfp.pipeline_name");
-        if (pipelineName == null || pipelineName.isBlank()) {
-            resp.setMessage("Missing experiment tag 'kfp.pipeline_name'.");
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
-        }
-    
-        String pipelineId;
-        try {
-            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
-            pipelineId = executionEngine.findPipelineIdByName(pipelineName);
-        } catch (ExecutionEngineException e) {
-            LOG.error("Failed to find pipeline: {}", pipelineName, e);
-            resp.setMessage("Failed to query execution engine for pipeline: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
-        }
-        
-        if (pipelineId == null) {
-            resp.setMessage("Pipeline not found: " + pipelineName);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
-        }
-    
-        String kfpRunId;
-        try {
-            ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
-            kfpRunId = executionEngine.createRun(
-                    pipelineId,
-                    request.getRunName(),
-                    request.getParams()
-            );
-        } catch (ExecutionEngineException e) {
-            LOG.error("Failed to create run: {}", request.getRunName(), e);
-            resp.setMessage("Failed to create execution engine run: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
-        }
-    
-        if (kfpRunId == null || kfpRunId.isBlank()) {
-            resp.setMessage("Kubeflow run creation failed.");
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
-        }
-    
-        resp.setKfpRunId(kfpRunId);
-        resp.setRunName(request.getRunName());
-        resp.setMessage("Run created successfully.");
-        return ResponseEntity.ok(resp);
+    // Add input tags
+    if (inputTags != null) {
+      inputTags.forEach(tag -> tags.put((String) tag.get("key"), (String) tag.get("value")));
     }
+
+    asset.setTags(tags);
+    asset.setRole(DataAsset.Role.INPUT); // These are always input datasets from MLflow
+
+    return asset;
+  }
+
+  private List<DataAsset> getArtifactsAsDataAssets(String runId, Map<String, Object> info) {
+    String artifactUri = (String) info.get("artifact_uri");
+
+    // Try fast local filesystem traversal first (when artifacts are stored locally)
+    if (mlflowWorkingDirectory != null && !mlflowWorkingDirectory.isEmpty()) {
+      List<DataAsset> fsAssets = getArtifactsFromFilesystem(artifactUri);
+      if (!fsAssets.isEmpty()) {
+        return fsAssets;
+      }
+    }
+
+    // Fallback to HTTP-based recursive listing via MLflow API
+    return getArtifactsRecursively(runId, "", artifactUri);
+  }
+
+  /**
+   * Fast path: when MLflow artifacts are stored on a filesystem that is locally accessible via
+   * {@code mlflowWorkingDirectory}, walk the directory tree directly instead of making many HTTP
+   * /artifacts/list calls.
+   */
+  private List<DataAsset> getArtifactsFromFilesystem(String artifactUri) {
+    List<DataAsset> assets = new ArrayList<>();
+
+    if (artifactUri == null || artifactUri.isEmpty()) {
+      return assets;
+    }
+
+    try {
+      // Example artifactUri: mlflow-artifacts:/1/abcdef1234567890/artifacts
+      String relative = artifactUri.replace("mlflow-artifacts:/", "");
+      Path root = Paths.get(mlflowWorkingDirectory).resolve(relative);
+
+      if (!Files.exists(root)) {
+        // LOG.warn("Artifacts root path does not exist: {}", root);
+        return assets;
+      }
+
+      try (Stream<Path> stream = Files.walk(root)) {
+        stream
+            .filter(Files::isRegularFile)
+            .forEach(
+                p -> {
+                  Path relPath = root.relativize(p);
+                  String rel = relPath.toString().replace('\\', '/');
+
+                  DataAsset asset = new DataAsset();
+                  asset.setName(getFileName(rel));
+                  asset.setSourceType(SourceType.local);
+                  asset.setSource(p.toString().replace('\\', '/'));
+                  asset.setRole(DataAsset.Role.OUTPUT);
+
+                  int lastSlash = rel.lastIndexOf('/');
+                  if (lastSlash > 0) {
+                    asset.setFolder(rel.substring(0, lastSlash));
+                  }
+
+                  int lastDot = rel.lastIndexOf('.');
+                  if (lastDot > 0) {
+                    asset.setFormat(rel.substring(lastDot + 1).toLowerCase());
+                  }
+
+                  assets.add(asset);
+                });
+      }
+    } catch (IOException e) {
+      LOG.error("Error walking artifacts filesystem for uri {}", artifactUri, e);
+    } catch (Exception e) {
+      LOG.error("Unexpected error while walking artifacts filesystem for uri {}", artifactUri, e);
+    }
+
+    return assets;
+  }
+
+  private String getRunArtifactUri(String runId) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/runs/get?run_id=" + runId;
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
+
+      if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+        Map<String, Object> run = (Map<String, Object>) response.getBody().get("run");
+        Map<String, Object> info = (Map<String, Object>) run.get("info");
+        return (String) info.get("artifact_uri");
+      }
+    } catch (Exception e) {
+      LOG.error("Error getting artifact URI for run {}", runId, e);
+    }
+    return null;
+  }
+
+  private String getFileName(String path) {
+    int lastSlash = path.lastIndexOf('/');
+    return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+  }
+
+  private Run.Status mapStatus(String mlflowStatus) {
+    switch (mlflowStatus.toUpperCase()) {
+      case "RUNNING":
+        return Run.Status.RUNNING;
+      case "SCHEDULED":
+        return Run.Status.SCHEDULED;
+      case "FINISHED":
+        return Run.Status.COMPLETED;
+      case "FAILED":
+        return Run.Status.FAILED;
+      case "KILLED":
+        return Run.Status.KILLED;
+      default:
+        return Run.Status.STOPPED;
+    }
+  }
+
+  private List<Metric> mapMetricHistory(Map<String, Object> data) {
+    List<Map<String, Object>> metrics = (List<Map<String, Object>>) data.get("metrics");
+    if (metrics == null) return new ArrayList<>();
+
+    return metrics.stream()
+        .map(
+            m -> {
+              Double value = parseMetricValue(m.get("value"));
+              long timestamp =
+                  m.get("timestamp") instanceof Number
+                      ? ((Number) m.get("timestamp")).longValue()
+                      : 0L;
+              Integer step =
+                  m.get("step") instanceof Number ? ((Number) m.get("step")).intValue() : null;
+              return new Metric(
+                  (String) m.get("key"),
+                  value,
+                  timestamp, // Timestamp is already in milliseconds
+                  step,
+                  (String) m.get("producedByTask"));
+            })
+        .collect(Collectors.toList());
+  }
+
+  // Helper to safely parse metric values which may be Number or the string "NaN"
+  private Double parseMetricValue(Object val) {
+    if (val == null) {
+      return Double.NaN;
+    }
+    if (val instanceof Number) {
+      return ((Number) val).doubleValue();
+    }
+    if (val instanceof String) {
+      String s = ((String) val).trim();
+      if (s.equalsIgnoreCase("nan")) {
+        return Double.NaN;
+      }
+      try {
+        return Double.parseDouble(s);
+      } catch (NumberFormatException e) {
+        LOG.warn("Unable to parse metric value '{}', using NaN.", s);
+        return Double.NaN;
+      }
+    }
+    LOG.warn("Unexpected metric value type {}. Using NaN.", val.getClass().getName());
+    return Double.NaN;
+  }
+
+  private Metric mapToMetric(Map<String, Object> data) {
+    List<Metric> metrics = mapMetricHistory(data);
+    if (metrics.isEmpty()) {
+      return null;
+    }
+    // Return the latest metric value
+    return metrics.get(metrics.size() - 1);
+  }
+
+  @Override
+  public ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest req) {
+    ControlResponse resp = new ControlResponse();
+
+    if (req == null || req.getAction() == null) {
+      resp.setMessage("Missing action.");
+      return ResponseEntity.badRequest().body(resp);
+    }
+
+    if (!"kill".equalsIgnoreCase(req.getAction())) {
+      resp.setMessage("Unsupported action: " + req.getAction() + " (only 'kill' supported)");
+      return ResponseEntity.badRequest().body(resp);
+    }
+
+    String mlflowRunId = req.getRunId();
+    if (mlflowRunId == null || mlflowRunId.isBlank()) {
+      resp.setMessage("Missing runId (MLflow run id).");
+      return ResponseEntity.badRequest().body(resp);
+    }
+
+    ResponseEntity<Run> runResp = getRunById(req.getExperimentId(), mlflowRunId);
+    Run run = runResp.getBody();
+
+    if (run == null) {
+      resp.setMessage("MLflow run not found: " + mlflowRunId);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+    }
+
+    String kfpRunId = (run.getTags() != null) ? run.getTags().get("kfp.run_id") : null;
+    if (kfpRunId == null || kfpRunId.isBlank()) {
+      resp.setMessage("Cannot kill: MLflow run has no tag 'kfp.run_id'.");
+      return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+    }
+
+    try {
+      ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+      executionEngine.terminateRun(kfpRunId);
+    } catch (ExecutionEngineException e) {
+      LOG.error("Failed to terminate run: {}", kfpRunId, e);
+      resp.setMessage("Failed to terminate execution engine run: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+    }
+
+    resp.setMessage("Terminate requested. Execution engine run id=" + kfpRunId + ".");
+    return ResponseEntity.ok(resp);
+  }
+
+  @Override
+  public ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest) {
+    throw new UnsupportedOperationException(
+        "This operation has not been implemented yet for MLflow.");
+  }
+
+  private String getFullArtifactPath(String artifactUri, String relativePath) {
+    if (artifactUri == null || artifactUri.isEmpty()) {
+      return null;
+    }
+
+    // Extract the exp/run/artifacts part from mlflow-artifacts:/exp/run/...
+    String path = artifactUri.replace("mlflow-artifacts:/", "");
+
+    // Combine working directory with MLflow path and relative file path
+    return Paths.get(mlflowWorkingDirectory)
+        .resolve(path)
+        .resolve(relativePath)
+        .toString()
+        .replace('\\', '/'); // Ensure forward slashes for consistency
+  }
+
+  private List<DataAsset> getArtifactsRecursively(String runId, String path, String artifactUri) {
+    String requestUrl = mlflowTrackingUrl + "/api/2.0/mlflow/artifacts/list";
+    if (!path.isEmpty()) {
+      requestUrl += "?run_id=" + runId + "&path=" + path;
+    } else {
+      requestUrl += "?run_id=" + runId;
+    }
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    HttpEntity<String> entity = new HttpEntity<>(headers);
+    List<DataAsset> assets = new ArrayList<>();
+
+    try {
+      ResponseEntity<Map> response =
+          restTemplate.exchange(requestUrl, HttpMethod.GET, entity, Map.class);
+
+      if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+        LOG.error("Failed to fetch artifacts for run {} at path {}", runId, path);
+        return assets;
+      }
+
+      List<Map<String, Object>> files = (List<Map<String, Object>>) response.getBody().get("files");
+      if (files == null) return assets;
+
+      for (Map<String, Object> file : files) {
+        boolean isDir = (boolean) file.get("is_dir");
+        String filePath = (String) file.get("path");
+
+        if (isDir) {
+          // Recursively get assets from this directory
+          assets.addAll(getArtifactsRecursively(runId, filePath, artifactUri));
+        } else {
+          // Create asset for this file
+          DataAsset asset = new DataAsset();
+          asset.setName(getFileName(filePath));
+          asset.setSourceType(SourceType.local);
+
+          // Construct full path using the cached artifactUri
+          String fullPath = getFullArtifactPath(artifactUri, filePath);
+          if (fullPath == null) {
+            LOG.warn("Artifact URI is null for run {} at path {}", runId, path);
+            continue;
+          }
+
+          asset.setSource(fullPath);
+          asset.setRole(DataAsset.Role.OUTPUT);
+
+          // Set folder as the directory path
+          int lastSlash = filePath.lastIndexOf('/');
+          if (lastSlash > 0) {
+            asset.setFolder(filePath.substring(0, lastSlash));
+          }
+
+          // Set format from extension
+          int lastDot = filePath.lastIndexOf('.');
+          if (lastDot > 0) {
+            asset.setFormat(filePath.substring(lastDot + 1).toLowerCase());
+          }
+
+          assets.add(asset);
+        }
+      }
+
+      return assets;
+
+    } catch (Exception e) {
+      LOG.error("Error fetching artifacts for run {} at path {}", runId, path, e);
+      return assets;
+    }
+  }
+
+  @Override
+  public ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request) {
+
+    CreateRunResponse resp = new CreateRunResponse();
+
+    if (request == null
+        || request.getExperimentId() == null
+        || request.getExperimentId().isBlank()) {
+      resp.setMessage("Missing experimentId.");
+      return ResponseEntity.badRequest().body(resp);
+    }
+    if (request.getRunName() == null || request.getRunName().isBlank()) {
+      resp.setMessage("Missing runName.");
+      return ResponseEntity.badRequest().body(resp);
+    }
+
+    Experiment experiment = getExperimentById(request.getExperimentId()).getBody();
+    if (experiment == null) {
+      resp.setMessage("Experiment not found.");
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+    }
+
+    Map<String, String> tags = experiment.getTags();
+    if (tags == null) {
+      resp.setMessage("Experiment has no tags.");
+      return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+    }
+
+    String pipelineName = tags.get("kfp.pipeline_name");
+    if (pipelineName == null || pipelineName.isBlank()) {
+      resp.setMessage("Missing experiment tag 'kfp.pipeline_name'.");
+      return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+    }
+
+    String pipelineId;
+    try {
+      ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+      pipelineId = executionEngine.findPipelineIdByName(pipelineName);
+    } catch (ExecutionEngineException e) {
+      LOG.error("Failed to find pipeline: {}", pipelineName, e);
+      resp.setMessage("Failed to query execution engine for pipeline: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+    }
+
+    if (pipelineId == null) {
+      resp.setMessage("Pipeline not found: " + pipelineName);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+    }
+
+    String kfpRunId;
+    try {
+      ExecutionEngine executionEngine = executionEngineFactory.getExecutionEngine();
+      kfpRunId = executionEngine.createRun(pipelineId, request.getRunName(), request.getParams());
+    } catch (ExecutionEngineException e) {
+      LOG.error("Failed to create run: {}", request.getRunName(), e);
+      resp.setMessage("Failed to create execution engine run: " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+    }
+
+    if (kfpRunId == null || kfpRunId.isBlank()) {
+      resp.setMessage("Kubeflow run creation failed.");
+      return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+    }
+
+    resp.setKfpRunId(kfpRunId);
+    resp.setRunName(request.getRunName());
+    resp.setMessage("Run created successfully.");
+    return ResponseEntity.ok(resp);
+  }
 }

@@ -1,22 +1,9 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Qualifier;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Semaphore;
-// ...existing imports...
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import lombok.extern.java.Log;
-import tagbio.umap.Umap;
 import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.DatasetType;
 import gr.imsi.athenarc.xtremexpvisapi.domain.metadata.MetadataResponseV2;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
@@ -24,7 +11,6 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.FileType;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,147 +23,182 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import lombok.extern.java.Log;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import tagbio.umap.Umap;
 
 @Service
 @Log
 public class DataServiceV2 {
 
-    @Autowired
-    private javax.sql.DataSource dataSource;
+  @Autowired private javax.sql.DataSource dataSource;
 
-    private DataHelperV2 dataQueryHelper;
+  private DataHelperV2 dataQueryHelper;
 
-    private final Executor dataProcessingExecutor;
+  private final Executor dataProcessingExecutor;
 
-    private final Semaphore duckDbSemaphore;
+  private final Semaphore duckDbSemaphore;
 
-    @Autowired
-    public DataServiceV2(DataHelperV2 dataQueryHelper,
-            @Qualifier("dataProcessingExecutor") Executor dataProcessingExecutor,
-            @Qualifier("duckDbSemaphore") Semaphore duckDbSemaphore) {
-        this.dataQueryHelper = dataQueryHelper;
-        this.dataProcessingExecutor = dataProcessingExecutor;
-        this.duckDbSemaphore = duckDbSemaphore;
-    }
+  @Autowired
+  public DataServiceV2(
+      DataHelperV2 dataQueryHelper,
+      @Qualifier("dataProcessingExecutor") Executor dataProcessingExecutor,
+      @Qualifier("duckDbSemaphore") Semaphore duckDbSemaphore) {
+    this.dataQueryHelper = dataQueryHelper;
+    this.dataProcessingExecutor = dataProcessingExecutor;
+    this.duckDbSemaphore = duckDbSemaphore;
+  }
 
-    private String buildCountQuery(String originalQuery) {
-        // Remove existing LIMIT and OFFSET
-        String cleanedQuery = originalQuery
-                .replaceAll("(?i)LIMIT\\s+\\d+", "")
-                .replaceAll("(?i)OFFSET\\s+\\d+", "");
+  private String buildCountQuery(String originalQuery) {
+    // Remove existing LIMIT and OFFSET
+    String cleanedQuery =
+        originalQuery.replaceAll("(?i)LIMIT\\s+\\d+", "").replaceAll("(?i)OFFSET\\s+\\d+", "");
 
-        // Wrap in a subquery to count total rows
-        return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
-    }
+    // Wrap in a subquery to count total rows
+    return "SELECT COUNT(*) FROM (" + cleanedQuery + ") AS total_count_subquery";
+  }
 
-    public CompletableFuture<DataResponse> executeDataRequest(DataRequest request, String authorization)
-            throws SQLException, Exception {
-        return dataQueryHelper.buildQuery(request, authorization).thenCompose(sql -> {
-            try {
+  public CompletableFuture<DataResponse> executeDataRequest(
+      DataRequest request, String authorization) throws SQLException, Exception {
+    return dataQueryHelper
+        .buildQuery(request, authorization)
+        .thenCompose(
+            sql -> {
+              try {
                 // Submit DB work to bounded executor to avoid exhausting request threads
-                return CompletableFuture.supplyAsync(() -> {
-                    boolean permitAcquired = false;
-                    try {
+                return CompletableFuture.supplyAsync(
+                    () -> {
+                      boolean permitAcquired = false;
+                      try {
                         try {
-                            // try to acquire permit quickly; tune timeout as needed
-                            permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
+                          // try to acquire permit quickly; tune timeout as needed
+                          permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
                         } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException("Interrupted while waiting for DB permit", ie);
+                          Thread.currentThread().interrupt();
+                          throw new RuntimeException("Interrupted while waiting for DB permit", ie);
                         }
 
                         if (!permitAcquired) {
-                            throw new RuntimeException("Server overloaded: too many concurrent DB queries");
+                          throw new RuntimeException(
+                              "Server overloaded: too many concurrent DB queries");
                         }
 
                         try (Connection connection = dataSource.getConnection();
-                                Statement statement = connection.createStatement()) {
-                            // Resolve optional total-items flag from request (null -> default true)
-                            Boolean includeTotalItemsFlag = request.getIncludeTotalItems();
-                            boolean includeTotalItems = includeTotalItemsFlag == null || includeTotalItemsFlag;
+                            Statement statement = connection.createStatement()) {
+                          // Resolve optional total-items flag from request (null -> default true)
+                          Boolean includeTotalItemsFlag = request.getIncludeTotalItems();
+                          boolean includeTotalItems =
+                              includeTotalItemsFlag == null || includeTotalItemsFlag;
 
-                            int totalItems = 0;
-                            if (includeTotalItems) {
-                                String countQuery = buildCountQuery(sql);
-                                ResultSet countResultSet = statement.executeQuery(countQuery);
-                                if (countResultSet.next()) {
-                                    totalItems = countResultSet.getInt(1);
-                                }
-                                countResultSet.close();
+                          int totalItems = 0;
+                          if (includeTotalItems) {
+                            String countQuery = buildCountQuery(sql);
+                            ResultSet countResultSet = statement.executeQuery(countQuery);
+                            if (countResultSet.next()) {
+                              totalItems = countResultSet.getInt(1);
                             }
+                            countResultSet.close();
+                          }
 
-                            log.info("totalItems: " + totalItems);
-                            ResultSet resultSet = statement.executeQuery(sql);
+                          log.info("totalItems: " + totalItems);
+                          ResultSet resultSet = statement.executeQuery(sql);
 
-                            DataResponse response = dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
-                            // Only override totalItems when we actually computed the global count.
-                            // Otherwise, keep the per-page count set by the helper.
-                            if (includeTotalItems) {
-                                response.setTotalItems(totalItems);
-                            }
+                          DataResponse response =
+                              dataQueryHelper.convertResultSetToTabularResponse(resultSet, sql);
+                          // Only override totalItems when we actually computed the global count.
+                          // Otherwise, keep the per-page count set by the helper.
+                          if (includeTotalItems) {
+                            response.setTotalItems(totalItems);
+                          }
 
-                            // Close resources
-                            resultSet.close();
-                            statement.close();
+                          // Close resources
+                          resultSet.close();
+                          statement.close();
 
-                            return response;
+                          return response;
                         }
 
-                    } catch (SQLException e) {
+                      } catch (SQLException e) {
                         throw new RuntimeException(e);
-                    } finally {
+                      } finally {
                         if (permitAcquired) {
-                            duckDbSemaphore.release();
+                          duckDbSemaphore.release();
                         }
-                    }
-                }, dataProcessingExecutor);
-            } catch (RejectedExecutionException rej) {
+                      }
+                    },
+                    dataProcessingExecutor);
+              } catch (RejectedExecutionException rej) {
                 CompletableFuture<DataResponse> failed = new CompletableFuture<>();
-                failed.completeExceptionally(new RuntimeException("Server busy: too many concurrent requests", rej));
+                failed.completeExceptionally(
+                    new RuntimeException("Server busy: too many concurrent requests", rej));
                 return failed;
-            }
-        });
-    }
-// NEW NEW
-    public CompletableFuture<Map<String, Object>> getImageMetadata(DataSource dataSource, String authorization)
-            throws Exception, SQLException {
-        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenApply(localFilePath -> {
-            log.info("Image file downloaded and cached at: " + localFilePath);
-            
-            Map<String, Object> imageMetadata = Map.of(
-                "datasetType", "IMAGE",
-                // "isImage", true,
-                "imageUrl", dataSource.getSource(),
-                "localPath", localFilePath,
-                "fileNames", localFilePath,
-                "contentType", getContentTypeFromUrl(dataSource.getSource()),
-                "totalItems", 1,
-                "originalColumns", java.util.Collections.emptyList(),
-                "hasLatLonColumns", false
-            );
-            
-            log.info("Created image metadata for: " + dataSource.getSource());
-            return imageMetadata;
-        });
-    }
-    // Till here
+              }
+            });
+  }
 
-    public CompletableFuture<MetadataResponseV2> getFileMetadata(DataSource dataSource, String authorization)
-            throws Exception, SQLException {
-        return dataQueryHelper.getFilePathForDataset(dataSource, authorization).thenCompose(filePath -> {
-            try {
-                return CompletableFuture.supplyAsync(() -> {
-                    boolean permitAcquired = false;
-                    try {
+  // NEW NEW
+  public CompletableFuture<Map<String, Object>> getImageMetadata(
+      DataSource dataSource, String authorization) throws Exception, SQLException {
+    return dataQueryHelper
+        .getFilePathForDataset(dataSource, authorization)
+        .thenApply(
+            localFilePath -> {
+              log.info("Image file downloaded and cached at: " + localFilePath);
+
+              Map<String, Object> imageMetadata =
+                  Map.of(
+                      "datasetType",
+                      "IMAGE",
+                      // "isImage", true,
+                      "imageUrl",
+                      dataSource.getSource(),
+                      "localPath",
+                      localFilePath,
+                      "fileNames",
+                      localFilePath,
+                      "contentType",
+                      getContentTypeFromUrl(dataSource.getSource()),
+                      "totalItems",
+                      1,
+                      "originalColumns",
+                      java.util.Collections.emptyList(),
+                      "hasLatLonColumns",
+                      false);
+
+              log.info("Created image metadata for: " + dataSource.getSource());
+              return imageMetadata;
+            });
+  }
+
+  // Till here
+
+  public CompletableFuture<MetadataResponseV2> getFileMetadata(
+      DataSource dataSource, String authorization) throws Exception, SQLException {
+    return dataQueryHelper
+        .getFilePathForDataset(dataSource, authorization)
+        .thenCompose(
+            filePath -> {
+              try {
+                return CompletableFuture.supplyAsync(
+                    () -> {
+                      boolean permitAcquired = false;
+                      try {
                         try {
-                            permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
+                          permitAcquired = duckDbSemaphore.tryAcquire(10, TimeUnit.SECONDS);
                         } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException("Interrupted while waiting for DB permit", ie);
+                          Thread.currentThread().interrupt();
+                          throw new RuntimeException("Interrupted while waiting for DB permit", ie);
                         }
 
                         if (!permitAcquired) {
-                            throw new RuntimeException("Server overloaded: too many concurrent DB queries");
+                          throw new RuntimeException(
+                              "Server overloaded: too many concurrent DB queries");
                         }
 
                         // Resolve optional metadata flags (null -> default true)
@@ -185,191 +206,209 @@ public class DataServiceV2 {
                         boolean includeSummary = includeSummaryFlag == null || includeSummaryFlag;
 
                         Boolean includeTotalItemsFlag = dataSource.getIncludeTotalItems();
-                        boolean includeTotalItems = includeTotalItemsFlag == null || includeTotalItemsFlag;
+                        boolean includeTotalItems =
+                            includeTotalItemsFlag == null || includeTotalItemsFlag;
 
                         Boolean detectDatasetTypeFlag = dataSource.getDetectDatasetType();
-                        boolean detectDatasetType = detectDatasetTypeFlag == null || detectDatasetTypeFlag;
+                        boolean detectDatasetType =
+                            detectDatasetTypeFlag == null || detectDatasetTypeFlag;
 
-                        try (
-                                Connection connection = this.dataSource.getConnection();
-                                Statement statement = connection.createStatement()) {
-                            // System.out.println("File path for metadata: " + filePath.toString());
-                            // Use a mutable local copy because lambda capture requires effectively final
-                            String resolvedPath = filePath;
+                        try (Connection connection = this.dataSource.getConnection();
+                            Statement statement = connection.createStatement()) {
+                          // System.out.println("File path for metadata: " + filePath.toString());
+                          // Use a mutable local copy because lambda capture requires effectively
+                          // final
+                          String resolvedPath = filePath;
 
-                            FileType fileType = dataQueryHelper.detectFileType(resolvedPath);
-                            if (fileType == FileType.JSON) {
-                                try {
-                                    resolvedPath = preprocessJsonIfNeeded(Paths.get(resolvedPath)).toString();
-                                } catch (IOException e) {
-                                    throw new RuntimeException("Failed to preprocess JSON file: " + resolvedPath, e);
+                          FileType fileType = dataQueryHelper.detectFileType(resolvedPath);
+                          if (fileType == FileType.JSON) {
+                            try {
+                              resolvedPath =
+                                  preprocessJsonIfNeeded(Paths.get(resolvedPath)).toString();
+                            } catch (IOException e) {
+                              throw new RuntimeException(
+                                  "Failed to preprocess JSON file: " + resolvedPath, e);
+                            }
+                          }
+
+                          String sql =
+                              "SELECT * FROM "
+                                  + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath)
+                                  + " LIMIT 10";
+                          ResultSet resultSet = statement.executeQuery(sql);
+
+                          MetadataResponseV2 metadataResponse = new MetadataResponseV2();
+
+                          var metaData = resultSet.getMetaData();
+                          int columnCount = metaData.getColumnCount();
+                          List<String> timeColumns = new ArrayList<>();
+                          List<Column> convertedColumns = new ArrayList<>();
+
+                          for (int i = 1; i <= columnCount; i++) {
+                            String columnName = metaData.getColumnName(i);
+                            String columnType =
+                                dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
+                            convertedColumns.add(new Column(columnName, columnType));
+
+                            if (dataQueryHelper.isTimeColumn(columnType)) {
+                              timeColumns.add(columnName);
+                            }
+                          }
+
+                          int totalItems = 0;
+                          if (includeTotalItems) {
+                            String countSql =
+                                "SELECT COUNT(*) as total FROM "
+                                    + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath);
+                            ResultSet countResult = statement.executeQuery(countSql);
+                            if (countResult.next()) {
+                              totalItems = countResult.getInt("total");
+                            }
+                            countResult.close();
+                          }
+
+                          DatasetType datasetType;
+                          if (detectDatasetType) {
+                            datasetType =
+                                dataQueryHelper.detectDatasetType(
+                                    resultSet, timeColumns, statement, sql);
+                          } else {
+                            datasetType = DatasetType.tabular;
+                          }
+
+                          metadataResponse.setOriginalColumns(convertedColumns);
+                          metadataResponse.setTotalItems(totalItems);
+                          metadataResponse.setDatasetType(datasetType);
+                          metadataResponse.setHasLatLonColumns(
+                              dataQueryHelper.hasLatLonColumns(convertedColumns));
+
+                          if (!timeColumns.isEmpty()) {
+                            metadataResponse.setTimeColumn(timeColumns);
+                          }
+
+                          if (includeSummary) {
+                            try {
+                              sql = sql.replace(" LIMIT 10", "");
+                              String summarizeSql =
+                                  "SUMMARIZE " + sql.substring(sql.indexOf("FROM"));
+                              ResultSet summarizeResult = statement.executeQuery(summarizeSql);
+
+                              List<Map<String, Object>> summaryList = new ArrayList<>();
+                              int colCount = summarizeResult.getMetaData().getColumnCount();
+
+                              while (summarizeResult.next()) {
+                                Map<String, Object> summaryRow = new java.util.HashMap<>();
+                                for (int i = 1; i <= colCount; i++) {
+                                  String colName = summarizeResult.getMetaData().getColumnName(i);
+                                  Object value = summarizeResult.getObject(i);
+                                  summaryRow.put(colName, value);
                                 }
+                                summaryList.add(summaryRow);
+                              }
+
+                              metadataResponse.setSummary(summaryList);
+                              summarizeResult.close();
+                            } catch (SQLException summarizeEx) {
+                              log.warning(
+                                  "Could not summarize file contents: " + summarizeEx.getMessage());
                             }
+                          }
 
-                            String sql = "SELECT * FROM " + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath) + " LIMIT 10";
-                            ResultSet resultSet = statement.executeQuery(sql);
+                          resultSet.close();
 
-                            MetadataResponseV2 metadataResponse = new MetadataResponseV2();
-
-                            var metaData = resultSet.getMetaData();
-                            int columnCount = metaData.getColumnCount();
-                            List<String> timeColumns = new ArrayList<>();
-                            List<Column> convertedColumns = new ArrayList<>();
-
-                            for (int i = 1; i <= columnCount; i++) {
-                                String columnName = metaData.getColumnName(i);
-                                String columnType = dataQueryHelper.mapSqlTypeToString(metaData.getColumnType(i));
-                                convertedColumns.add(new Column(columnName, columnType));
-
-                                if (dataQueryHelper.isTimeColumn(columnType)) {
-                                    timeColumns.add(columnName);
-                                }
-                            }
-
-                            int totalItems = 0;
-                            if (includeTotalItems) {
-                                String countSql = "SELECT COUNT(*) as total FROM "
-                                        + dataQueryHelper.getFileTypeSQL(fileType, resolvedPath);
-                                ResultSet countResult = statement.executeQuery(countSql);
-                                if (countResult.next()) {
-                                    totalItems = countResult.getInt("total");
-                                }
-                                countResult.close();
-                            }
-
-                            DatasetType datasetType;
-                            if (detectDatasetType) {
-                                datasetType = dataQueryHelper.detectDatasetType(resultSet, timeColumns, statement, sql);
-                            } else {
-                                datasetType = DatasetType.tabular;
-                            }
-
-                            metadataResponse.setOriginalColumns(convertedColumns);
-                            metadataResponse.setTotalItems(totalItems);
-                            metadataResponse.setDatasetType(datasetType);
-                            metadataResponse.setHasLatLonColumns(dataQueryHelper.hasLatLonColumns(convertedColumns));
-
-                            if (!timeColumns.isEmpty()) {
-                                metadataResponse.setTimeColumn(timeColumns);
-                            }
-
-                            if (includeSummary) {
-                                try {
-                                    sql = sql.replace(" LIMIT 10", "");
-                                    String summarizeSql = "SUMMARIZE " + sql.substring(sql.indexOf("FROM"));
-                                    ResultSet summarizeResult = statement.executeQuery(summarizeSql);
-
-                                    List<Map<String, Object>> summaryList = new ArrayList<>();
-                                    int colCount = summarizeResult.getMetaData().getColumnCount();
-
-                                    while (summarizeResult.next()) {
-                                        Map<String, Object> summaryRow = new java.util.HashMap<>();
-                                        for (int i = 1; i <= colCount; i++) {
-                                            String colName = summarizeResult.getMetaData().getColumnName(i);
-                                            Object value = summarizeResult.getObject(i);
-                                            summaryRow.put(colName, value);
-                                        }
-                                        summaryList.add(summaryRow);
-                                    }
-
-                                    metadataResponse.setSummary(summaryList);
-                                    summarizeResult.close();
-                                } catch (SQLException summarizeEx) {
-                                    log.warning("Could not summarize file contents: " + summarizeEx.getMessage());
-                                }
-                            }
-
-                            resultSet.close();
-
-                            return metadataResponse;
+                          return metadataResponse;
 
                         } catch (SQLException e) {
-                            throw new RuntimeException("Failed to get file metadata", e);
+                          throw new RuntimeException("Failed to get file metadata", e);
                         }
 
-                    } finally {
+                      } finally {
                         if (permitAcquired) {
-                            duckDbSemaphore.release();
+                          duckDbSemaphore.release();
                         }
-                    }
-                }, dataProcessingExecutor);
-            } catch (RejectedExecutionException rej) {
+                      }
+                    },
+                    dataProcessingExecutor);
+              } catch (RejectedExecutionException rej) {
                 CompletableFuture<MetadataResponseV2> failed = new CompletableFuture<>();
-                failed.completeExceptionally(new RuntimeException("Server busy: too many concurrent requests", rej));
+                failed.completeExceptionally(
+                    new RuntimeException("Server busy: too many concurrent requests", rej));
                 return failed;
-            }
-        });
-    }
+              }
+            });
+  }
 
-    public float[][] getUmap(float[][] data) {
-        Umap umap = new Umap();
-        umap.setNumberComponents(2);
-        umap.setNumberNearestNeighbours(15);
-        umap.setThreads(1);
-        return umap.fitTransform(data);
-    }
+  public float[][] getUmap(float[][] data) {
+    Umap umap = new Umap();
+    umap.setNumberComponents(2);
+    umap.setNumberNearestNeighbours(15);
+    umap.setThreads(1);
+    return umap.fitTransform(data);
+  }
 
-    private Path preprocessJsonIfNeeded(Path datasetPath) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(datasetPath.toFile());
+  private Path preprocessJsonIfNeeded(Path datasetPath) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode root = mapper.readTree(datasetPath.toFile());
 
-        // Detect dict-of-lists (object with array values)
-        if (root.isObject()) {
-            ObjectNode obj = (ObjectNode) root;
-            if (obj.size() > 0 && obj.elements().next().isArray()) {
-                int epochs = obj.elements().next().size(); // assume all arrays same length
-                ArrayNode array = mapper.createArrayNode();
+    // Detect dict-of-lists (object with array values)
+    if (root.isObject()) {
+      ObjectNode obj = (ObjectNode) root;
+      if (obj.size() > 0 && obj.elements().next().isArray()) {
+        int epochs = obj.elements().next().size(); // assume all arrays same length
+        ArrayNode array = mapper.createArrayNode();
 
-                for (int i = 0; i < epochs; i++) {
-                    final int idx = i;
-                    ObjectNode row = mapper.createObjectNode();
-                    row.put("epoch", idx + 1);
-                    obj.fieldNames().forEachRemaining(field -> {
-                        JsonNode arr = obj.get(field);
-                        row.set(field, arr.get(idx));
-                    });
-                    array.add(row);
-                }
-
-                // Write reshaped JSON to a temp file
-                Path tmpFile = Files.createTempFile("reshaped_metrics", ".json");
-                mapper.writerWithDefaultPrettyPrinter().writeValue(tmpFile.toFile(), array);
-                return tmpFile;
-            }
+        for (int i = 0; i < epochs; i++) {
+          final int idx = i;
+          ObjectNode row = mapper.createObjectNode();
+          row.put("epoch", idx + 1);
+          obj.fieldNames()
+              .forEachRemaining(
+                  field -> {
+                    JsonNode arr = obj.get(field);
+                    row.set(field, arr.get(idx));
+                  });
+          array.add(row);
         }
 
-        // Return unchanged if already row-oriented
-        return datasetPath;
+        // Write reshaped JSON to a temp file
+        Path tmpFile = Files.createTempFile("reshaped_metrics", ".json");
+        mapper.writerWithDefaultPrettyPrinter().writeValue(tmpFile.toFile(), array);
+        return tmpFile;
+      }
     }
 
-   // NEW
-    private String extractFileName(String url) {
-        if (url == null) return "unknown";
-        
-        // Remove query parameters if any
-        String cleanUrl = url.split("\\?")[0];
-        
-        // Extract filename from URL
-        int lastSlash = cleanUrl.lastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < cleanUrl.length() - 1) {
-            return cleanUrl.substring(lastSlash + 1);
-        }
-        
-        return "image";
+    // Return unchanged if already row-oriented
+    return datasetPath;
+  }
+
+  // NEW
+  private String extractFileName(String url) {
+    if (url == null) return "unknown";
+
+    // Remove query parameters if any
+    String cleanUrl = url.split("\\?")[0];
+
+    // Extract filename from URL
+    int lastSlash = cleanUrl.lastIndexOf('/');
+    if (lastSlash >= 0 && lastSlash < cleanUrl.length() - 1) {
+      return cleanUrl.substring(lastSlash + 1);
     }
 
-    private String getContentTypeFromUrl(String url) {
-        if (url == null) return "application/octet-stream";
-        
-        String lowerUrl = url.toLowerCase();
-        if (lowerUrl.contains(".png")) return "image/png";
-        if (lowerUrl.contains(".jpg") || lowerUrl.contains(".jpeg")) return "image/jpeg";
-        if (lowerUrl.contains(".gif")) return "image/gif";
-        if (lowerUrl.contains(".webp")) return "image/webp";
-        if (lowerUrl.contains(".bmp")) return "image/bmp";
-        if (lowerUrl.contains(".svg")) return "image/svg+xml";
-        
-        return "image/*";
-    }
-// Till here
+    return "image";
+  }
+
+  private String getContentTypeFromUrl(String url) {
+    if (url == null) return "application/octet-stream";
+
+    String lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains(".png")) return "image/png";
+    if (lowerUrl.contains(".jpg") || lowerUrl.contains(".jpeg")) return "image/jpeg";
+    if (lowerUrl.contains(".gif")) return "image/gif";
+    if (lowerUrl.contains(".webp")) return "image/webp";
+    if (lowerUrl.contains(".bmp")) return "image/bmp";
+    if (lowerUrl.contains(".svg")) return "image/svg+xml";
+
+    return "image/*";
+  }
+  // Till here
 }

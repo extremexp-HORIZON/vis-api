@@ -9,8 +9,11 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.TimeSeriesResponse;
 
 @Deprecated
 public interface DataSource {
-    String getSource();
-    MetadataResponseV1 getFileMetadata(MetadataRequest metadataRequest);
-    TabularResponse fetchTabularData(TabularRequest tabularRequest);
-    TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
+  String getSource();
+
+  MetadataResponseV1 getFileMetadata(MetadataRequest metadataRequest);
+
+  TabularResponse fetchTabularData(TabularRequest tabularRequest);
+
+  TimeSeriesResponse fetchTimeSeriesData(TimeSeriesRequest timeSeriesRequest);
 }

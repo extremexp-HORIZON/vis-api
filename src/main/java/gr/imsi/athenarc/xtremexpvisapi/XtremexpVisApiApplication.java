@@ -11,10 +11,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 public class XtremexpVisApiApplication {
 
-	public static void main(String[] args) {
-		Dotenv dotenv = Dotenv.load();
-		dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
-		SpringApplication.run(XtremexpVisApiApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    Dotenv dotenv = Dotenv.load();
+    dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
+    SpringApplication.run(XtremexpVisApiApplication.class, args);
+  }
 }

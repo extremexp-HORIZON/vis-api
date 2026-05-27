@@ -9,20 +9,22 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable()) // Disable CSRF protection
-            .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/**").permitAll() // Allow all requests to /api**/
-                .requestMatchers("/experiments/**").permitAll() // Allow all requests to /api**/
-                .requestMatchers("/data-management/**").permitAll() // Allow all requests to /api**/
-                .requestMatchers("/error").permitAll()
-                .requestMatchers(
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**"
-                ).permitAll());
-        return http.build();
-    }
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf(csrf -> csrf.disable()) // Disable CSRF protection
+        .authorizeHttpRequests(
+            authorize ->
+                authorize
+                    .requestMatchers("/api/**")
+                    .permitAll() // Allow all requests to /api**/
+                    .requestMatchers("/experiments/**")
+                    .permitAll() // Allow all requests to /api**/
+                    .requestMatchers("/data-management/**")
+                    .permitAll() // Allow all requests to /api**/
+                    .requestMatchers("/error")
+                    .permitAll()
+                    .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
+                    .permitAll());
+    return http.build();
+  }
 }

@@ -6,7 +6,6 @@ import lombok.Data;
 @Data
 public class MetadataRequest {
 
-    private String datasetId;
-    private SourceType type;
-
+  private String datasetId;
+  private SourceType type;
 }

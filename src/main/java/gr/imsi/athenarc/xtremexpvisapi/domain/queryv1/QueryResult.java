@@ -7,6 +7,6 @@ import tech.tablesaw.api.Table;
 @Data
 @AllArgsConstructor
 public class QueryResult {
-    private Table resultTable;
-    private int rowCount;
+  private Table resultTable;
+  private int rowCount;
 }

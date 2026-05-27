@@ -1,106 +1,97 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.experiment;
 
 /**
- * Represents a recorded metric value for a run, typically used to track performance indicators
- * such as accuracy, loss, or execution time.
+ * Represents a recorded metric value for a run, typically used to track performance indicators such
+ * as accuracy, loss, or execution time.
  */
 public class Metric {
 
-    /**
-     * The name of the metric (e.g., "accuracy", "loss").
-     */
-    private String name;
+  /** The name of the metric (e.g., "accuracy", "loss"). */
+  private String name;
 
-    /**
-     * The recorded metric value.
-     */
-    private double value;
+  /** The recorded metric value. */
+  private double value;
 
-    /**
-     * Unix timestamp (in milliseconds) when the metric was logged.
-     */
-    private long timestamp;
+  /** Unix timestamp (in milliseconds) when the metric was logged. */
+  private long timestamp;
 
-    /**
-     * The step index associated with the metric (e.g., epoch number).
-     * This field is optional.
-     */
-    private Integer step;
+  /** The step index associated with the metric (e.g., epoch number). This field is optional. */
+  private Integer step;
 
-    /**
-     * The task which the metric was produced by.
-     * This field is optional.
-     */
-    private String task;
+  /** The task which the metric was produced by. This field is optional. */
+  private String task;
 
+  // Constructors
 
+  public Metric() {}
 
-    // Constructors
+  public Metric(String name, double value, long timestamp, Integer step, String task) {
+    this.name = name;
+    this.value = value;
+    this.timestamp = timestamp;
+    this.step = step;
+    this.task = task;
+  }
 
-    public Metric() {
-    }
+  // Getters and Setters
 
-    public Metric(String name, double value, long timestamp, Integer step, String task) {
-        this.name = name;
-        this.value = value;
-        this.timestamp = timestamp;
-        this.step = step;
-        this.task = task;
-    }
+  public String getTask() {
+    return task;
+  }
 
-    // Getters and Setters
+  public void setTask(String task) {
+    this.task = task;
+  }
 
-   
-    public String getTask() {
-        return task;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public void setTask(String task) {
-        this.task = task;
-    }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public double getValue() {
+    return value;
+  }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+  public void setValue(double value) {
+    this.value = value;
+  }
 
-    public double getValue() {
-        return value;
-    }
+  public long getTimestamp() {
+    return timestamp;
+  }
 
-    public void setValue(double value) {
-        this.value = value;
-    }
+  public void setTimestamp(long timestamp) {
+    this.timestamp = timestamp;
+  }
 
-    public long getTimestamp() {
-        return timestamp;
-    }
+  public Integer getStep() {
+    return step;
+  }
 
-    public void setTimestamp(long timestamp) {
-        this.timestamp = timestamp;
-    }
+  public void setStep(Integer step) {
+    this.step = step;
+  }
 
-    public Integer getStep() {
-        return step;
-    }
+  // toString() Method for Debugging
 
-    public void setStep(Integer step) {
-        this.step = step;
-    }
-
-    // toString() Method for Debugging
-
-    @Override
-    public String toString() {
-        return "Metric{" +
-                "name='" + name + '\'' +
-                ", value=" + value +
-                ", timestamp=" + timestamp +
-                ", step=" + step +
-                ", task='" + task + '\'' +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "Metric{"
+        + "name='"
+        + name
+        + '\''
+        + ", value="
+        + value
+        + ", timestamp="
+        + timestamp
+        + ", step="
+        + step
+        + ", task='"
+        + task
+        + '\''
+        + '}';
+  }
 }

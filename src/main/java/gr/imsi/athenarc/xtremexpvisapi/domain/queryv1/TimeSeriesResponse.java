@@ -4,8 +4,8 @@ import lombok.Data;
 
 @Data
 public class TimeSeriesResponse {
-    private String data;
-    private Integer totalRecords;
-    private Integer limit;
-    private Integer offset;
+  private String data;
+  private Integer totalRecords;
+  private Integer limit;
+  private Integer offset;
 }

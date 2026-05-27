@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class ReorderRequest {
-    private String experimentId;
-    private String precedingWorkflowId;
-    private String workflowId;
+  private String experimentId;
+  private String precedingWorkflowId;
+  private String workflowId;
 }

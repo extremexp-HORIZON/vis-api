@@ -2,30 +2,30 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter;
 
 public class RangeFilter<T> extends AbstractFilter {
 
-    protected T min;
-    protected T max;
+  protected T min;
+  protected T max;
 
-    public RangeFilter() {}
-    
-    public RangeFilter(String column, T min, T max) {
-        super(column);
-        this.min = min;
-        this.max = max;
-    }
+  public RangeFilter() {}
 
-    public T getMin() {
-        return min;
-    }
+  public RangeFilter(String column, T min, T max) {
+    super(column);
+    this.min = min;
+    this.max = max;
+  }
 
-    public void setMin(T min) {
-        this.min = min;
-    }
+  public T getMin() {
+    return min;
+  }
 
-    public T getMax() {
-        return max;
-    }
+  public void setMin(T min) {
+    this.min = min;
+  }
 
-    public void setMax(T max) {
-        this.max = max;
-    }
+  public T getMax() {
+    return max;
+  }
+
+  public void setMax(T max) {
+    this.max = max;
+  }
 }

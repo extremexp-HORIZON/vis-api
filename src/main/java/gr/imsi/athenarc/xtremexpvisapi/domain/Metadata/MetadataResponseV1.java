@@ -1,18 +1,17 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.metadata;
 
+import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.TabularColumn;
 import java.util.List;
 import java.util.Map;
-
-import gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.TabularColumn;
 import lombok.Data;
 
 @Data
 public class MetadataResponseV1 {
-    private DatasetType datasetType;
-    private List<String> fileNames;
-    private List<TabularColumn> originalColumns;
-    private int totalItems;
-    private Map<String, List<?>> uniqueColumnValues;
-    private boolean hasLatLonColumns;
-    private List<String> timeColumn; 
+  private DatasetType datasetType;
+  private List<String> fileNames;
+  private List<TabularColumn> originalColumns;
+  private int totalItems;
+  private Map<String, List<?>> uniqueColumnValues;
+  private boolean hasLatLonColumns;
+  private List<String> timeColumn;
 }

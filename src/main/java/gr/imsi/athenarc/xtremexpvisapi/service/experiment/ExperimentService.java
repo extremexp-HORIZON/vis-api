@@ -1,7 +1,5 @@
 package gr.imsi.athenarc.xtremexpvisapi.service.experiment;
 
-import org.springframework.http.ResponseEntity;
-
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Experiment;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Metric;
 import gr.imsi.athenarc.xtremexpvisapi.domain.experiment.Run;
@@ -12,24 +10,37 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.ControlResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle.CreateRunResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.reorder.ReorderRequest;
-
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.ResponseEntity;
 
 /**
- * Service interface for experiment tracking operations.
- * Implementations will connect to different experiment tracking tools.
+ * Service interface for experiment tracking operations. Implementations will connect to different
+ * experiment tracking tools.
  */
 public interface ExperimentService {
-    ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization);
-    ResponseEntity<Experiment> getExperimentById(String experimentId);
-    ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
-    ResponseEntity<Run> getRunById(String experimentId, String runId);
-    ResponseEntity<List<Metric>> getMetricValues(String experimentId, String runId, String metricName);
-    ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName);
-    ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(String experimentId, String runId, List<String> metricNames);
-    ResponseEntity<UserEvaluationResponse> submitUserEvaluation(String experimentId, String runId, UserEvaluation userEvaluation);
-    ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest);
-    ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest);
-    ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request);
+  ResponseEntity<List<Experiment>> getExperiments(int limit, int offset, String authorization);
+
+  ResponseEntity<Experiment> getExperimentById(String experimentId);
+
+  ResponseEntity<List<Run>> getRunsForExperiment(String experimentId);
+
+  ResponseEntity<Run> getRunById(String experimentId, String runId);
+
+  ResponseEntity<List<Metric>> getMetricValues(
+      String experimentId, String runId, String metricName);
+
+  ResponseEntity<List<Metric>> getAllMetrics(String experimentId, String runId, String metricName);
+
+  ResponseEntity<Map<String, List<Metric>>> getAllMetricsBatch(
+      String experimentId, String runId, List<String> metricNames);
+
+  ResponseEntity<UserEvaluationResponse> submitUserEvaluation(
+      String experimentId, String runId, UserEvaluation userEvaluation);
+
+  ResponseEntity<ControlResponse> controlLifeCycle(ControlRequest controlRequest);
+
+  ResponseEntity<List<Run>> reorderWorkflows(ReorderRequest reorderRequest);
+
+  ResponseEntity<CreateRunResponse> createRun(CreateRunRequest request);
 }

@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class ControlResponse {
-    private String message;
+  private String message;
 }

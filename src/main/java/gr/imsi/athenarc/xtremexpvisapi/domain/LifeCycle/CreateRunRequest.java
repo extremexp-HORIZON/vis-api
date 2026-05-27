@@ -1,11 +1,11 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.lifecycle;
 
-import lombok.Data;
 import java.util.Map;
+import lombok.Data;
 
 @Data
 public class CreateRunRequest {
-    private String experimentId;
-    private String runName;
-    private Map<String, String> params;
+  private String experimentId;
+  private String runName;
+  private Map<String, String> params;
 }

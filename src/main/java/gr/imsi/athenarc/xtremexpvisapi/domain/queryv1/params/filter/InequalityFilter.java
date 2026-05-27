@@ -2,31 +2,31 @@ package gr.imsi.athenarc.xtremexpvisapi.domain.queryv1.params.filter;
 
 public class InequalityFilter<T> extends AbstractFilter {
 
-    protected T value;
-    protected String operator; // "gt", "lt", "gte", "lte"
+  protected T value;
+  protected String operator; // "gt", "lt", "gte", "lte"
 
-    public InequalityFilter() {}
+  public InequalityFilter() {}
 
-    public InequalityFilter(String column, T value, String operator) {
-        super(column);
-        this.value = value;
-        this.operator = operator;
-        setType("inequality");
-    }
+  public InequalityFilter(String column, T value, String operator) {
+    super(column);
+    this.value = value;
+    this.operator = operator;
+    setType("inequality");
+  }
 
-    public T getValue() {
-        return value;
-    }
+  public T getValue() {
+    return value;
+  }
 
-    public void setValue(T value) {
-        this.value = value;
-    }
+  public void setValue(T value) {
+    this.value = value;
+  }
 
-    public String getOperator() {
-        return operator;
-    }
+  public String getOperator() {
+    return operator;
+  }
 
-    public void setOperator(String operator) {
-        this.operator = operator;
-    }
+  public void setOperator(String operator) {
+    this.operator = operator;
+  }
 }

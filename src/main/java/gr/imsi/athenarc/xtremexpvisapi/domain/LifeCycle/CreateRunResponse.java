@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class CreateRunResponse {
-    private String message;
-    private String kfpRunId;
-    private String runName;
+  private String message;
+  private String kfpRunId;
+  private String runName;
 }
