@@ -20,7 +20,7 @@ import lombok.extern.java.Log;
 @Log
 public class FileHelper {
 
-    @Value("${app.zenoh.baseurl}")
+    @Value("${app.zenoh.baseurl:}")
     private String zenohBaseUrl;
 
     private final HttpClient httpClient;

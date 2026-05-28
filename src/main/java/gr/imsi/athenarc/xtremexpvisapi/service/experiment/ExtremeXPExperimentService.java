@@ -49,13 +49,13 @@ import java.util.stream.Collectors;
 @Log
 public class ExtremeXPExperimentService implements ExperimentService {
 
-    @Value("${extremexp.workflowsApi.url}")
+    @Value("${extremexp.workflowsApi.url:}")
     private String workflowsApiUrl;
 
-    @Value("${extremexp.workflowsApi.key}")
+    @Value("${extremexp.workflowsApi.key:}")
     private String workflowsApiKey;
 
-    @Value("${extremexp.experimentationEngineApi.url}")
+    @Value("${extremexp.experimentationEngineApi.url:}")
     private String experimentationEngineApiUrl;
 
     private final RestTemplate restTemplate;

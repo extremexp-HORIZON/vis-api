@@ -28,7 +28,7 @@ public class DataManagementService {
 
     private HttpClient httpClient;
 
-    @Value("${app.zenoh.baseurl}")
+    @Value("${app.zenoh.baseurl:}")
     private String baseUrl;
 
     private ObjectMapper objectMapper = new ObjectMapper(); // Jackson object mapper
