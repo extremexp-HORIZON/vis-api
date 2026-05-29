@@ -398,7 +398,7 @@ public class ExtremeXPExperimentService implements ExperimentService {
           restTemplate.exchange(requestUrl, HttpMethod.POST, entity, List.class);
       List<Map<String, Object>> responseList = response.getBody();
       if (responseList == null || responseList.isEmpty()) {
-        return ResponseEntity.ok(new <List<Metric>>ArrayList());
+        return ResponseEntity.ok(new ArrayList<Metric>());
       }
       List<Metric> metrics = new ArrayList<>();
       for (Map<String, Object> workflowData : responseList) {
