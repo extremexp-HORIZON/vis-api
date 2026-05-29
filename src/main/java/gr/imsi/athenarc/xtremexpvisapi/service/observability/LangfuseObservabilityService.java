@@ -20,8 +20,8 @@ public class LangfuseObservabilityService implements ObservabilityService {
 
     public LangfuseObservabilityService(RestTemplateBuilder restTemplateBuilder,
                                         @Value("${langfuse.api.url}") String apiUrl,
-                                        @Value("${langfuse.api.publicKey}") String publicKey,
-                                        @Value("${langfuse.api.secretKey}") String secretKey) {
+                                        @Value("${langfuse.api.publicKey:}") String publicKey,
+                                        @Value("${langfuse.api.secretKey:}") String secretKey) {
         this.apiUrl = apiUrl;
         this.restTemplate = restTemplateBuilder
                 .basicAuthentication(publicKey, secretKey)
