@@ -176,6 +176,40 @@ public class DataServiceV2 {
             });
   }
 
+  // Mirrors getImageMetadata: download/cache the text file and return lightweight
+  // metadata so the frontend can fetch the raw content via /api/data/file?path=.
+  public CompletableFuture<Map<String, Object>> getTextMetadata(
+      DataSource dataSource, String authorization) throws Exception, SQLException {
+    return dataQueryHelper
+        .getFilePathForDataset(dataSource, authorization)
+        .thenApply(
+            localFilePath -> {
+              log.info("Text file downloaded and cached at: " + localFilePath);
+
+              Map<String, Object> textMetadata =
+                  Map.of(
+                      "datasetType",
+                      "TEXT",
+                      "textUrl",
+                      dataSource.getSource(),
+                      "localPath",
+                      localFilePath,
+                      "fileNames",
+                      localFilePath,
+                      "contentType",
+                      getContentTypeFromUrl(dataSource.getSource()),
+                      "totalItems",
+                      1,
+                      "originalColumns",
+                      java.util.Collections.emptyList(),
+                      "hasLatLonColumns",
+                      false);
+
+              log.info("Created text metadata for: " + dataSource.getSource());
+              return textMetadata;
+            });
+  }
+
   // Till here
 
   public CompletableFuture<MetadataResponseV2> getFileMetadata(
@@ -407,8 +441,10 @@ public class DataServiceV2 {
     if (lowerUrl.contains(".webp")) return "image/webp";
     if (lowerUrl.contains(".bmp")) return "image/bmp";
     if (lowerUrl.contains(".svg")) return "image/svg+xml";
+    if (lowerUrl.contains(".md") || lowerUrl.contains(".markdown")) return "text/markdown";
+    if (lowerUrl.contains(".txt") || lowerUrl.contains(".log")) return "text/plain";
 
-    return "image/*";
+    return "application/octet-stream";
   }
   // Till here
 }

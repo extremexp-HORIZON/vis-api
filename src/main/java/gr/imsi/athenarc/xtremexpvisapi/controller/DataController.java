@@ -137,7 +137,21 @@ public class DataController {
               });
     }
 
-    // For non-image files, use the existing metadata service TILL HERE TILL HERE
+    // Check if this is a text file (mirrors the image branch above)
+    if (isTextFile(dataSource)) {
+      LOG.info("Detected text file, processing with download for: {}", dataSource.getSource());
+      return dataServiceV2
+          .getTextMetadata(dataSource, authorization)
+          .thenApply(response -> ResponseEntity.ok((Object) response))
+          .exceptionally(
+              throwable -> {
+                LOG.error("Error getting text metadata", throwable);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body((Object) ("Error getting text metadata: " + throwable.getMessage()));
+              });
+    }
+
+    // For non-image/non-text files, use the existing metadata service TILL HERE TILL HERE
     return dataServiceV2
         .getFileMetadata(dataSource, authorization)
         .thenApply(response -> ResponseEntity.ok((Object) response))
@@ -169,6 +183,8 @@ public class DataController {
     if (filename.endsWith(".png")) return "image/png";
     if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
     if (filename.endsWith(".gif")) return "image/gif";
+    if (filename.endsWith(".md") || filename.endsWith(".markdown")) return "text/markdown";
+    if (filename.endsWith(".txt") || filename.endsWith(".log")) return "text/plain";
 
     return "application/octet-stream";
   }
@@ -186,5 +202,20 @@ public class DataController {
 
     String lowerValue = value.toLowerCase();
     return lowerValue.matches(".*\\.(png|jpg|jpeg|gif|webp|bmp|tiff?|svg)($|\\?.*)");
+  }
+
+  private boolean isTextFile(DataSource dataSource) {
+    return hasTextExtension(dataSource.getSource())
+        || hasTextExtension(dataSource.getFileName())
+        || hasTextExtension(dataSource.getFormat());
+  }
+
+  private boolean hasTextExtension(String value) {
+    if (value == null || value.isBlank()) {
+      return false;
+    }
+
+    String lowerValue = value.toLowerCase();
+    return lowerValue.matches(".*\\.(txt|log|md|markdown)($|\\?.*)");
   }
 }
