@@ -1,7 +1,6 @@
 package gr.imsi.athenarc.xtremexpvisapi.domain.observability;
 
 import java.util.Date;
-import java.util.Map;
 
 public class Observation {
   private String id;
@@ -11,8 +10,8 @@ public class Observation {
   private Date startTime;
   private Date endTime;
   private String model;
-  private Map<String, Object> input;
-  private Map<String, Object> output;
+  private Object input;
+  private Object output;
   private String level;
   private String statusMessage;
   private String parentObservationId;
@@ -75,19 +74,19 @@ public class Observation {
     this.model = model;
   }
 
-  public Map<String, Object> getInput() {
+  public Object getInput() {
     return input;
   }
 
-  public void setInput(Map<String, Object> input) {
+  public void setInput(Object input) {
     this.input = input;
   }
 
-  public Map<String, Object> getOutput() {
+  public Object getOutput() {
     return output;
   }
 
-  public void setOutput(Map<String, Object> output) {
+  public void setOutput(Object output) {
     this.output = output;
   }
 
