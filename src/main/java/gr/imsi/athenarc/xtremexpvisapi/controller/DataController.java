@@ -12,6 +12,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataRequest;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v1.DataServiceV1;
 import gr.imsi.athenarc.xtremexpvisapi.service.dataService.v2.DataServiceV2;
+import gr.imsi.athenarc.xtremexpvisapi.service.files.FileRegistry;
 import jakarta.validation.Valid;
 import java.io.File;
 import java.sql.SQLException;
@@ -27,6 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -43,10 +45,13 @@ public class DataController {
 
   private final DataServiceV1 dataServiceV1;
   private final DataServiceV2 dataServiceV2;
+  private final FileRegistry fileRegistry;
 
-  public DataController(DataServiceV1 dataServiceV1, DataServiceV2 dataServiceV2) {
+  public DataController(
+      DataServiceV1 dataServiceV1, DataServiceV2 dataServiceV2, FileRegistry fileRegistry) {
     this.dataServiceV1 = dataServiceV1;
     this.dataServiceV2 = dataServiceV2;
+    this.fileRegistry = fileRegistry;
   }
 
   @PostMapping("/umap")
@@ -163,6 +168,34 @@ public class DataController {
             });
   }
 
+  /**
+   * Serves a file by an opaque, server-issued ID (obtained from the {@code fileId} / {@code
+   * fileUrl} fields of an image/text metadata response). The ID is resolved against {@link
+   * FileRegistry}, so only files the server has registered can be served — there is no way to
+   * request an arbitrary filesystem path.
+   */
+  @GetMapping("/file/{id}")
+  public ResponseEntity<Resource> getFileById(@PathVariable String id) {
+    String path = fileRegistry.resolve(id);
+    if (path == null) {
+      return ResponseEntity.notFound().build();
+    }
+
+    File file = new File(path);
+    FileSystemResource resource = new FileSystemResource(file);
+
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + file.getName())
+        .contentType(MediaType.parseMediaType(getContentType(file.getName())))
+        .body(resource);
+  }
+
+  /**
+   * @deprecated Serves a file by raw filesystem path. This accepts any absolute path the caller
+   *     supplies (path-traversal / arbitrary-file-read risk). Prefer the ID-based {@link
+   *     #getFileById(String)} endpoint and remove this once all clients have migrated.
+   */
+  @Deprecated
   @GetMapping("/file")
   public ResponseEntity<Resource> getFile(@RequestParam String path) {
     File file = new File(path);

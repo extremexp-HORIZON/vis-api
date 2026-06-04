@@ -11,6 +11,7 @@ import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.DataResponse;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.Column;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.DataSource;
 import gr.imsi.athenarc.xtremexpvisapi.domain.queryv2.params.FileType;
+import gr.imsi.athenarc.xtremexpvisapi.service.files.FileRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,14 +46,18 @@ public class DataServiceV2 {
 
   private final Semaphore duckDbSemaphore;
 
+  private final FileRegistry fileRegistry;
+
   @Autowired
   public DataServiceV2(
       DataHelperV2 dataQueryHelper,
       @Qualifier("dataProcessingExecutor") Executor dataProcessingExecutor,
-      @Qualifier("duckDbSemaphore") Semaphore duckDbSemaphore) {
+      @Qualifier("duckDbSemaphore") Semaphore duckDbSemaphore,
+      FileRegistry fileRegistry) {
     this.dataQueryHelper = dataQueryHelper;
     this.dataProcessingExecutor = dataProcessingExecutor;
     this.duckDbSemaphore = duckDbSemaphore;
+    this.fileRegistry = fileRegistry;
   }
 
   private String buildCountQuery(String originalQuery) {
@@ -151,25 +156,22 @@ public class DataServiceV2 {
             localFilePath -> {
               log.info("Image file downloaded and cached at: " + localFilePath);
 
+              // Register the cached file so the client can fetch it by an opaque ID
+              // (GET /api/data/file/{id}) instead of by raw filesystem path.
+              String fileId = fileRegistry.register(localFilePath);
+
               Map<String, Object> imageMetadata =
-                  Map.of(
-                      "datasetType",
-                      "IMAGE",
-                      // "isImage", true,
-                      "imageUrl",
-                      dataSource.getSource(),
-                      "localPath",
-                      localFilePath,
-                      "fileNames",
-                      localFilePath,
-                      "contentType",
-                      getContentTypeFromUrl(dataSource.getSource()),
-                      "totalItems",
-                      1,
-                      "originalColumns",
-                      java.util.Collections.emptyList(),
-                      "hasLatLonColumns",
-                      false);
+                  Map.ofEntries(
+                      Map.entry("datasetType", "IMAGE"),
+                      Map.entry("imageUrl", dataSource.getSource()),
+                      Map.entry("fileId", fileId),
+                      Map.entry("fileUrl", "/api/data/file/" + fileId),
+                      Map.entry("localPath", localFilePath),
+                      Map.entry("fileNames", localFilePath),
+                      Map.entry("contentType", getContentTypeFromUrl(dataSource.getSource())),
+                      Map.entry("totalItems", 1),
+                      Map.entry("originalColumns", java.util.Collections.emptyList()),
+                      Map.entry("hasLatLonColumns", false));
 
               log.info("Created image metadata for: " + dataSource.getSource());
               return imageMetadata;
@@ -186,24 +188,22 @@ public class DataServiceV2 {
             localFilePath -> {
               log.info("Text file downloaded and cached at: " + localFilePath);
 
+              // Register the cached file so the client can fetch it by an opaque ID
+              // (GET /api/data/file/{id}) instead of by raw filesystem path.
+              String fileId = fileRegistry.register(localFilePath);
+
               Map<String, Object> textMetadata =
-                  Map.of(
-                      "datasetType",
-                      "TEXT",
-                      "textUrl",
-                      dataSource.getSource(),
-                      "localPath",
-                      localFilePath,
-                      "fileNames",
-                      localFilePath,
-                      "contentType",
-                      getContentTypeFromUrl(dataSource.getSource()),
-                      "totalItems",
-                      1,
-                      "originalColumns",
-                      java.util.Collections.emptyList(),
-                      "hasLatLonColumns",
-                      false);
+                  Map.ofEntries(
+                      Map.entry("datasetType", "TEXT"),
+                      Map.entry("textUrl", dataSource.getSource()),
+                      Map.entry("fileId", fileId),
+                      Map.entry("fileUrl", "/api/data/file/" + fileId),
+                      Map.entry("localPath", localFilePath),
+                      Map.entry("fileNames", localFilePath),
+                      Map.entry("contentType", getContentTypeFromUrl(dataSource.getSource())),
+                      Map.entry("totalItems", 1),
+                      Map.entry("originalColumns", java.util.Collections.emptyList()),
+                      Map.entry("hasLatLonColumns", false));
 
               log.info("Created text metadata for: " + dataSource.getSource());
               return textMetadata;
